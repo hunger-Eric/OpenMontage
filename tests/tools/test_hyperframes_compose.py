@@ -1271,6 +1271,7 @@ def test_decision_log_has_render_runtime_category():
         "category"
     ]["enum"]
     assert "render_runtime_selection" in category_enum
+    assert "approval_policy" in category_enum
 
 
 # ------------------------------------------------------------------
