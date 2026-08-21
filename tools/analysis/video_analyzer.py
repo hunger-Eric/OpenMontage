@@ -99,6 +99,13 @@ class VideoAnalyzer(BaseTool):
                 "type": "string",
                 "description": "Directory for analysis outputs (default: auto-generated)",
             },
+            "playwright_storage_state_path": {
+                "type": "string",
+                "description": (
+                    "Optional absolute path to a Playwright storage_state JSON file "
+                    "for authenticated reference downloads."
+                ),
+            },
         },
     }
 
@@ -111,7 +118,9 @@ class VideoAnalyzer(BaseTool):
         cpu_cores=2, ram_mb=2048, vram_mb=0, disk_mb=3000,
         network_required=False,  # Only needed for URL sources
     )
-    idempotency_key_fields = ["source", "analysis_depth"]
+    idempotency_key_fields = [
+        "source", "analysis_depth", "playwright_storage_state_path",
+    ]
     side_effects = [
         "downloads video to output_dir (if URL)",
         "writes keyframe images to output_dir/keyframes/",
@@ -150,6 +159,7 @@ class VideoAnalyzer(BaseTool):
         source = inputs["source"]
         depth = inputs.get("analysis_depth", "standard")
         max_keyframes = inputs.get("max_keyframes", 20)
+        storage_state_path = inputs.get("playwright_storage_state_path")
 
         # Setup output directory
         if inputs.get("output_dir"):
@@ -206,6 +216,7 @@ class VideoAnalyzer(BaseTool):
                         "url": source,
                         "output_dir": str(output_dir),
                         "format": "metadata_only",
+                        "playwright_storage_state_path": storage_state_path,
                     })
                 else:
                     dl_result = downloader.execute({
@@ -213,6 +224,7 @@ class VideoAnalyzer(BaseTool):
                         "output_dir": str(output_dir),
                         "format": "video",
                         "max_resolution": "720p",
+                        "playwright_storage_state_path": storage_state_path,
                     })
 
                 if dl_result.success:
@@ -309,6 +321,7 @@ class VideoAnalyzer(BaseTool):
                     "output_dir": str(output_dir),
                     "format": "video",
                     "max_resolution": "720p",
+                    "playwright_storage_state_path": storage_state_path,
                 })
                 if dl_result.success:
                     video_path = dl_result.data.get("video_path")

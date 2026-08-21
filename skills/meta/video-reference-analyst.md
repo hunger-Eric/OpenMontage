@@ -27,6 +27,28 @@ Do NOT trigger when:
 
 ### Step 1: Analyze the Reference
 
+#### Reference acquisition and evidence gate
+
+Resolve the media before interpreting it:
+
+- For a Douyin search URL containing `modal_id=<id>`, normalize the source to
+  `https://www.douyin.com/video/<id>` before download. A search-result page is not
+  itself a supported media URL.
+- If Douyin requests fresh cookies and an authorized Playwright storage-state file
+  already exists, verify only that its absolute path points to valid JSON with a
+  non-empty `cookies` array, then pass the path as
+  `playwright_storage_state_path`. Never print cookie names or values, copy them into
+  logs, or create a second plaintext cookie file. If no authorized state exists, ask
+  the user to provide a video file or login-state artifact.
+- Do not treat the outer `ToolResult.success` flag as proof that analysis succeeded.
+  Require a downloaded media file, positive duration, representative keyframes, and
+  relevant entries in `_analysis_meta.steps_completed`. Empty default fields, zero
+  scenes, or a `download:` entry in `steps_failed` are not analysis evidence.
+- Metadata extraction and media download can diverge. If metadata fails but the media
+  file is present and `ffprobe` plus keyframe/scene outputs validate it, continue the
+  visual analysis and label title/uploader metadata as partial rather than discarding
+  the successful media evidence.
+
 Run VideoAnalyzer with `analysis_depth: "standard"`:
 
 ```python
@@ -91,6 +113,25 @@ enrich the VideoAnalysisBrief with:
 Update the brief's `content_analysis`, `style_profile`, and `replication_guidance`
 fields with your visual observations. This is where the analysis becomes truly
 comprehensive — the tools provide structure; your vision provides understanding.
+
+#### Speech and subtitle applicability gate
+
+Transcription is conditional, not a mandatory success criterion:
+
+1. Determine whether the soundtrack contains speech before invoking STT. Treat an
+   explicit user confirmation such as "pure music, no dialogue" as authoritative for
+   the reference unless current media evidence directly conflicts with it.
+2. If the soundtrack is music-only, skip Whisper/transcriber work. Record the audio
+   role as `music_only`, keep `has_transcript: false`, and state that this is expected,
+   not a failed analysis step. An AAC/audio stream alone does not imply narration.
+3. Inspect on-screen text separately from the soundtrack. If the user confirms there
+   are no subtitles and frame review finds no independent text overlay, mark
+   `Scene overlays: N/A — no subtitles or graphics`. Never infer subtitles from the
+   mere absence or presence of a transcript.
+4. If speech is present but captions/transcript are unavailable, use a configured
+   local transcriber. If transcription cannot run, report the audio-semantic boundary
+   without unsafe runtime workarounds and continue only with the verified visual,
+   motion, pacing, and music evidence.
 
 ### 5-Aspect Structured Output (MANDATORY)
 
@@ -409,7 +450,8 @@ When the user provides multiple reference URLs:
 | Failure | Action |
 |---------|--------|
 | URL download fails | Report error, suggest: try another URL, provide local file, or proceed without reference |
-| No captions available | Download video, transcribe with Whisper locally |
+| Music-only soundtrack | Skip STT; record `music_only` and treat `has_transcript: false` as expected |
+| Speech present but no captions/transcript | Download video and use a configured local transcriber; report the boundary if unavailable |
 | Scene detection fails | Fall back to uniform frame sampling |
 | All analysis fails | Ask user to describe the reference video verbally, proceed with standard creative intake |
 

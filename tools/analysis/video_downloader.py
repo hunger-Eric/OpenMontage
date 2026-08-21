@@ -8,8 +8,10 @@ at analysis quality (720p), not production quality.
 from __future__ import annotations
 
 import json
+import math
 import re
 import time
+from http.cookiejar import Cookie
 from pathlib import Path
 from typing import Any
 
@@ -88,6 +90,13 @@ class VideoDownloader(BaseTool):
                 "default": 600,
                 "description": "Reject videos longer than this (safety limit)",
             },
+            "playwright_storage_state_path": {
+                "type": "string",
+                "description": (
+                    "Optional absolute path to a Playwright storage_state JSON file. "
+                    "Cookies are loaded read-only into yt-dlp memory and are never emitted."
+                ),
+            },
         },
     }
 
@@ -117,8 +126,13 @@ class VideoDownloader(BaseTool):
         cpu_cores=1, ram_mb=512, vram_mb=0, disk_mb=2000,
         network_required=True,
     )
-    idempotency_key_fields = ["url", "format", "max_resolution"]
-    side_effects = ["downloads media files to output_dir"]
+    idempotency_key_fields = [
+        "url", "format", "max_resolution", "playwright_storage_state_path",
+    ]
+    side_effects = [
+        "downloads media files to output_dir",
+        "reads an optional Playwright storage-state file without modifying it",
+    ]
     resume_support_value = "from_start"
     user_visible_verification = [
         "Check downloaded file plays correctly",
@@ -150,17 +164,78 @@ class VideoDownloader(BaseTool):
             return "twitter"
         return "other_url"
 
-    def _extract_metadata(self, url: str) -> dict:
-        """Extract metadata without downloading."""
+    def _load_playwright_cookies(self, storage_state_path: str | None) -> list[Cookie]:
+        """Load Playwright storage-state cookies without persisting their values."""
+        if not storage_state_path:
+            return []
+
+        path = Path(storage_state_path)
+        if not path.is_absolute():
+            raise ValueError("playwright_storage_state_path must be absolute")
+        if not path.is_file():
+            raise ValueError("playwright_storage_state_path does not exist or is not a file")
+
+        try:
+            state = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+            raise ValueError("playwright_storage_state_path is not valid JSON") from exc
+
+        raw_cookies = state.get("cookies") if isinstance(state, dict) else None
+        if not isinstance(raw_cookies, list) or not raw_cookies:
+            raise ValueError("Playwright storage state contains no cookies")
+
+        cookies: list[Cookie] = []
+        for index, raw in enumerate(raw_cookies):
+            if not isinstance(raw, dict):
+                raise ValueError(f"Playwright storage state cookie {index} is invalid")
+            name, value, domain = raw.get("name"), raw.get("value"), raw.get("domain")
+            if not all(isinstance(item, str) and item for item in (name, value, domain)):
+                raise ValueError(f"Playwright storage state cookie {index} is incomplete")
+
+            raw_expires = raw.get("expires")
+            expires = None
+            if isinstance(raw_expires, (int, float)) and math.isfinite(raw_expires) and raw_expires > 0:
+                expires = int(raw_expires)
+            cookie_path = raw.get("path") if isinstance(raw.get("path"), str) else "/"
+            cookies.append(Cookie(
+                version=0,
+                name=name,
+                value=value,
+                port=None,
+                port_specified=False,
+                domain=domain,
+                domain_specified=True,
+                domain_initial_dot=domain.startswith("."),
+                path=cookie_path or "/",
+                path_specified=True,
+                secure=bool(raw.get("secure", False)),
+                expires=expires,
+                discard=expires is None,
+                comment=None,
+                comment_url=None,
+                rest={"HttpOnly": None} if raw.get("httpOnly") else {},
+                rfc2109=False,
+            ))
+        return cookies
+
+    def _youtube_dl(self, ydl_opts: dict[str, Any], storage_state_path: str | None):
+        """Create yt-dlp and inject cookies in memory only."""
         import yt_dlp
 
+        ydl = yt_dlp.YoutubeDL(ydl_opts)
+        for cookie in self._load_playwright_cookies(storage_state_path):
+            ydl.cookiejar.set_cookie(cookie)
+        return ydl
+
+    def _extract_metadata(self, url: str, storage_state_path: str | None = None) -> dict:
+        """Extract metadata without downloading."""
         ydl_opts = {
             "quiet": True,
             "no_warnings": True,
             "skip_download": True,
         }
         try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            with self._youtube_dl(ydl_opts, storage_state_path) as ydl:
                 info = ydl.extract_info(url, download=False)
                 if info is None:
                     return {"error": "No info extracted", "title": "", "duration": 0}
@@ -184,13 +259,14 @@ class VideoDownloader(BaseTool):
         dl_format = inputs.get("format", "video")
         max_res = inputs.get("max_resolution", "720p")
         max_duration = inputs.get("max_duration_seconds", 600)
+        storage_state_path = inputs.get("playwright_storage_state_path")
 
         output_dir.mkdir(parents=True, exist_ok=True)
         platform = self._detect_platform(url)
         start = time.time()
 
         # Step 1: Always get metadata first
-        metadata = self._extract_metadata(url)
+        metadata = self._extract_metadata(url, storage_state_path)
 
         # Check duration limit
         duration = metadata.get("duration", 0)
@@ -224,12 +300,12 @@ class VideoDownloader(BaseTool):
         try:
             if dl_format == "video":
                 video_path, audio_path = self._download_video(
-                    url, output_dir, max_res
+                    url, output_dir, max_res, storage_state_path
                 )
             elif dl_format == "audio_only":
-                audio_path = self._download_audio(url, output_dir)
+                audio_path = self._download_audio(url, output_dir, storage_state_path)
             elif dl_format == "subtitles_only":
-                subtitle_path = self._download_subtitles(url, output_dir)
+                subtitle_path = self._download_subtitles(url, output_dir, storage_state_path)
         except Exception as e:
             elapsed = time.time() - start
             return ToolResult(
@@ -256,11 +332,10 @@ class VideoDownloader(BaseTool):
         )
 
     def _download_video(
-        self, url: str, output_dir: Path, max_res: str
+        self, url: str, output_dir: Path, max_res: str,
+        storage_state_path: str | None = None,
     ) -> tuple[str | None, str | None]:
         """Download video + extract audio track."""
-        import yt_dlp
-
         height = self._RES_MAP.get(max_res, 720)
         video_out = str(output_dir / "reference_video.%(ext)s")
 
@@ -272,7 +347,7 @@ class VideoDownloader(BaseTool):
             "quiet": True,
             "no_warnings": True,
         }
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        with self._youtube_dl(ydl_opts, storage_state_path) as ydl:
             ydl.download([url])
 
         # Find the downloaded video file
@@ -300,10 +375,10 @@ class VideoDownloader(BaseTool):
 
         return video_path, audio_path
 
-    def _download_audio(self, url: str, output_dir: Path) -> str | None:
+    def _download_audio(
+        self, url: str, output_dir: Path, storage_state_path: str | None = None,
+    ) -> str | None:
         """Download audio only."""
-        import yt_dlp
-
         audio_out = str(output_dir / "reference_audio.%(ext)s")
         ydl_opts = {
             "format": "bestaudio/best",
@@ -317,14 +392,14 @@ class VideoDownloader(BaseTool):
             "quiet": True,
             "no_warnings": True,
         }
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        with self._youtube_dl(ydl_opts, storage_state_path) as ydl:
             ydl.download([url])
         return self._find_downloaded(output_dir, "reference_audio", ["wav", "mp3", "m4a", "opus"])
 
-    def _download_subtitles(self, url: str, output_dir: Path) -> str | None:
+    def _download_subtitles(
+        self, url: str, output_dir: Path, storage_state_path: str | None = None,
+    ) -> str | None:
         """Download subtitles only."""
-        import yt_dlp
-
         sub_out = str(output_dir / "reference_subs.%(ext)s")
         ydl_opts = {
             "writesubtitles": True,
@@ -338,7 +413,7 @@ class VideoDownloader(BaseTool):
             "no_warnings": True,
         }
         try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            with self._youtube_dl(ydl_opts, storage_state_path) as ydl:
                 ydl.download([url])
         except Exception:
             pass
