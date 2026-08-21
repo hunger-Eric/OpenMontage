@@ -6,6 +6,7 @@ import json
 import os
 import shutil
 import subprocess
+import time
 from pathlib import Path
 from typing import Any
 
@@ -60,6 +61,26 @@ def select_text_input(snapshot: dict[str, Any], *, music: bool) -> str:
     raise GoogleFlowMCPError("Google Flow page has no visible prompt input")
 
 
+def wait_for_text_input(
+    client: GoogleFlowMCPClient,
+    *,
+    music: bool,
+    attempts: int = 8,
+    delay_seconds: float = 1.5,
+) -> str:
+    """Wait for Flow's client-rendered composer to become interactive."""
+    last_error: GoogleFlowMCPError | None = None
+    for attempt in range(attempts):
+        snapshot = client.call_tool("flow_snapshot", {}, timeout_seconds=30)
+        try:
+            return select_text_input(snapshot, music=music)
+        except GoogleFlowMCPError as exc:
+            last_error = exc
+            if attempt + 1 < attempts:
+                time.sleep(delay_seconds)
+    raise last_error or GoogleFlowMCPError("Google Flow page has no visible prompt input")
+
+
 def run_generation(
     *,
     url: str,
@@ -72,8 +93,7 @@ def run_generation(
 ) -> dict[str, Any]:
     with GoogleFlowMCPClient(timeout_seconds=timeout_seconds + 60) as client:
         opened = client.call_tool("flow_open", {"url": url}, timeout_seconds=60)
-        snapshot = client.call_tool("flow_snapshot", {}, timeout_seconds=30)
-        input_ref = select_text_input(snapshot, music=music)
+        input_ref = wait_for_text_input(client, music=music)
         approval = client.call_tool(
             "flow_confirm_paid_generation",
             {

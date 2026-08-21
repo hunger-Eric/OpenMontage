@@ -70,7 +70,7 @@ class GoogleFlowMCPClient:
             raise GoogleFlowMCPError(f"Google Flow MCP server entry is missing: {entry}")
 
         env = os.environ.copy()
-        env.setdefault("HEADLESS", "true")
+        env.setdefault("HEADLESS", "false")
         self.process = subprocess.Popen(
             [node, str(entry)],
             cwd=str(entry.parent.parent),

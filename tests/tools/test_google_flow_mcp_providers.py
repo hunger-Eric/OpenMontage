@@ -2,11 +2,23 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from tools._google_flow_mcp import provider as provider_module
 from tools.audio import google_flow_mcp_music as music_module
 from tools.audio.google_flow_mcp_music import GoogleFlowMCPMusic
 from tools.base_tool import ToolStatus
 from tools.video import google_flow_mcp_video as video_module
 from tools.video.google_flow_mcp_video import GoogleFlowMCPVideo
+
+
+class _SnapshotClient:
+    def __init__(self, snapshots):
+        self.snapshots = iter(snapshots)
+        self.calls = 0
+
+    def call_tool(self, name, arguments, timeout_seconds=None):
+        assert name == "flow_snapshot"
+        self.calls += 1
+        return next(self.snapshots)
 
 
 def _receipt(output_path: Path, media_type: str) -> dict:
@@ -20,6 +32,29 @@ def _receipt(output_path: Path, media_type: str) -> dict:
             "sha256": "a" * 64,
         },
     }
+
+
+def test_wait_for_text_input_tolerates_delayed_flow_composer(monkeypatch):
+    client = _SnapshotClient(
+        [
+            {"interactables": []},
+            {
+                "interactables": [
+                    {
+                        "ref": "el_39",
+                        "tag": "TEXTAREA",
+                        "role": "textbox",
+                        "visible": True,
+                        "disabled": False,
+                    }
+                ]
+            },
+        ]
+    )
+    monkeypatch.setattr(provider_module.time, "sleep", lambda _: None)
+
+    assert provider_module.wait_for_text_input(client, music=False) == "el_39"
+    assert client.calls == 2
 
 
 def test_google_flow_video_requires_explicit_approval(monkeypatch, tmp_path):
