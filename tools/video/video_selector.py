@@ -242,6 +242,26 @@ class VideoSelector(BaseTool):
                 "description": "Optional provenance metadata for custom workflow dependencies.",
             },
             "output_path": {"type": "string"},
+            "project_url": {
+                "type": "string",
+                "description": "Existing Google Flow project URL for the google_flow provider.",
+            },
+            "confirm_paid_generation": {
+                "type": "boolean",
+                "default": False,
+                "description": "Explicit single-call approval required by browser-subscription providers.",
+            },
+            "max_budget_credits": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "description": "Maximum subscription credits authorized for this generation.",
+            },
+            "timeout_seconds": {
+                "type": "integer",
+                "minimum": 30,
+                "maximum": 900,
+                "description": "Provider generation timeout in seconds.",
+            },
         },
     }
 
