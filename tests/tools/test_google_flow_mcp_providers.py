@@ -42,8 +42,8 @@ def test_wait_for_text_input_tolerates_delayed_flow_composer(monkeypatch):
                 "interactables": [
                     {
                         "ref": "el_39",
-                        "tag": "TEXTAREA",
-                        "role": "textbox",
+                        "tag": "DIV",
+                        "text": "您希望创作什么？",
                         "visible": True,
                         "disabled": False,
                     }
@@ -55,6 +55,18 @@ def test_wait_for_text_input_tolerates_delayed_flow_composer(monkeypatch):
 
     assert provider_module.wait_for_text_input(client, music=False) == "el_39"
     assert client.calls == 2
+
+
+def test_video_prompt_selector_ignores_project_title_and_search():
+    snapshot = {
+        "interactables": [
+            {"ref": "el_title", "tag": "INPUT", "ariaLabel": "可编辑文本", "visible": True, "disabled": False},
+            {"ref": "el_search", "tag": "INPUT", "ariaLabel": "搜索", "visible": True, "disabled": False},
+            {"ref": "el_prompt", "tag": "DIV", "text": "您希望创作什么？", "visible": True, "disabled": False},
+        ]
+    }
+
+    assert provider_module.select_text_input(snapshot, music=False) == "el_prompt"
 
 
 def test_google_flow_video_requires_explicit_approval(monkeypatch, tmp_path):

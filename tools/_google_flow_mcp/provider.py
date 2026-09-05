@@ -52,12 +52,22 @@ def select_text_input(snapshot: dict[str, Any], *, music: bool) -> str:
         ]
         if preferred:
             return str(preferred[0]["ref"])
-    role_textboxes = [item for item in interactables if item.get("role") == "textbox"]
-    if role_textboxes:
-        return str(role_textboxes[0]["ref"])
-    textareas = [item for item in interactables if item.get("tag") == "TEXTAREA"]
-    if textareas:
-        return str(textareas[0]["ref"])
+    composer_markers = (
+        "您希望创作什么",
+        "你希望创作什么",
+        "what would you like to create",
+        "what do you want to create",
+        "describe your video",
+        "describe the scene",
+        "prompt",
+    )
+    for item in interactables:
+        label = " ".join(
+            str(item.get(key) or "")
+            for key in ("text", "placeholder", "ariaLabel", "value")
+        ).lower()
+        if any(marker in label for marker in composer_markers):
+            return str(item["ref"])
     raise GoogleFlowMCPError("Google Flow page has no visible prompt input")
 
 
