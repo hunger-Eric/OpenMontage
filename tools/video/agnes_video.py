@@ -1,4 +1,4 @@
-"""Agnes Video v2.0 generation through the first-party asynchronous API."""
+"""Agnes Video 2.5 Flash generation through the first-party async API."""
 
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ from tools.video._shared import probe_output
 
 
 DEFAULT_BASE_URL = "https://apihub.agnes-ai.com/v1"
-DEFAULT_MODEL = "agnes-video-v2.0"
+DEFAULT_MODEL = "agnes-video-2.5-flash"
 TERMINAL_FAILURES = {"failed", "cancelled", "canceled"}
 
 
@@ -42,6 +42,10 @@ def _api_key() -> str | None:
 def _base_url() -> str:
     value = os.environ.get("AGNES_API_BASE_URL", DEFAULT_BASE_URL).strip().rstrip("/")
     return value if value.endswith("/v1") else f"{value}/v1"
+
+
+def _api_root() -> str:
+    return _base_url().removesuffix("/v1")
 
 
 def _video_url(payload: dict[str, Any]) -> str | None:
@@ -59,14 +63,24 @@ def _video_url(payload: dict[str, Any]) -> str | None:
     return None
 
 
-def _frame_count(duration_seconds: float, frame_rate: float) -> int:
-    requested = max(1, round(duration_seconds * frame_rate))
-    return min(441, max(9, round((requested - 1) / 8) * 8 + 1))
+def _seconds(inputs: dict[str, Any]) -> int:
+    if inputs.get("seconds") is not None:
+        value = float(inputs["seconds"])
+    elif inputs.get("duration") is not None:
+        value = float(inputs["duration"])
+    elif inputs.get("num_frames") is not None:
+        value = (int(inputs["num_frames"]) - 1) / float(inputs.get("frame_rate", 24))
+    else:
+        value = 5
+    seconds = max(4, round(value))
+    if seconds > 12:
+        raise ValueError("Agnes Video 2.5 Flash seconds must be between 4 and 12")
+    return seconds
 
 
 class AgnesVideo(BaseTool):
     name = "agnes_video"
-    version = "0.1.0"
+    version = "0.2.0"
     tier = ToolTier.GENERATE
     capability = "video_generation"
     provider = "agnes"
@@ -91,8 +105,8 @@ class AgnesVideo(BaseTool):
         "async_tasks": True,
     }
     best_for = [
-        "Agnes Video v2.0 text-to-video and image-conditioned generation",
-        "asynchronous first-party task creation with recoverable task IDs",
+        "free promotional Agnes Video 2.5 Flash text and image-reference generation",
+        "asynchronous first-party tasks with video_id polling",
     ]
     not_good_for = ["offline generation"]
     fallback_tools: list[str] = []
@@ -113,15 +127,13 @@ class AgnesVideo(BaseTool):
             "reference_image_url": {"type": "string"},
             "reference_image_urls": {"type": "array", "items": {"type": "string"}},
             "aspect_ratio": {"type": "string", "enum": ["16:9", "9:16", "1:1"], "default": "16:9"},
-            "width": {"type": "integer", "minimum": 1},
-            "height": {"type": "integer", "minimum": 1},
-            "duration": {"type": "number", "minimum": 1, "maximum": 18},
+            "seconds": {"type": ["string", "number"], "description": "Duration from 4 to 12 seconds"},
+            "duration": {"type": "number", "minimum": 4, "maximum": 12},
+            "size": {"type": "string", "enum": ["720P"], "default": "720P"},
             "num_frames": {"type": "integer", "minimum": 9, "maximum": 441},
             "frame_rate": {"type": "number", "minimum": 1, "maximum": 60, "default": 24},
-            "num_inference_steps": {"type": "integer", "minimum": 1},
             "seed": {"type": "integer"},
-            "negative_prompt": {"type": "string"},
-            "poll_interval_seconds": {"type": "number", "minimum": 1, "maximum": 60, "default": 10},
+            "poll_interval_seconds": {"type": "number", "minimum": 1, "maximum": 60, "default": 2},
             "timeout_seconds": {"type": "integer", "minimum": 30, "maximum": 3600, "default": 900},
         },
     }
@@ -164,48 +176,49 @@ class AgnesVideo(BaseTool):
         if operation in {"image_to_video", "reference_to_video"} and not image_urls:
             return ToolResult(success=False, error=f"{operation} requires an image_url or reference_image_urls")
 
-        frame_rate = float(inputs.get("frame_rate", 24))
-        num_frames = int(inputs.get("num_frames") or _frame_count(float(inputs.get("duration", 5)), frame_rate))
-        if num_frames > 441 or (num_frames - 1) % 8 != 0:
-            return ToolResult(success=False, error="Agnes num_frames must be <= 441 and satisfy 8n + 1")
-
+        try:
+            seconds = _seconds(inputs)
+        except (TypeError, ValueError) as exc:
+            return ToolResult(success=False, error=str(exc), data={"fallback_used": False})
         ratio = str(inputs.get("aspect_ratio", "16:9"))
-        default_dimensions = {"16:9": (1152, 768), "9:16": (768, 1152), "1:1": (768, 768)}
-        width, height = default_dimensions[ratio]
-        width = int(inputs.get("width", width))
-        height = int(inputs.get("height", height))
         payload: dict[str, Any] = {
             "model": DEFAULT_MODEL,
             "prompt": str(inputs["prompt"]),
-            "width": width,
-            "height": height,
-            "num_frames": num_frames,
-            "frame_rate": frame_rate,
+            "seconds": str(seconds),
+            "mode": "reference" if image_urls else "text",
+            "size": "720P",
+            "aspect_ratio": ratio,
+            "n": 1,
         }
-        for name in ("num_inference_steps", "seed", "negative_prompt"):
-            if inputs.get(name) is not None:
-                payload[name] = inputs[name]
-        if len(image_urls) == 1:
-            payload["image"] = image_urls[0]
-            payload["mode"] = "ti2vid"
-        elif image_urls:
-            payload["extra_body"] = {"image": image_urls}
+        if inputs.get("seed") is not None:
+            payload["seed"] = inputs["seed"]
+        if image_urls:
+            payload["images"] = image_urls
 
         headers = {"Authorization": f"Bearer {_api_key()}", "Content-Type": "application/json"}
         task_id: str | None = None
+        video_id: str | None = None
         try:
             created = requests.post(f"{_base_url()}/videos", headers=headers, json=payload, timeout=120)
             created.raise_for_status()
             created_data = created.json()
-            task_id = str(created_data.get("id") or "").strip() or None
+            task_id = str(created_data.get("task_id") or created_data.get("id") or "").strip() or None
+            video_id = str(created_data.get("video_id") or "").strip() or None
             if not task_id:
                 raise RuntimeError("Agnes create response did not include a task id")
+            if not video_id:
+                raise RuntimeError("Agnes create response did not include a video id")
 
             deadline = time.time() + int(inputs.get("timeout_seconds", 900))
-            interval = float(inputs.get("poll_interval_seconds", 10))
+            interval = float(inputs.get("poll_interval_seconds", 2))
             result_data: dict[str, Any] = created_data
             while time.time() < deadline:
-                response = requests.get(f"{_base_url()}/videos/{task_id}", headers=headers, timeout=120)
+                response = requests.get(
+                    f"{_api_root()}/agnesapi",
+                    params={"video_id": video_id, "model_name": DEFAULT_MODEL},
+                    headers=headers,
+                    timeout=120,
+                )
                 response.raise_for_status()
                 result_data = response.json()
                 status = str(result_data.get("status", "")).lower()
@@ -239,7 +252,7 @@ class AgnesVideo(BaseTool):
             return ToolResult(
                 success=False,
                 error=f"Agnes API HTTP {status_code}: {detail}",
-                data={"provider": "agnes", "model": DEFAULT_MODEL, "task_id": task_id, "fallback_used": False},
+                data={"provider": "agnes", "model": DEFAULT_MODEL, "task_id": task_id, "video_id": video_id, "fallback_used": False},
             )
         except Exception as exc:
             if output_path.exists():
@@ -247,7 +260,7 @@ class AgnesVideo(BaseTool):
             return ToolResult(
                 success=False,
                 error=str(exc),
-                data={"provider": "agnes", "model": DEFAULT_MODEL, "task_id": task_id, "fallback_used": False},
+                data={"provider": "agnes", "model": DEFAULT_MODEL, "task_id": task_id, "video_id": video_id, "fallback_used": False},
             )
 
         sha256 = hashlib.sha256(output_path.read_bytes()).hexdigest()
@@ -257,14 +270,14 @@ class AgnesVideo(BaseTool):
                 "provider": "agnes",
                 "model": DEFAULT_MODEL,
                 "task_id": task_id,
+                "video_id": video_id,
                 "status": "completed",
                 "output": str(output_path),
                 "output_path": str(output_path),
                 "sha256": sha256,
-                "width_requested": width,
-                "height_requested": height,
-                "num_frames_requested": num_frames,
-                "frame_rate_requested": frame_rate,
+                "seconds_requested": seconds,
+                "size_requested": "720P",
+                "aspect_ratio_requested": ratio,
                 "fallback_used": False,
                 **probe,
             },
