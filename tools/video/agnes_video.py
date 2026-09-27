@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import importlib.util
-import base64
-import mimetypes
 import os
 import shutil
 import time
@@ -66,15 +64,6 @@ def _frame_count(duration_seconds: float, frame_rate: float) -> int:
     return min(441, max(9, round((requested - 1) / 8) * 8 + 1))
 
 
-def _image_data_url(path_value: str) -> str:
-    path = Path(path_value)
-    if not path.is_file():
-        raise ValueError(f"Agnes reference image does not exist: {path}")
-    mime_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
-    encoded = base64.b64encode(path.read_bytes()).decode("ascii")
-    return f"data:{mime_type};base64,{encoded}"
-
-
 class AgnesVideo(BaseTool):
     name = "agnes_video"
     version = "0.1.0"
@@ -123,8 +112,6 @@ class AgnesVideo(BaseTool):
             "image_url": {"type": "string"},
             "reference_image_url": {"type": "string"},
             "reference_image_urls": {"type": "array", "items": {"type": "string"}},
-            "reference_image_path": {"type": "string"},
-            "reference_image_paths": {"type": "array", "items": {"type": "string"}},
             "aspect_ratio": {"type": "string", "enum": ["16:9", "9:16", "1:1"], "default": "16:9"},
             "width": {"type": "integer", "minimum": 1},
             "height": {"type": "integer", "minimum": 1},
@@ -174,13 +161,6 @@ class AgnesVideo(BaseTool):
         single_image = inputs.get("image_url") or inputs.get("reference_image_url")
         if single_image:
             image_urls.insert(0, str(single_image))
-        local_images = list(inputs.get("reference_image_paths") or [])
-        if inputs.get("reference_image_path"):
-            local_images.insert(0, str(inputs["reference_image_path"]))
-        try:
-            image_urls.extend(_image_data_url(str(path)) for path in local_images)
-        except ValueError as exc:
-            return ToolResult(success=False, error=str(exc), data={"fallback_used": False})
         if operation in {"image_to_video", "reference_to_video"} and not image_urls:
             return ToolResult(success=False, error=f"{operation} requires an image_url or reference_image_urls")
 
@@ -190,7 +170,7 @@ class AgnesVideo(BaseTool):
             return ToolResult(success=False, error="Agnes num_frames must be <= 441 and satisfy 8n + 1")
 
         ratio = str(inputs.get("aspect_ratio", "16:9"))
-        default_dimensions = {"16:9": (1152, 648), "9:16": (648, 1152), "1:1": (768, 768)}
+        default_dimensions = {"16:9": (1152, 768), "9:16": (768, 1152), "1:1": (768, 768)}
         width, height = default_dimensions[ratio]
         width = int(inputs.get("width", width))
         height = int(inputs.get("height", height))
@@ -247,6 +227,20 @@ class AgnesVideo(BaseTool):
             probe = probe_output(output_path)
             if not probe.get("duration_seconds") or not probe.get("video_width") or not probe.get("video_height"):
                 raise RuntimeError("ffprobe rejected the downloaded Agnes video")
+        except requests.HTTPError as exc:
+            if output_path.exists():
+                output_path.unlink()
+            response = exc.response
+            status_code = response.status_code if response is not None else "unknown"
+            try:
+                detail = response.json() if response is not None else None
+            except ValueError:
+                detail = (response.text[:1000] if response is not None else "")
+            return ToolResult(
+                success=False,
+                error=f"Agnes API HTTP {status_code}: {detail}",
+                data={"provider": "agnes", "model": DEFAULT_MODEL, "task_id": task_id, "fallback_used": False},
+            )
         except Exception as exc:
             if output_path.exists():
                 output_path.unlink()

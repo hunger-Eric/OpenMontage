@@ -54,7 +54,7 @@ def test_agnes_video_creates_polls_downloads_and_preserves_receipt(monkeypatch, 
     assert output.read_bytes() == b"video-bytes"
     create_payload = calls[0][2]["json"]
     assert create_payload["model"] == "agnes-video-v2.0"
-    assert create_payload["width"] == 648
+    assert create_payload["width"] == 768
     assert create_payload["height"] == 1152
 
 
@@ -76,29 +76,6 @@ def test_agnes_video_image_mode_uses_selector_compatible_url(monkeypatch, tmp_pa
 
     assert result.success
     assert captured["image"] == "https://example.com/reference.jpg"
-    assert captured["mode"] == "ti2vid"
-
-
-def test_agnes_video_encodes_local_reference_as_data_url(monkeypatch, tmp_path):
-    monkeypatch.setenv("AGNES_API_KEY", "test-key")
-    monkeypatch.setattr(module.shutil, "which", lambda _name: "ffprobe")
-    captured = {}
-    monkeypatch.setattr(module.requests, "post", lambda _url, **kwargs: captured.update(kwargs["json"]) or _Response({"id": "task-local"}))
-    monkeypatch.setattr(module.requests, "get", lambda url, **_kwargs: _Response(content=b"video") if url.startswith("https://cdn") else _Response({"status": "completed", "url": "https://cdn.example/local.mp4"}))
-    monkeypatch.setattr(module, "probe_output", lambda _path: {"duration_seconds": 5.0, "video_width": 1152, "video_height": 648})
-    reference = tmp_path / "reference.jpg"
-    reference.write_bytes(b"jpeg-data")
-
-    result = AgnesVideo().execute({
-        "prompt": "Keep the product identity stable",
-        "output_path": str(tmp_path / "local.mp4"),
-        "operation": "image_to_video",
-        "reference_image_path": str(reference),
-        "poll_interval_seconds": 1,
-    })
-
-    assert result.success
-    assert captured["image"].startswith("data:image/jpeg;base64,")
     assert captured["mode"] == "ti2vid"
 
 
