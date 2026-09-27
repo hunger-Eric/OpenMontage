@@ -260,6 +260,32 @@ def test_agnes_default_does_not_fall_back_to_grok(rankings):
     assert score is None
 
 
+def test_selector_preserves_local_reference_for_native_path_provider(rankings, monkeypatch, tmp_path):
+    agnes = _StubTool("agnes_video", "agnes")
+    agnes.input_schema = {
+        "properties": {
+            "prompt": {},
+            "image_url": {},
+            "reference_image_path": {},
+        }
+    }
+    rankings.append(_ScoreStub("agnes_video", "agnes", 0.90))
+    selector = VideoSelector()
+    monkeypatch.setattr(selector, "_providers", lambda: [agnes])
+    reference = tmp_path / "reference.jpg"
+    reference.write_bytes(b"image")
+
+    result = selector.execute({
+        "prompt": "subtle product motion",
+        "operation": "image_to_video",
+        "reference_image_path": str(reference),
+    })
+
+    assert result.success
+    assert agnes.last_execute_inputs["reference_image_path"] == str(reference)
+    assert "image_url" not in agnes.last_execute_inputs
+
+
 # ---------------------------------------------------------------------------
 # #7 — fallback_tools gate for motion-required briefs
 # ---------------------------------------------------------------------------
