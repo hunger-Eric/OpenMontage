@@ -18,6 +18,7 @@ class TTSSelector(BaseTool):
     tier = ToolTier.VOICE
     capability = "tts"
     provider = "selector"
+    DEFAULT_PROVIDER = "gemini"
     stability = ToolStability.BETA
     runtime = ToolRuntime.HYBRID
     agent_skills = ["text-to-speech", "elevenlabs", "openai-docs"]
@@ -47,7 +48,10 @@ class TTSSelector(BaseTool):
             },
             "voice": {
                 "type": "string",
-                "description": "Provider-specific voice name or ID. fal.ai ElevenLabs accepts names such as Rachel.",
+                "description": (
+                    "Provider-specific voice name or ID. Required by the default Gemini TTS route; "
+                    "select it per production plan because OpenMontage does not define a default voice."
+                ),
             },
             "voice_language": {
                 "type": "string",
@@ -138,7 +142,7 @@ class TTSSelector(BaseTool):
             "preferred_provider": {
                 "type": "string",
                 "description": "Provider name or 'auto'. Valid values are discovered at runtime from the registry.",
-                "default": "auto",
+                "default": DEFAULT_PROVIDER,
             },
             "allowed_providers": {
                 "type": "array",
@@ -208,6 +212,14 @@ class TTSSelector(BaseTool):
         # Normal generation — use scored selection
         tool, score = self._select_best_tool(inputs, candidates, task_context)
         if tool is None:
+            if inputs.get("preferred_provider", self.DEFAULT_PROVIDER) == self.DEFAULT_PROVIDER:
+                return ToolResult(
+                    success=False,
+                    error=(
+                        "Default TTS provider gemini is unavailable; select another provider "
+                        "explicitly instead of using an automatic fallback."
+                    ),
+                )
             return ToolResult(success=False, error="No TTS provider available.")
 
         result = tool.execute(self._adapt_inputs(tool, inputs))
@@ -264,17 +276,23 @@ class TTSSelector(BaseTool):
         """Select the best TTS provider using scored ranking."""
         from lib.scoring import rank_providers
 
-        preferred = inputs.get("preferred_provider", "auto")
+        preferred = inputs.get("preferred_provider", self.DEFAULT_PROVIDER)
         allowed = set(inputs.get("allowed_providers") or [])
         if allowed:
             candidates = [tool for tool in candidates if tool.provider in allowed]
-
-        rankings = rank_providers(candidates, task_context)
 
         tool_by_provider: dict[str, BaseTool] = {}
         for tool in candidates:
             if tool.provider not in tool_by_provider and tool.get_status() == ToolStatus.AVAILABLE:
                 tool_by_provider[tool.provider] = tool
+
+        # Gemini is the locked project default. Missing credentials or an
+        # unavailable route must surface as a blocker, never an implicit Grok
+        # or local-engine substitution.
+        if preferred == self.DEFAULT_PROVIDER:
+            return tool_by_provider.get(self.DEFAULT_PROVIDER), None
+
+        rankings = rank_providers(candidates, task_context)
 
         if preferred != "auto":
             for score_item in rankings:

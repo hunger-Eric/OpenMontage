@@ -27,6 +27,7 @@ class VideoSelector(BaseTool):
     MOTION_REQUIRED_OPERATIONS = frozenset({"image_to_video", "reference_to_video", "video_edit"})
     # Default score gap for the preferred_provider override (see input_schema).
     PREFERRED_PROVIDER_GAP = 0.15
+    DEFAULT_PROVIDER = "agnes"
 
     capabilities = [
         "text_to_video", "image_to_video", "reference_to_video", "video_edit", "stock_video",
@@ -52,7 +53,7 @@ class VideoSelector(BaseTool):
             "preferred_provider": {
                 "type": "string",
                 "description": "Provider name or 'auto'. Valid values are discovered at runtime from the registry.",
-                "default": "auto",
+                "default": DEFAULT_PROVIDER,
             },
             "preferred_provider_gap": {
                 "type": "number",
@@ -315,14 +316,26 @@ class VideoSelector(BaseTool):
         candidates = self._filter_candidates(inputs, self._providers())
         if not candidates:
             return 0.0
-        tool, _ = self._select_best_tool(inputs, candidates, self._prepare_task_context(inputs))
+        estimate_inputs = dict(inputs)
+        estimate_inputs.setdefault("preferred_provider", "auto")
+        tool, _ = self._select_best_tool(
+            estimate_inputs,
+            candidates,
+            self._prepare_task_context(estimate_inputs),
+        )
         return tool.estimate_cost(inputs) if tool else 0.0
 
     def estimate_runtime(self, inputs: dict[str, object]) -> float:
         candidates = self._providers()
         if not candidates:
             return 0.0
-        tool, _ = self._select_best_tool(inputs, candidates, self._prepare_task_context(inputs))
+        estimate_inputs = dict(inputs)
+        estimate_inputs.setdefault("preferred_provider", "auto")
+        tool, _ = self._select_best_tool(
+            estimate_inputs,
+            candidates,
+            self._prepare_task_context(estimate_inputs),
+        )
         return tool.estimate_runtime(inputs) if tool else 0.0
 
     def execute(self, inputs: dict[str, object]) -> ToolResult:
@@ -349,6 +362,14 @@ class VideoSelector(BaseTool):
         task_context = self._prepare_task_context(inputs)
         tool, score = self._select_best_tool(inputs, candidates, task_context)
         if tool is None:
+            if inputs.get("preferred_provider", self.DEFAULT_PROVIDER) == self.DEFAULT_PROVIDER:
+                return ToolResult(
+                    success=False,
+                    error=(
+                        "Default video provider agnes is unavailable for this operation; "
+                        "select another provider explicitly instead of using an automatic fallback."
+                    ),
+                )
             return ToolResult(success=False, error="No video generation provider available.")
 
         # Adapt input keys: stock tools use 'query' while generators use 'prompt'
@@ -398,7 +419,7 @@ class VideoSelector(BaseTool):
         """
         from lib.scoring import rank_providers, ProviderScore
 
-        preferred = inputs.get("preferred_provider", "auto")
+        preferred = inputs.get("preferred_provider", self.DEFAULT_PROVIDER)
         allowed = set(inputs.get("allowed_providers") or [])
         if allowed:
             candidates = [tool for tool in candidates if tool.provider in allowed]
@@ -429,6 +450,20 @@ class VideoSelector(BaseTool):
 
         def _tool_for(score: object) -> BaseTool | None:
             return selectable_by_name.get(getattr(score, "tool_name", None))
+
+        # The project default is a locked provider choice, not a soft scoring
+        # hint. If Agnes cannot serve the requested operation, stop and require
+        # an explicit provider change instead of silently spending via another
+        # backend.
+        if preferred == self.DEFAULT_PROVIDER:
+            for score in rankings:
+                tool = _tool_for(score)
+                if tool is not None and tool.provider == self.DEFAULT_PROVIDER:
+                    return tool, score
+            for tool in candidates:
+                if tool.provider == self.DEFAULT_PROVIDER and tool.name in selectable_by_name:
+                    return tool, None
+            return None, None
 
         # If a preferred provider is explicitly requested, honor it ONLY when its
         # best ranked tool is within a configurable score gap of the overall top.

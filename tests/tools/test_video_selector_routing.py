@@ -228,6 +228,38 @@ def test_preferred_provider_not_in_rankings_falls_through(rankings):
     assert tool.name == "veo_video"
 
 
+def test_agnes_is_the_locked_default_provider(rankings):
+    """An omitted provider selects Agnes even when Grok scores higher."""
+    agnes = _StubTool("agnes_video", "agnes")
+    grok = _StubTool("grok_cli_video", "grok")
+    rankings.extend([
+        _ScoreStub("grok_cli_video", "grok", 0.99),
+        _ScoreStub("agnes_video", "agnes", 0.50),
+    ])
+
+    tool, _ = VideoSelector()._select_best_tool({}, [grok, agnes], {})
+
+    assert tool is agnes
+    assert VideoSelector.input_schema["properties"]["preferred_provider"]["default"] == "agnes"
+
+
+def test_agnes_default_does_not_fall_back_to_grok(rankings):
+    """Unavailable Agnes must stop instead of spending through Grok."""
+    agnes = _StubTool(
+        "agnes_video", "agnes", status=ToolStatus.UNAVAILABLE
+    )
+    grok = _StubTool("grok_cli_video", "grok")
+    rankings.extend([
+        _ScoreStub("grok_cli_video", "grok", 0.99),
+        _ScoreStub("agnes_video", "agnes", 0.50),
+    ])
+
+    tool, score = VideoSelector()._select_best_tool({}, [grok, agnes], {})
+
+    assert tool is None
+    assert score is None
+
+
 # ---------------------------------------------------------------------------
 # #7 — fallback_tools gate for motion-required briefs
 # ---------------------------------------------------------------------------
