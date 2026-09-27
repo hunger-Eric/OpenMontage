@@ -19,16 +19,25 @@ from tools._google_flow_mcp.client import (
 from tools.base_tool import ToolStatus
 
 
-def provider_status() -> ToolStatus:
+def provider_status(*, require_ffprobe: bool = True) -> ToolStatus:
     entry = google_flow_server_entry()
     tools_bundle = entry.parent / "tools.js"
-    if not google_flow_node() or not shutil.which("ffprobe") or not entry.is_file() or not tools_bundle.is_file():
+    if (
+        not google_flow_node()
+        or (require_ffprobe and not shutil.which("ffprobe"))
+        or not entry.is_file()
+        or not tools_bundle.is_file()
+    ):
         return ToolStatus.UNAVAILABLE
     try:
         contract = tools_bundle.read_text(encoding="utf-8", errors="ignore")
     except OSError:
         return ToolStatus.UNAVAILABLE
-    if "flow_close" not in contract or "expectedMediaType" not in contract:
+    if (
+        "flow_close" not in contract
+        or "flow_upload" not in contract
+        or "expectedMediaType" not in contract
+    ):
         return ToolStatus.UNAVAILABLE
     return ToolStatus.AVAILABLE
 
@@ -68,6 +77,12 @@ def select_text_input(snapshot: dict[str, Any], *, music: bool) -> str:
         ).lower()
         if any(marker in label for marker in composer_markers):
             return str(item["ref"])
+    contenteditable = [
+        item for item in interactables
+        if item.get("contentEditable") is True
+    ]
+    if len(contenteditable) == 1:
+        return str(contenteditable[0]["ref"])
     raise GoogleFlowMCPError("Google Flow page has no visible prompt input")
 
 
@@ -91,6 +106,44 @@ def wait_for_text_input(
     raise last_error or GoogleFlowMCPError("Google Flow page has no visible prompt input")
 
 
+def select_generation_submit(snapshot: dict[str, Any]) -> str:
+    for item in snapshot.get("interactables", []):
+        if not isinstance(item, dict) or not item.get("visible") or item.get("disabled"):
+            continue
+        label = " ".join(
+            str(item.get(key) or "") for key in ("text", "ariaLabel")
+        ).strip().lower()
+        is_submit = item.get("type") == "submit" or any(
+            marker in label
+            for marker in ("开始生成", "generate", "create", "arrow_forward")
+        )
+        if is_submit and item.get("ref"):
+            return str(item["ref"])
+    raise GoogleFlowMCPError(
+        "Google Flow did not expose an enabled generation submit control after typing the prompt"
+    )
+
+
+def wait_for_generation_submit(
+    client: GoogleFlowMCPClient,
+    *,
+    attempts: int = 8,
+    delay_seconds: float = 0.5,
+) -> str:
+    last_error: GoogleFlowMCPError | None = None
+    for attempt in range(attempts):
+        snapshot = client.call_tool("flow_snapshot", {}, timeout_seconds=30)
+        try:
+            return select_generation_submit(snapshot)
+        except GoogleFlowMCPError as exc:
+            last_error = exc
+            if attempt + 1 < attempts:
+                time.sleep(delay_seconds)
+    raise last_error or GoogleFlowMCPError(
+        "Google Flow did not expose an enabled generation submit control after typing the prompt"
+    )
+
+
 def run_generation(
     *,
     url: str,
@@ -100,10 +153,35 @@ def run_generation(
     max_budget_credits: float,
     timeout_seconds: int,
     music: bool,
+    reference_paths: list[Path] | None = None,
 ) -> dict[str, Any]:
     with GoogleFlowMCPClient(timeout_seconds=timeout_seconds + 60) as client:
         opened = client.call_tool("flow_open", {"url": url}, timeout_seconds=60)
+        uploads = []
+        for reference_path in reference_paths or []:
+            if not reference_path.is_file():
+                raise GoogleFlowMCPError(
+                    f"Google Flow reference asset does not exist: {reference_path}"
+                )
+            uploads.append(
+                client.call_tool(
+                    "flow_upload",
+                    {"filePath": str(reference_path.resolve())},
+                    timeout_seconds=120,
+                )
+            )
         input_ref = wait_for_text_input(client, music=music)
+        composer_text = " ".join(prompt.split())
+        typed = client.call_tool(
+            "flow_type",
+            {"ref": input_ref, "text": composer_text, "clearFirst": True, "submit": False},
+            timeout_seconds=60,
+        )
+        if typed.get("verified") is not True:
+            raise GoogleFlowMCPError(
+                "Google Flow did not verify the prompt text before submission"
+            )
+        submit_ref = wait_for_generation_submit(client)
         approval = client.call_tool(
             "flow_confirm_paid_generation",
             {
@@ -113,11 +191,19 @@ def run_generation(
             },
             timeout_seconds=30,
         )
-        client.call_tool(
-            "flow_type",
-            {"ref": input_ref, "text": prompt, "clearFirst": True, "submit": True},
-            timeout_seconds=60,
+        submitted = client.call_tool(
+            "flow_click",
+            {
+                "ref": submit_ref,
+                "requireGenerationAcknowledgement": True,
+                "acknowledgementTimeoutMs": 30_000,
+            },
+            timeout_seconds=45,
         )
+        if submitted.get("submissionAcknowledged") is not True:
+            raise GoogleFlowMCPError(
+                "Google Flow did not acknowledge the generation submission"
+            )
         waited = client.call_tool(
             "flow_wait",
             {
@@ -141,10 +227,36 @@ def run_generation(
         )
         return {
             "opened": opened,
+            "uploads": uploads,
+            "typed": typed,
             "approval": approval,
+            "submitted": submitted,
             "wait": waited,
             "download": downloaded,
         }
+
+
+def probe_image(path: Path) -> dict[str, Any]:
+    try:
+        from PIL import Image
+
+        with Image.open(path) as image:
+            image.verify()
+        with Image.open(path) as image:
+            width, height = image.size
+            image_format = image.format
+            mode = image.mode
+    except Exception as exc:
+        raise GoogleFlowMCPError(f"Pillow rejected Google Flow image output: {exc}") from exc
+    if width <= 0 or height <= 0:
+        raise GoogleFlowMCPError("Google Flow image output has invalid dimensions")
+    return {
+        "width": width,
+        "height": height,
+        "format_name": image_format,
+        "mode": mode,
+        "file_size_bytes": path.stat().st_size,
+    }
 
 
 def probe_media(path: Path, expected_media_type: str) -> dict[str, Any]:

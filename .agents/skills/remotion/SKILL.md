@@ -1,11 +1,11 @@
 ---
 name: remotion
-description: Toolkit-specific Remotion patterns — custom transitions, shared components, and project conventions. For core Remotion framework knowledge (hooks, animations, rendering, etc.), see the `remotion-official` skill.
+description: Toolkit-specific Remotion patterns — custom transitions, shared components, and project conventions. Core framework knowledge comes from the registered local official Remotion source.
 ---
 
 # Remotion — Toolkit Extensions
 
-> **Core Remotion knowledge** lives in `.claude/skills/remotion-official/` (synced from the official [remotion-dev/skills](https://github.com/remotion-dev/skills) repo). This file covers **toolkit-specific** patterns only.
+> **Core Remotion knowledge** comes from the local checkout registered in `C:/Users/fengc/.codex/remotion-source.json`: run `python C:/Users/fengc/.codex/tools/remotion-source.py read --skill remotion-best-practices`. Follow references with that reader and match API use to the composition's lockfile. This file covers **toolkit-specific** patterns only.
 
 ## Shared Components
 

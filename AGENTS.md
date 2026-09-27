@@ -1,9 +1,15 @@
 # OpenMontage
 
-**MANDATORY: Read `AGENT_GUIDE.md` before responding to ANY user message.**
+## Startup routing
 
-Do not act on the user's request until you have read AGENT_GUIDE.md.
-It contains routing rules that determine your first action based on what the user asked.
-Skipping it WILL cause you to take the wrong action.
+1. Read `docs/CURRENT_PROJECT_STATE.md` first for the current checkout, active
+   worktree evidence, authority links, and unverified boundary.
+2. For any production, pipeline, provider, architecture, tool, or capability
+   request, read `AGENT_GUIDE.md` before acting. It remains the complete stable
+   production contract.
+3. Follow only the pipeline manifest, stage director, provider skill, project
+   artifact, and source files relevant to the current request; do not treat the
+   full guide as a current task log.
 
-There are no instructions in this file. All instructions are in AGENT_GUIDE.md.
+The compact state file does not override `AGENT_GUIDE.md`, `PROJECT_CONTEXT.md`,
+runtime registry output, pipeline manifests, checkpoints, or user approvals.

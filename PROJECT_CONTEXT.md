@@ -40,6 +40,10 @@ Layer 3: .agents/skills/            → "How the technology works" (generic API 
 
 Each tool's `agent_skills[]` field bridges Layer 1 → Layer 3. See `skills/INDEX.md` for the full mapping.
 
+### Local Remotion source authority
+
+Official Remotion skills, framework source and API documentation come from the checkout registered in `C:/Users/fengc/.codex/remotion-source.json`. Read it through `python C:/Users/fengc/.codex/tools/remotion-source.py status` and `read --skill remotion-best-practices`; follow repository-relative references with the same reader. Project-local official skill entries delegate there; custom toolkit design and pipeline instructions remain local. Match API use to each composition project's lockfile using `read <path> --revision v<locked-version>`; a source update does not change render dependencies or authorize a pipeline run.
+
 ## Key Patterns
 
 - **Pipeline state machine:** `idea -> script -> scene_plan -> assets -> edit -> compose -> publish`
