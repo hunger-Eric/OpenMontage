@@ -220,6 +220,15 @@ The video_compose tool will mux this with the video.
 
 Subtitles are mandatory for all explainer content. Generate them from the narration audio — do NOT skip this step.
 
+This is a delivery invariant, not a preferred implementation. Script-derived
+or manually projected subtitle timing is non-deliverable for generated
+narration. Persist the final narration transcript, pass both
+`narration_transcript_path` and `script_text` to `video_compose`, and require
+`final_review.checks.transcript_comparison.transcript_matches_script=true`.
+Missing transcription, an empty comparison, or a match below 90% must return
+`revise`; audio duration and volume checks cannot substitute for content
+verification.
+
 **Remotion path (DEFAULT — when using Remotion render):**
 
 1. **Transcribe** the full narration using the `transcriber` tool (whisperx):

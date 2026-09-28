@@ -229,12 +229,14 @@ stages:
     required_tools:
       - video_compose
       - audio_mixer
+      - transcriber
     optional_tools:
       - video_stitch
     tools_available:
       - video_compose
       - video_stitch
       - audio_mixer
+      - transcriber
     checkpoint_required: true
     human_approval_default: false
     review_focus:
@@ -242,6 +244,8 @@ stages:
       - "Duration within +/-5% of target"
       - Audio is clear with proper narration/music balance
       - final_review audio_spotcheck confirms mix_balance_verified and narration_pace_acceptable
+      - final_review transcript_comparison confirms the final spoken audio matches the approved script
+      - Subtitles are generated from the final narration transcript, never projected from script timing alone
       - Background music is no more than 20 LU below narration before optional ducking
       - Final rendering enters through video_compose; low-level runtime tools are not delivery entry points
       - "render_runtime in edit_decisions matches proposal_packet — silent swap to another runtime is a CRITICAL governance violation"
@@ -250,6 +254,7 @@ stages:
       - Schema-valid render_report with output paths
       - Output file exists and passes ffprobe validation
       - final_review.status is pass; revise and fail are non-deliverable
+      - Missing, unreadable, empty, or below-threshold narration transcription is non-deliverable
       - Pre-authorized runs automatically repair and re-render revise findings up to two rounds
 
   - name: publish

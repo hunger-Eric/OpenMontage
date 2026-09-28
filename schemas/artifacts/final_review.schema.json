@@ -118,6 +118,8 @@
           "properties": {
             "subtitles_expected": { "type": "boolean" },
             "subtitles_present": { "type": "boolean" },
+            "source_tool": { "type": ["string", "null"] },
+            "transcript_derived": { "type": ["boolean", "null"] },
             "coverage_ratio": { "type": "number", "minimum": 0, "maximum": 1 },
             "timing_drift_detected": { "type": "boolean" },
             "issues": {
@@ -128,10 +130,11 @@
         },
         "transcript_comparison": {
           "type": "object",
-          "description": "Optional: transcribe the output and compare to source script",
+          "description": "Mandatory when narration is declared: transcribe the final audio and compare to source script",
           "properties": {
             "transcript_matches_script": { "type": ["boolean", "null"] },
             "word_accuracy": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+            "required": { "type": "boolean" },
             "issues": {
               "type": "array",
               "items": { "type": "string" }

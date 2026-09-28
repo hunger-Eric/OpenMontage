@@ -97,6 +97,14 @@ For each script section:
 7. Generate using `tts_selector` — it auto-routes to the best available TTS provider based on user preference and availability. Check the registry's `best_for` fields to understand each provider's strengths.
 8. Record the applied `voice_performance` metadata on each narration asset
 9. Verify the audio file exists and duration matches expected timing (±15%)
+10. Transcribe the generated narration itself and compare that transcript with
+    the approved script. A provider success response, valid PCM, plausible
+    duration, or `provider_text_used=true` does not prove what was spoken.
+    Missing transcription or a transcript-to-script match below 90% blocks the
+    asset checkpoint.
+11. Generate subtitle cues from the verified final narration transcript and
+    its timestamps. Never use script-timing projection as the subtitle source
+    for a generated voice track.
 
 **Narration timing is not a license to stretch speech.** If the generated read
 misses the planned duration by more than 15%, revise the script/scene timing or
@@ -220,6 +228,8 @@ Assemble all generated assets into the manifest:
 **Existence check:**
 - [ ] Every asset `path` exists on disk
 - [ ] Every narration section has a corresponding audio file
+- [ ] Final narration has a persisted transcript and matches the approved script at ≥90%
+- [ ] Subtitle text and timing are derived from that verified transcript
 - [ ] Every scene with `required_assets` has all assets generated
 - [ ] Background music file exists
 

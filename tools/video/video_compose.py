@@ -2145,13 +2145,14 @@ class VideoCompose(BaseTool):
     @classmethod
     def _tokenize(cls, text: str) -> list[str]:
         """Split text into comparable word tokens (lowercased, punctuation
-        stripped, numeric-word-aware). Empty tokens dropped."""
+        stripped, numeric-word-aware). CJK characters are retained as
+        individual tokens so Chinese narration is not silently erased."""
         import re
 
-        # Preserve hyphenated words as single tokens ("many-worlds" -> "many-worlds").
-        # Drop everything except letters, digits, hyphens, apostrophes.
-        cleaned = re.sub(r"[^A-Za-z0-9\-' ]+", " ", text.lower())
-        return [t for t in cleaned.split() if t and t != "-"]
+        return re.findall(
+            r"[a-z0-9]+(?:[-'][a-z0-9]+)*|[\u3400-\u4dbf\u4e00-\u9fff]",
+            text.lower(),
+        )
 
     @classmethod
     def _compare_transcript_to_script(
@@ -2752,15 +2753,61 @@ class VideoCompose(BaseTool):
 
         issues.extend(promise_preservation.get("issues", []))
 
+        narration_expected = bool(
+            ((edit_decisions or {}).get("audio") or {})
+            .get("narration", {})
+            .get("segments")
+        ) or any(
+            isinstance(asset, dict) and asset.get("type") == "narration"
+            for asset in (asset_manifest or {}).get("assets", [])
+        )
+
         # --- 5. Subtitle check ---
         subtitle_check: dict[str, Any] = {
             "subtitles_expected": False,
             "subtitles_present": False,
+            "source_tool": None,
+            "transcript_derived": None,
             "issues": [],
         }
         if edit_decisions:
             ed_subs = edit_decisions.get("subtitles", {})
             subtitle_check["subtitles_expected"] = bool(ed_subs.get("enabled"))
+
+            subtitle_assets = {
+                str(asset.get("id")): asset
+                for asset in (asset_manifest or {}).get("assets", [])
+                if isinstance(asset, dict) and asset.get("id")
+            }
+            subtitle_asset = subtitle_assets.get(str(ed_subs.get("source") or ""))
+            if subtitle_asset is None:
+                subtitle_asset = next(
+                    (
+                        asset for asset in subtitle_assets.values()
+                        if asset.get("type") == "subtitle"
+                    ),
+                    None,
+                )
+            if subtitle_asset:
+                source_tool = str(subtitle_asset.get("source_tool") or "")
+                subtitle_check["source_tool"] = source_tool or None
+                subtitle_check["transcript_derived"] = (
+                    "transcript" in source_tool.lower()
+                    and "script_timing" not in source_tool.lower()
+                )
+            elif subtitle_check["subtitles_expected"]:
+                subtitle_check["transcript_derived"] = False
+
+            if (
+                narration_expected
+                and subtitle_check["subtitles_expected"]
+                and subtitle_check["transcript_derived"] is not True
+            ):
+                subtitle_check["issues"].append(
+                    "Subtitle content provenance invalid: generated narration requires "
+                    "subtitle cues derived from the verified final-audio transcript; "
+                    f"source_tool={subtitle_check['source_tool']!r}."
+                )
 
             # Check if output has subtitle stream
             if technical_probe.get("valid_container"):
@@ -2784,7 +2831,14 @@ class VideoCompose(BaseTool):
                             and not subtitle_check["subtitles_present"]):
                         # Check if subtitle_path was used (burned in)
                         sub_source = ed_subs.get("source")
-                        if sub_source and Path(sub_source).exists():
+                        sub_path = None
+                        if subtitle_asset and subtitle_asset.get("path"):
+                            sub_path = self._resolve_review_asset_path(
+                                str(subtitle_asset["path"]), output_path
+                            )
+                        elif sub_source:
+                            sub_path = Path(str(sub_source))
+                        if sub_path and sub_path.exists():
                             # Burned-in subtitles are not detectable as streams
                             subtitle_check["subtitles_present"] = True
                             subtitle_check["coverage_ratio"] = 1.0
@@ -2803,10 +2857,12 @@ class VideoCompose(BaseTool):
         # as the word 'dot'" trap) that volume-based audio checks miss.
         # Only runs when caller provides both the transcript and script; when
         # skipped, issues list records that so the silence is visible.
+        comparison_requested = bool(narration_transcript_path or script_text)
         transcript_comparison = self._compare_transcript_to_script(
             Path(narration_transcript_path) if narration_transcript_path else None,
             script_text,
         )
+        transcript_comparison["required"] = narration_expected or comparison_requested
         issues.extend(transcript_comparison.get("issues", []))
 
         # --- 7. Determine overall status ---
@@ -2818,8 +2874,22 @@ class VideoCompose(BaseTool):
                 "tts punctuation leak",  # reading literal punctuation aloud
                 "background music effectively inaudible",
                 "narration tempo distortion",
+                "subtitle content provenance invalid",
             ])
         ]
+
+        # A skipped comparison is informational for videos without narration,
+        # but becomes a hard delivery gate as soon as narration is declared or
+        # the caller explicitly supplies comparison inputs.
+        if (
+            transcript_comparison["required"]
+            and transcript_comparison.get("transcript_matches_script") is not True
+        ):
+            critical_issues.extend(transcript_comparison.get("issues", []))
+            if not transcript_comparison.get("issues"):
+                critical_issues.append(
+                    "Narration transcript does not match the approved script"
+                )
 
         if critical_issues:
             status = "revise"

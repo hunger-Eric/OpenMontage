@@ -315,7 +315,11 @@ Run at **compose** and **publish** stages. Ensures the agent reviewed the actual
    - `music_audible == false` or `music_to_narration_lu > 20` → **CRITICAL** — revise the mix.
    - `narration_pace_acceptable == false` or `narration_tempo_ratio < 0.90` → **CRITICAL** — restore a natural read and revise visual timing.
    - `final_review.status` of `revise` is non-deliverable; it must not be presented as a completed video.
-5. **Promise preservation**: If `promise_preservation.silent_downgrade_detected` is true: **CRITICAL** — "Self-review detected silent downgrade from motion-led to still-led."
+5. **Narration/subtitle content identity** (when narration is declared):
+   - A persisted final-audio transcript is mandatory; provider success, valid PCM, duration, and volume are not content evidence.
+   - `transcript_comparison.transcript_matches_script` must be `true` with word accuracy ≥0.90; missing, unreadable, empty, or low-match comparisons are **CRITICAL**.
+   - Subtitle cues must be generated from the verified final narration transcript. `script_timing_projection` is **CRITICAL** for generated narration because it can display the intended script while the audio says something else.
+6. **Promise preservation**: If `promise_preservation.silent_downgrade_detected` is true: **CRITICAL** — "Self-review detected silent downgrade from motion-led to still-led."
 
 ### At publish stage:
 1. Verify that `final_review` was passed through as a required artifact
