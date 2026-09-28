@@ -67,7 +67,7 @@ class FreesoundMusic(BaseTool):
         "offline use",
     ]
 
-    fallback_tools = ["pixabay_music", "music_gen"]
+    fallback_tools = ["archive_org_music", "music_gen"]
 
     input_schema = {
         "type": "object",

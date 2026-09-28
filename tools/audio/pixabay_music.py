@@ -3,9 +3,9 @@
 Scrapes Pixabay's music section to find and download royalty-free
 background music tracks. No API key required — uses web scraping.
 
-Stability: EXPERIMENTAL — Pixabay's HTML structure may change without
-notice, which could break the scraper. Use freesound_music or music_gen
-as more stable alternatives.
+Stability: EXPERIMENTAL legacy compatibility only. Pixabay may reject
+automated page access with HTTP 403. Use archive_org_music as the default
+public, API-backed source.
 """
 
 from __future__ import annotations
@@ -46,8 +46,8 @@ class PixabayMusic(BaseTool):
     dependencies = []  # no API key needed — web scraping
     install_instructions = (
         "No setup required. Pixabay Music is free and needs no API key.\n"
-        "Note: This tool scrapes the Pixabay website. If it breaks, the\n"
-        "site's HTML structure may have changed. Use freesound_music as fallback."
+        "Legacy compatibility only: Pixabay may reject automated page access.\n"
+        "Use archive_org_music as the default no-key provider."
     )
 
     agent_skills = ["music"]
@@ -69,7 +69,7 @@ class PixabayMusic(BaseTool):
         "offline use",
     ]
 
-    fallback_tools = ["freesound_music", "music_gen"]
+    fallback_tools = ["archive_org_music", "freesound_music", "music_gen"]
 
     input_schema = {
         "type": "object",

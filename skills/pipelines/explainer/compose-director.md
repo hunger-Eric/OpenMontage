@@ -98,8 +98,8 @@ Before rendering, present the user with audio options and get their preferences.
 
 3. **Download background music:**
    ```python
-   from tools.audio.pixabay_music import PixabayMusic
-   result = PixabayMusic().execute({
+   from tools.audio.archive_org_music import ArchiveOrgMusic
+   result = ArchiveOrgMusic().execute({
        'query': '<mood/genre matching video topic>',
        'min_duration': video_duration_seconds,
        'max_duration': 300,

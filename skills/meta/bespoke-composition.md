@@ -255,7 +255,7 @@ Two reference pieces — one per runtime — to study **processes**, never visua
 
 - **Remotion atelier** — Phantom Reach explainer (`projects/phantom-reach-explainer/`):
   Playwright-captured app footage with a PII-blur layer → per-sentence TTS stitched with
-  silence beats → free Pixabay music → hand-authored Remotion scenes (custom intro,
+  silence beats → openly licensed Internet Archive music → hand-authored Remotion scenes (custom intro,
   score-ring, agentic flow, CTA) on a one-off violet theme.
   Compound Snowball (`projects/compound-snowball/`) and Library of Alexandria
   (`projects/alexandria-fire/`) are two more — three Remotion atelier pieces, three

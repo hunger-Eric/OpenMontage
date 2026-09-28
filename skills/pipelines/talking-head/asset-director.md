@@ -12,7 +12,7 @@ You have a scene plan and script. Your job is to generate the supporting assets 
 | Prior artifacts | Scene plan, Script | What assets to create |
 | Tools | `subtitle_gen`, `audio_mixer` | Subtitle and audio generation |
 | Tools | `image_selector` (optional) | Stock images for overlays |
-| Tools | `pixabay_music` (optional) | Royalty-free background music |
+| Tools | `archive_org_music` (optional) | Openly licensed background music with source and attribution receipts |
 
 ## Process
 
@@ -52,8 +52,8 @@ subtitle_gen.execute({
 
 If the scene plan includes background music:
 
-1. **Check local pixabay music library** — look for downloaded MP3s matching the mood
-2. **Use `pixabay_music` tool** — search by mood/genre keywords from the scene plan
+1. **Check the local music library** — look for downloaded MP3s matching the mood
+2. **Use `archive_org_music`** — search Internet Archive Netlabels by mood/genre and preserve its license/attribution receipt
 3. **Run `audio_energy` analysis** on the selected track to find optimal start offset (skip quiet intros)
 
 Record the music path, offset, and whether looping is needed in the asset manifest.

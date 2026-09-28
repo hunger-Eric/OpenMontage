@@ -121,7 +121,7 @@ Sokka, half a step behind, replies: "Then we fight."
 | Conflicting lighting (`bright noon` + `neon night`) | Model picks one and ignores the other. |
 | Long dialogue on fast-cut shots | Lip-sync drifts. |
 | `fast` variant for slow-mo, multi-shot, or complex camera | Routinely misses on first try. Route to `standard`. |
-| Request a full multi-instrument score from Seedance | Keep audio direction textural; real scoring belongs in `music` / `pixabay_music` / `elevenlabs` and mixes in compose. |
+| Request a full multi-instrument score from Seedance | Keep audio direction textural; real scoring belongs in `music` / `archive_org_music` / `elevenlabs` and mixes in compose. |
 | Bypass `video_selector` without a reason | Loses scoring, fallback, and cost handling. |
 
 ## Integration notes

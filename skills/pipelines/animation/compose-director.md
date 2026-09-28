@@ -107,7 +107,7 @@ For `anime_scene` compositions, build a JSON file at `remotion-composer/public/d
 
 ### 3. Source Music and Find Optimal Offset
 
-Use `tools/audio/pixabay_music.py` to find royalty-free ambient music matching the mood.
+Use `tools/audio/archive_org_music.py` to find openly licensed ambient music through Internet Archive's public APIs. Preserve the returned license URL and attribution text in the artifact manifest.
 
 **After downloading, run audio energy analysis (MANDATORY):**
 
