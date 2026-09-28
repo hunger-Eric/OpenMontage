@@ -1,15 +1,19 @@
 """Gemini generateContent text-to-speech provider.
 
-This adapter mirrors the verified Google speech transport used by the video
-project: Gemini generateContent returns 24 kHz mono PCM, which OpenMontage
-wraps as a local WAV artifact. Voice selection remains a per-production model
-decision and is therefore intentionally required with no project default.
+This adapter accepts raw or containerized audio returned by Gemini, normalizes
+it to 24 kHz mono PCM when needed, and wraps it as a local WAV artifact. Voice
+selection remains a per-production model decision and is therefore
+intentionally required with no project default.
 """
 
 from __future__ import annotations
 
 import base64
+import io
 import os
+import re
+import shutil
+import subprocess
 import time
 import wave
 from pathlib import Path
@@ -271,15 +275,23 @@ class GeminiTTS(BaseTool):
 
         audio_parts: list[bytes] = []
         mime_types: list[str] = []
+        normalized_audio_parts = 0
         for part in parts:
-            inline = part.get("inlineData")
+            inline = part.get("inlineData") or part.get("inline_data")
             if not isinstance(inline, dict):
                 continue
-            mime_type = str(inline.get("mimeType") or "")
+            mime_type = str(inline.get("mimeType") or inline.get("mime_type") or "")
             data = inline.get("data")
-            if mime_type.lower().startswith("audio/l16") and isinstance(data, str) and data:
-                audio_parts.append(base64.b64decode(data, validate=True))
-                mime_types.append(mime_type)
+            if not isinstance(data, str) or not data:
+                continue
+            decoded = base64.b64decode(data, validate=True)
+            normalized = self._normalize_audio_part(decoded, mime_type)
+            if normalized is None:
+                continue
+            pcm_part, converted = normalized
+            audio_parts.append(pcm_part)
+            mime_types.append(mime_type)
+            normalized_audio_parts += int(converted)
 
         pcm = b"".join(audio_parts)
         if not pcm or len(pcm) % 2:
@@ -291,5 +303,85 @@ class GeminiTTS(BaseTool):
                 "part_count": len(parts),
                 "audio_parts": len(audio_parts),
                 "mime_types": mime_types,
+                "normalized_audio_parts": normalized_audio_parts,
             },
         }
+
+    @classmethod
+    def _normalize_audio_part(
+        cls, decoded: bytes, mime_type: str
+    ) -> tuple[bytes, bool] | None:
+        normalized_mime = mime_type.strip().lower()
+        base_mime = normalized_mime.split(";", 1)[0].strip()
+
+        looks_like_wav = (
+            len(decoded) >= 12
+            and decoded[:4] in {b"RIFF", b"RIFX", b"RF64"}
+            and decoded[8:12] == b"WAVE"
+        )
+        if looks_like_wav:
+            try:
+                with wave.open(io.BytesIO(decoded), "rb") as audio:
+                    if (
+                        audio.getframerate() == cls.SAMPLE_RATE
+                        and audio.getnchannels() == 1
+                        and audio.getsampwidth() == 2
+                    ):
+                        return audio.readframes(audio.getnframes()), False
+            except (EOFError, wave.Error):
+                pass
+
+        if base_mime in {"", "audio/l16", "audio/pcm", "audio/x-pcm"}:
+            rate_match = re.search(r"(?:^|;)\s*rate=(\d+)", normalized_mime)
+            source_rate = int(rate_match.group(1)) if rate_match else cls.SAMPLE_RATE
+            if source_rate == cls.SAMPLE_RATE:
+                return decoded, False
+            return cls._transcode_audio(
+                decoded,
+                input_args=["-f", "s16le", "-ar", str(source_rate), "-ac", "1"],
+            ), True
+
+        if base_mime.startswith("audio/") or looks_like_wav:
+            return cls._transcode_audio(decoded), True
+        return None
+
+    @classmethod
+    def _transcode_audio(
+        cls, decoded: bytes, *, input_args: list[str] | None = None
+    ) -> bytes:
+        ffmpeg = shutil.which("ffmpeg")
+        if not ffmpeg:
+            raise ValueError(
+                "Gemini returned audio that requires local conversion, but ffmpeg is unavailable"
+            )
+        command = [ffmpeg, "-hide_banner", "-loglevel", "error"]
+        command.extend(input_args or [])
+        command.extend(
+            [
+                "-i",
+                "pipe:0",
+                "-vn",
+                "-f",
+                "s16le",
+                "-acodec",
+                "pcm_s16le",
+                "-ar",
+                str(cls.SAMPLE_RATE),
+                "-ac",
+                "1",
+                "pipe:1",
+            ]
+        )
+        result = subprocess.run(
+            command,
+            input=decoded,
+            capture_output=True,
+            check=False,
+            timeout=30,
+            creationflags=(
+                subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+            ),
+        )
+        if result.returncode != 0 or not result.stdout or len(result.stdout) % 2:
+            raise ValueError("Gemini returned audio that ffmpeg could not normalize")
+        return result.stdout

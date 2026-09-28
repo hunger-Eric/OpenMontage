@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import io
 import wave
 from pathlib import Path
 from typing import Any
@@ -158,6 +159,213 @@ def test_gemini_tts_sends_selected_voice_and_wraps_pcm_as_wav(
         assert audio.getframerate() == 24_000
         assert audio.getnchannels() == 1
         assert audio.getsampwidth() == 2
+        assert audio.readframes(audio.getnframes()) == pcm
+
+
+def test_gemini_tts_accepts_provider_wav_response(
+    monkeypatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    pcm = b"\x03\x00\x04\x00" * 120
+    wav_bytes = io.BytesIO()
+    with wave.open(wav_bytes, "wb") as audio:
+        audio.setnchannels(1)
+        audio.setsampwidth(2)
+        audio.setframerate(24_000)
+        audio.writeframes(pcm)
+
+    def fake_post(url, **kwargs):  # noqa: ANN001
+        return _Response(
+            {
+                "modelVersion": "gemini-3.1-flash-tts-preview",
+                "candidates": [
+                    {
+                        "content": {
+                            "parts": [
+                                {
+                                    "inlineData": {
+                                        "mimeType": "audio/wav",
+                                        "data": base64.b64encode(
+                                            wav_bytes.getvalue()
+                                        ).decode("ascii"),
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                ],
+            }
+        )
+
+    monkeypatch.setattr("requests.post", fake_post)
+    output = tmp_path / "speech.wav"
+    result = GeminiTTS().execute(
+        {
+            "text": "测试旁白",
+            "voice": "Kore",
+            "language_code": "cmn-CN",
+            "output_path": str(output),
+        }
+    )
+
+    assert result.success is True
+    assert result.data["response"]["mime_types"] == ["audio/wav"]
+    with wave.open(str(output), "rb") as audio:
+        assert audio.getframerate() == 24_000
+        assert audio.readframes(audio.getnframes()) == pcm
+
+
+def test_gemini_tts_normalizes_parameterized_stereo_wav_response(
+    monkeypatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    stereo_frames = b"\x10\x00\x20\x00" * 4_800
+    wav_bytes = io.BytesIO()
+    with wave.open(wav_bytes, "wb") as audio:
+        audio.setnchannels(2)
+        audio.setsampwidth(2)
+        audio.setframerate(48_000)
+        audio.writeframes(stereo_frames)
+
+    def fake_post(url, **kwargs):  # noqa: ANN001
+        return _Response(
+            {
+                "modelVersion": "gemini-3.1-flash-tts-preview",
+                "candidates": [
+                    {
+                        "content": {
+                            "parts": [
+                                {
+                                    "inlineData": {
+                                        "mimeType": "audio/wav;codec=pcm;rate=48000",
+                                        "data": base64.b64encode(
+                                            wav_bytes.getvalue()
+                                        ).decode("ascii"),
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                ],
+            }
+        )
+
+    monkeypatch.setattr("requests.post", fake_post)
+    output = tmp_path / "speech.wav"
+    result = GeminiTTS().execute(
+        {
+            "text": "测试旁白",
+            "voice": "Kore",
+            "language_code": "cmn-CN",
+            "output_path": str(output),
+        }
+    )
+
+    assert result.success is True
+    assert result.data["response"]["mime_types"] == [
+        "audio/wav;codec=pcm;rate=48000"
+    ]
+    assert result.data["response"]["normalized_audio_parts"] == 1
+    with wave.open(str(output), "rb") as audio:
+        assert audio.getframerate() == 24_000
+        assert audio.getnchannels() == 1
+        assert audio.getsampwidth() == 2
+        assert audio.getnframes() > 0
+
+
+def test_gemini_tts_accepts_pcm_when_audio_mime_is_omitted(
+    monkeypatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    pcm = b"\x05\x00\x06\x00" * 120
+
+    def fake_post(url, **kwargs):  # noqa: ANN001
+        return _Response(
+            {
+                "modelVersion": "gemini-3.1-flash-tts-preview",
+                "candidates": [
+                    {
+                        "content": {
+                            "parts": [
+                                {
+                                    "inlineData": {
+                                        "data": base64.b64encode(pcm).decode("ascii")
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                ],
+            }
+        )
+
+    monkeypatch.setattr("requests.post", fake_post)
+    output = tmp_path / "speech.wav"
+    result = GeminiTTS().execute(
+        {
+            "text": "测试旁白",
+            "voice": "Kore",
+            "language_code": "cmn-CN",
+            "output_path": str(output),
+        }
+    )
+
+    assert result.success is True
+    assert result.data["response"]["mime_types"] == [""]
+    with wave.open(str(output), "rb") as audio:
+        assert audio.getframerate() == 24_000
+        assert audio.getnchannels() == 1
+        assert audio.getsampwidth() == 2
+        assert audio.readframes(audio.getnframes()) == pcm
+
+
+def test_gemini_tts_sniffs_wav_before_assuming_missing_mime_is_pcm(
+    monkeypatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    pcm = b"\x07\x00\x08\x00" * 120
+    wav_bytes = io.BytesIO()
+    with wave.open(wav_bytes, "wb") as audio:
+        audio.setnchannels(1)
+        audio.setsampwidth(2)
+        audio.setframerate(24_000)
+        audio.writeframes(pcm)
+
+    def fake_post(url, **kwargs):  # noqa: ANN001
+        return _Response(
+            {
+                "modelVersion": "gemini-3.1-flash-tts-preview",
+                "candidates": [
+                    {
+                        "content": {
+                            "parts": [
+                                {
+                                    "inlineData": {
+                                        "data": base64.b64encode(
+                                            wav_bytes.getvalue()
+                                        ).decode("ascii")
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                ],
+            }
+        )
+
+    monkeypatch.setattr("requests.post", fake_post)
+    output = tmp_path / "speech.wav"
+    result = GeminiTTS().execute(
+        {
+            "text": "测试旁白",
+            "voice": "Kore",
+            "language_code": "cmn-CN",
+            "output_path": str(output),
+        }
+    )
+
+    assert result.success is True
+    with wave.open(str(output), "rb") as audio:
         assert audio.readframes(audio.getnframes()) == pcm
 
 
