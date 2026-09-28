@@ -27,6 +27,10 @@ from tools.base_tool import ToolResult, ToolStatus
 from tools.video.video_selector import VideoSelector
 
 
+def test_selector_exposes_one_unified_generation_skill():
+    assert VideoSelector.agent_skills == ["ai-video-gen"]
+
+
 class _StubTool:
     """Minimal stand-in satisfying what _select_best_tool / _filter_candidates touch."""
 

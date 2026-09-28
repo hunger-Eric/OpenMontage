@@ -20,7 +20,9 @@ class VideoSelector(BaseTool):
     provider = "selector"
     stability = ToolStability.BETA
     runtime = ToolRuntime.HYBRID
-    agent_skills = ["ai-video-gen", "create-video", "ltx2", "gemini-omni", "atlas-cloud"]
+    # Keep the capability entry point singular. Provider-specific guidance is
+    # returned for the selected tool instead of being preloaded for every run.
+    agent_skills = ["ai-video-gen"]
 
     # Operations that REQUIRE motion: an image-only tool (image_selector) is not
     # an acceptable last-resort fallback for these, so fallback_tools_for() drops it.

@@ -80,7 +80,7 @@ class AgnesVideo(BaseTool):
         "Set AGNES_API_KEY and optionally AGNES_API_BASE_URL. "
         "The default endpoint is https://apihub.agnes-ai.com/v1."
     )
-    agent_skills = ["agnes-ai-generation", "ai-video-gen"]
+    agent_skills = ["ai-video-gen"]
     capabilities = ["text_to_video", "image_to_video", "reference_to_video"]
     supports = {
         "text_to_video": True,
