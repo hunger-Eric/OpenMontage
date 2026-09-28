@@ -287,7 +287,7 @@ class TTSSelector(BaseTool):
                 tool_by_provider[tool.provider] = tool
 
         # Gemini is the locked project default. Missing credentials or an
-        # unavailable route must surface as a blocker, never an implicit Grok
+        # unavailable route must surface as a blocker, never an implicit provider swap
         # or local-engine substitution.
         if preferred == self.DEFAULT_PROVIDER:
             return tool_by_provider.get(self.DEFAULT_PROVIDER), None

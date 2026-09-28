@@ -92,7 +92,7 @@ class GeminiOmniVideo(BaseTool):
     ]
     fallback_tools = ["veo_video", "sora_video", "kling_video", "minimax_video"]
     # Conversational editing + native audio are unique in the fleet, but preview
-    # output is capped at 720p/10s — below seedance (0.95) and grok/runway (0.9)
+    # output is capped at 720p/10s — below seedance (0.95) and runway (0.9)
     # on raw generation fidelity. Without a quality_score the scorer would only
     # count supports/stability flags and bury the editing capability entirely.
     # See lib/scoring.py.

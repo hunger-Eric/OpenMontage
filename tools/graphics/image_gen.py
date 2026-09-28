@@ -62,7 +62,7 @@ class ImageGen(BaseTool):
     ]
     best_for = [
         "DEPRECATED — prefer image_selector which routes to per-provider tools "
-        "(flux_image, openai_image, recraft_image, grok_image, local_diffusion, "
+        "(flux_image, openai_image, recraft_image, local_diffusion, "
         "pexels_image, pixabay_image).",
         "Kept only for backwards compatibility. New code should not call this.",
     ]

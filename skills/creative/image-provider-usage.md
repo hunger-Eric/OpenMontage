@@ -10,7 +10,6 @@
 | Tool | Provider | Cost | Speed | Best For |
 |------|----------|------|-------|----------|
 | `flux_image` | FLUX 2 Pro via fal.ai | ~$0.03-0.05 | ~5-10s | Photorealism, general purpose, workhorse |
-| `grok_image` | Grok Imagine Image (xAI) | $0.02/output + $0.002/input edit image | ~5-15s | Image edits, style transfer, multi-image compositing |
 | `openai_image` | GPT Image 2 (OpenAI) | ~$0.01-0.21 | ~5-15s | Complex instructions, text in images, multi-element |
 | `recraft_image` | Recraft V4 via fal.ai | ~$0.04-0.25 | ~5-10s | Logos, SVG vectors, brand assets, text rendering (see caveat below) |
 | `local_diffusion` | Stable Diffusion (local) | Free | ~30s+ | Offline, privacy, free |
@@ -36,8 +35,8 @@
 | **Real-world photo** (city, nature, people) | `pexels_image` | Real photos > AI for realism | `pixabay_image` → `flux_image` |
 | **Technical diagram** | `diagram_gen` | Structured, editable | `flux_image` with diagram prompt |
 | **Abstract/conceptual illustration** | `flux_image` | AI excels at custom concepts | `openai_image` |
-| **Style transfer / repaint of an existing image** | `grok_image` | Native edit flow, strong promptable transforms | `openai_image` |
-| **Multi-image merge / composite** | `grok_image` | Can combine multiple source images into one scene | `openai_image` |
+| **Style transfer / repaint of an existing image** | `openai_image` | Native edit flow and strong instruction following | `flux_image` |
+| **Multi-image merge / composite** | `openai_image` | Handles complex multi-element instructions | `flux_image` |
 | **Logo or brand asset** | `recraft_image` | SVG support, text accuracy | `openai_image` |
 | **Image with text/labels** | `openai_image` | Best text rendering (GPT Image 2) | `recraft_image` |
 | **Complex multi-element composition** | `openai_image` | Best instruction following | `flux_image` |

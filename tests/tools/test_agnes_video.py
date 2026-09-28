@@ -27,7 +27,7 @@ def test_agnes_video_creates_polls_downloads_and_preserves_receipt(monkeypatch, 
     monkeypatch.setenv("AGNES_API_BASE_URL", "https://apihub.agnes-ai.com/v1")
     monkeypatch.setattr(module.shutil, "which", lambda _name: "ffprobe")
     monkeypatch.setattr(module.time, "sleep", lambda _seconds: None)
-    monkeypatch.setattr(module.requests, "post", lambda url, **kwargs: calls.append(("post", url, kwargs)) or _Response({"id": "task-1", "task_id": "task-1", "video_id": "video-1", "status": "queued"}))
+    monkeypatch.setattr(module.requests, "post", lambda url, **kwargs: calls.append(("post", url, kwargs)) or _Response({"id": "task-1", "status": "queued"}))
 
     def fake_get(url, **kwargs):
         calls.append(("get", url, kwargs))
@@ -50,28 +50,26 @@ def test_agnes_video_creates_polls_downloads_and_preserves_receipt(monkeypatch, 
     assert result.success
     assert result.data["task_id"] == "task-1"
     assert result.data["fallback_used"] is False
-    assert result.data["video_id"] == "video-1"
-    assert result.data["seconds_requested"] == 5
+    assert result.data["num_frames_requested"] == 121
     assert output.read_bytes() == b"video-bytes"
     create_payload = calls[0][2]["json"]
-    assert create_payload == {
-        "model": "agnes-video-2.5-flash",
-        "prompt": "A mint hair clip on cream tissue paper",
-        "seconds": "5",
-        "mode": "text",
-        "size": "720P",
-        "aspect_ratio": "9:16",
-        "n": 1,
-    }
-    poll_call = next(call for call in calls if call[0] == "get" and call[1].endswith("/agnesapi"))
-    assert poll_call[2]["params"] == {"video_id": "video-1", "model_name": "agnes-video-2.5-flash"}
+    assert create_payload["model"] == "agnes-video-v2.0"
+    assert create_payload["width"] == 768
+    assert create_payload["height"] == 1152
+    assert create_payload["num_frames"] == 121
+    assert create_payload["frame_rate"] == 24
+    assert "seconds" not in create_payload
+    assert "size" not in create_payload
+    assert "aspect_ratio" not in create_payload
+    poll_call = next(call for call in calls if call[0] == "get" and "/videos/task-1" in call[1])
+    assert "params" not in poll_call[2]
 
 
 def test_agnes_video_image_mode_uses_selector_compatible_url(monkeypatch, tmp_path):
     monkeypatch.setenv("AGNES_API_KEY", "test-key")
     monkeypatch.setattr(module.shutil, "which", lambda _name: "ffprobe")
     captured = {}
-    monkeypatch.setattr(module.requests, "post", lambda _url, **kwargs: captured.update(kwargs["json"]) or _Response({"id": "task-2", "video_id": "video-2"}))
+    monkeypatch.setattr(module.requests, "post", lambda _url, **kwargs: captured.update(kwargs["json"]) or _Response({"id": "task-2"}))
     monkeypatch.setattr(module.requests, "get", lambda url, **_kwargs: _Response(content=b"video") if url.startswith("https://cdn") else _Response({"status": "completed", "url": "https://cdn.example/v.mp4"}))
     monkeypatch.setattr(module, "probe_output", lambda _path: {"duration_seconds": 5.0, "video_width": 1152, "video_height": 648})
 
@@ -84,15 +82,15 @@ def test_agnes_video_image_mode_uses_selector_compatible_url(monkeypatch, tmp_pa
     })
 
     assert result.success
-    assert captured["images"] == ["https://example.com/reference.jpg"]
-    assert captured["mode"] == "reference"
+    assert captured["image"] == "https://example.com/reference.jpg"
+    assert captured["mode"] == "ti2vid"
 
 
-def test_agnes_video_maps_81_legacy_frames_to_four_seconds(monkeypatch, tmp_path):
+def test_agnes_video_preserves_81_frame_request(monkeypatch, tmp_path):
     monkeypatch.setenv("AGNES_API_KEY", "test-key")
     monkeypatch.setattr(module.shutil, "which", lambda _name: "ffprobe")
     captured = {}
-    monkeypatch.setattr(module.requests, "post", lambda _url, **kwargs: captured.update(kwargs["json"]) or _Response({"id": "task-3", "video_id": "video-3"}))
+    monkeypatch.setattr(module.requests, "post", lambda _url, **kwargs: captured.update(kwargs["json"]) or _Response({"id": "task-3"}))
     monkeypatch.setattr(module.requests, "get", lambda url, **_kwargs: _Response(content=b"video") if url.startswith("https://cdn") else _Response({"status": "completed", "url": "https://cdn.example/frame.mp4"}))
     monkeypatch.setattr(module, "probe_output", lambda _path: {"duration_seconds": 4.0, "video_width": 1280, "video_height": 704})
 
@@ -104,7 +102,9 @@ def test_agnes_video_maps_81_legacy_frames_to_four_seconds(monkeypatch, tmp_path
     })
 
     assert result.success
-    assert captured["seconds"] == "4"
+    assert captured["model"] == "agnes-video-v2.0"
+    assert captured["num_frames"] == 81
+    assert captured["frame_rate"] == 24
 
 
 def test_agnes_video_is_unavailable_without_key(monkeypatch):

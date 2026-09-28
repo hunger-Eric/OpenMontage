@@ -42,8 +42,8 @@ class DashscopeImage(BaseTool):
         "Set DASHSCOPE_API_KEY to your Alibaba Cloud DashScope API key.\n"
         "  Get one at https://dashscope.aliyun.com/"
     )
-    fallback = "grok_image"
-    fallback_tools = ["grok_image", "openai_image", "flux_image", "recraft_image"]
+    fallback = "openai_image"
+    fallback_tools = ["openai_image", "flux_image", "recraft_image"]
     agent_skills = ["dashscope"]
 
     capabilities = ["generate_image", "text_to_image"]
@@ -59,7 +59,7 @@ class DashscopeImage(BaseTool):
         "Chinese-language prompt understanding",
         "cost-effective image generation via Alibaba Cloud",
     ]
-    not_good_for = ["offline generation", "image editing (use grok_image edit mode)"]
+    not_good_for = ["offline generation"]
 
     input_schema = {
         "type": "object",

@@ -163,9 +163,9 @@ def test_gemini_tts_sends_selected_voice_and_wraps_pcm_as_wav(
 
 def test_tts_selector_defaults_to_gemini_without_fallback(monkeypatch) -> None:
     gemini = _StubTTS("gemini_tts", "gemini", ToolStatus.AVAILABLE)
-    grok = _StubTTS("grok_cli_tts", "grok", ToolStatus.AVAILABLE)
+    elevenlabs = _StubTTS("elevenlabs_tts", "elevenlabs", ToolStatus.AVAILABLE)
     selector = TTSSelector()
-    selector._providers = lambda: [grok, gemini]  # type: ignore[method-assign]
+    selector._providers = lambda: [elevenlabs, gemini]  # type: ignore[method-assign]
     monkeypatch.setattr(
         "lib.scoring.rank_providers",
         lambda candidates, context: [],
@@ -177,15 +177,15 @@ def test_tts_selector_defaults_to_gemini_without_fallback(monkeypatch) -> None:
 
     assert result.success is True
     assert gemini.last_inputs is not None
-    assert grok.last_inputs is None
+    assert elevenlabs.last_inputs is None
     assert TTSSelector.input_schema["properties"]["preferred_provider"]["default"] == "gemini"
 
 
 def test_tts_selector_stops_when_default_gemini_is_unavailable(monkeypatch) -> None:
     gemini = _StubTTS("gemini_tts", "gemini", ToolStatus.UNAVAILABLE)
-    grok = _StubTTS("grok_cli_tts", "grok", ToolStatus.AVAILABLE)
+    elevenlabs = _StubTTS("elevenlabs_tts", "elevenlabs", ToolStatus.AVAILABLE)
     selector = TTSSelector()
-    selector._providers = lambda: [grok, gemini]  # type: ignore[method-assign]
+    selector._providers = lambda: [elevenlabs, gemini]  # type: ignore[method-assign]
     monkeypatch.setattr("lib.scoring.rank_providers", lambda candidates, context: [])
 
     result = selector.execute(
@@ -193,4 +193,4 @@ def test_tts_selector_stops_when_default_gemini_is_unavailable(monkeypatch) -> N
     )
 
     assert result.success is False
-    assert grok.last_inputs is None
+    assert elevenlabs.last_inputs is None

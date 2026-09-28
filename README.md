@@ -255,7 +255,7 @@ SUNO_API_KEY=your-key          # Full songs, instrumentals, any genre
 # Voice & images:
 ELEVENLABS_API_KEY=your-key    # Premium TTS, AI music, sound effects
 OPENAI_API_KEY=your-key        # OpenAI TTS, GPT Image 2 images
-XAI_API_KEY=your-key           # xAI Grok image edits/generation + Grok video generation
+AGNES_API_KEY=your-key         # Agnes Video v2.0 (default video provider)
 GOOGLE_API_KEY=your-key        # Google Imagen images, Google TTS (700+ voices)
 
 # More video providers:
@@ -503,7 +503,7 @@ Each tool declares which Layer 3 skills it relies on. The agent reads Layer 1 to
 | **Gemini Omni Flash** | Cloud API | Conversational multimodal video generation and editing |
 | **Runway Gen-4** | Cloud API | Cinematic quality, Gen-3 Alpha Turbo / Gen-4 Turbo / Gen-4 Aleph |
 | **Google Veo 3.1** | Cloud API | Premium cinematic video via Google GenAI or fal.ai |
-| **Grok Imagine Video** | Cloud API | Strong reference-image video and xAI-native short-form generation |
+| **Agnes Video v2.0** | Cloud API | Default text-to-video and image-conditioned video provider |
 | **Higgsfield** | Cloud API | Multi-model orchestrator with Soul ID for character consistency |
 | **MiniMax / H3** | Cloud API | Cost-effective generation, including text, image, and reference-driven H3 workflows |
 | **HeyGen** | Cloud API | Multi-model gateway |
@@ -524,7 +524,6 @@ Each tool declares which Layer 3 skills it relies on. The agent reads Layer 1 to
 |----------|------|-------|
 | **FLUX** | Cloud API | State-of-the-art quality |
 | **Google Imagen** | Cloud API | Imagen 4 — high-quality, multiple aspect ratios |
-| **Grok Imagine Image** | Cloud API | Strong image edits, style transfer, and multi-image compositing |
 | **GPT Image 2** | Cloud API | OpenAI's image model |
 | **Seedream 5.0** | Cloud API | High-fidelity text-to-image and image editing through supported gateways |
 | **Nano Banana 2** | Cloud API | Multimodal image generation and editing |

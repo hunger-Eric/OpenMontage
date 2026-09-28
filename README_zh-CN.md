@@ -183,7 +183,7 @@ SUNO_API_KEY=your-key          # 完整的歌曲、伴奏，涵盖任何流派
 # 语音与图像:
 ELEVENLABS_API_KEY=your-key    # 顶级 TTS、AI 音乐、音效
 OPENAI_API_KEY=your-key        # OpenAI TTS、GPT Image 2 图像
-XAI_API_KEY=your-key           # xAI Grok 图像编辑/生成 + Grok 视频生成
+AGNES_API_KEY=your-key         # Agnes Video v2.0（默认视频提供商）
 GOOGLE_API_KEY=your-key        # Google Imagen 图像、Google TTS（700+ 种声音）
 
 # 更多视频提供商:
@@ -418,7 +418,7 @@ OpenMontage/
 > **包含定价与免费额度的完整设置指南：** [`docs/PROVIDERS.md`](docs/PROVIDERS.md)
 
 <details>
-<summary><strong>视频生成 — 15 家提供商</strong></summary>
+<summary><strong>视频生成提供商</strong></summary>
 
 | 提供商 | 类型 | 备注 |
 |----------|------|-------|
@@ -426,7 +426,7 @@ OpenMontage/
 | **Seedance 2.0（火山方舟）** | 云端 API | 独立的 `seedance_ark` 官方直连接口 |
 | **Runway Gen-4** | 云端 API | 电影级质量，Gen-3 Alpha Turbo / Gen-4 Turbo / Gen-4 Aleph |
 | **Google Veo 3** | 云端 API | 长篇幅，电影级。通过 fal.ai 或 HeyGen 接入。 |
-| **Grok Imagine Video** | 云端 API | 强大的基于参考图的视频和 xAI 原生短视频生成 |
+| **Agnes Video v2.0** | 云端 API | 默认的文生视频与图片驱动视频提供商 |
 | **Higgsfield** | 云端 API | 带 Soul ID 以实现角色一致性的多模型编排器 |
 | **MiniMax** | 云端 API | 极具成本效益 |
 | **HeyGen** | 云端 API | 多模型网关 |
@@ -441,13 +441,12 @@ OpenMontage/
 </details>
 
 <details>
-<summary><strong>图像生成 — 10 种工具/提供商</strong></summary>
+<summary><strong>图像生成工具/提供商</strong></summary>
 
 | 提供商 | 类型 | 备注 |
 |----------|------|-------|
 | **FLUX** | 云端 API | 业界顶尖质量 |
 | **Google Imagen** | 云端 API | Imagen 4 — 高质量、多种长宽比 |
-| **Grok Imagine Image** | 云端 API | 强大的图像编辑、风格转换和多图合成 |
 | **GPT Image 2** | 云端 API | OpenAI 的图像模型 |
 | **Recraft** | 云端 API | 专注于设计的生成 |
 | **Local Diffusion** | 本地 GPU | Stable Diffusion，免费 |

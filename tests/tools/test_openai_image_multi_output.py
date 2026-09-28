@@ -3,7 +3,7 @@
 `execute()` requested `n` images from the API and `estimate_cost` scales with
 `n`, but result handling was hardcoded to `response.data[0]` — images 1..n-1
 were decoded never, written never, and absent from `artifacts`. The user paid
-for `n` images and received one. The sibling tools (`grok_image`,
+for `n` images and received one. The sibling tools (`flux_image`,
 `dashscope_image`) already loop over every returned image.
 """
 

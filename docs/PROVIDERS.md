@@ -42,7 +42,7 @@ GOOGLE_API_KEY=              # Google TTS + Imagen + Lyria music + Gemini Omni/V
 ELEVENLABS_API_KEY=          # TTS, music, sound effects (10K chars/month free)
 FISH_AUDIO_API_KEY=          # fish.audio TTS (voice cloning via reference_id, inline emotion tags)
 OPENAI_API_KEY=              # OpenAI TTS + GPT Image 2 images
-XAI_API_KEY=                 # xAI Grok image generation/editing + Grok video generation
+AGNES_API_KEY=               # Agnes Video v2.0 (project default video provider)
 DOUBAO_SPEECH_API_KEY=       # Volcengine Doubao Speech TTS (strong Mandarin narration)
 DOUBAO_SPEECH_VOICE_TYPE=    # Default Doubao speaker/voice type
 DASHSCOPE_API_KEY=           # Alibaba DashScope (Qwen image gen, TTS, ASR with word timestamps)
@@ -106,38 +106,27 @@ stable contract for them at the time of this update.
 
 ## Cloud Providers
 
-### xAI — Grok Image + Video
+### Agnes AI — Default Video Provider
 
-> **Best if you want one provider for image edits and reference-conditioned short video.** Grok covers both image generation/editing and video generation under one key.
+> **OpenMontage's locked default for text-to-video and image-conditioned video.** If Agnes is unavailable, the selector stops and asks for an explicit provider choice instead of silently spending through another backend.
 
-**Tools unlocked:** `grok_image`, `grok_video`
-**Env var:** `XAI_API_KEY`
+**Tool unlocked:** `agnes_video`
+
+**Env var:** `AGNES_API_KEY`
+
+**Default model:** `agnes-video-v2.0`
 
 #### Setup
 
-1. Create an xAI developer account
-2. Generate an API key in the xAI developer console
-3. Add to `.env`: `XAI_API_KEY=xai-...`
+1. Create an Agnes AI account and obtain an API key
+2. Add to `.env`: `AGNES_API_KEY=...`
+3. Optionally set `AGNES_API_BASE_URL`; the default is `https://apihub.agnes-ai.com/v1`
 
 #### What it's best for
 
-- Image editing and style transfer
-- Multi-image composites into one generated frame
-- Short reference-image videos where a person, garment, or product must carry into motion
-
-#### Pricing
-
-Current xAI docs pricing for the Grok media models:
-
-| Model | Price |
-|------|-------|
-| `grok-imagine-image` | $0.02 per generated image |
-| `grok-imagine-image` input images (edits/composites) | $0.002 per input image |
-| `grok-imagine-video` at 480p | $0.05/sec |
-| `grok-imagine-video` at 720p | $0.07/sec |
-| `grok-imagine-video` input images | $0.002 per input image |
-
-OpenMontage now uses those published rates in the Grok tool estimators.
+- Text-to-video
+- Image-conditioned product and short-form video
+- Asynchronous generation with task receipts and explicit polling
 
 ---
 
@@ -1362,7 +1351,7 @@ These tools require only FFmpeg or Python packages — no GPU, no API key.
 | **Volcengine Ark** | `ARK_API_KEY` | `seedance_ark` | Pay-as-you-go |
 | **MiniMax direct** | `MINIMAX_API_KEY` | `minimax_image`, `minimax_video` | Pay-as-you-go |
 | **OpenAI** | `OPENAI_API_KEY` | `openai_tts`, `openai_image` | Paid only |
-| **xAI** | `XAI_API_KEY` | `grok_image`, `grok_video` | Paid only |
+| **Agnes AI** | `AGNES_API_KEY` | `agnes_video` | Token plan |
 | **Runway** | `RUNWAY_API_KEY` | `runway_video` | Free trial + paid |
 | **Higgsfield** | `HIGGSFIELD_API_KEY` + `HIGGSFIELD_API_SECRET` | `higgsfield_video` | Subscription ($15-84/mo) |
 | **HeyGen** | `HEYGEN_API_KEY` | `heygen_video` | Pay-as-you-go |
@@ -1381,8 +1370,8 @@ How many providers cover each capability:
 
 | Capability | Cloud Providers | Local Providers | Free Options |
 |-----------|----------------|-----------------|--------------|
-| **Image Generation** | FLUX, Kling Official, Grok, Google Imagen, GPT Image 2, Recraft | Local Diffusion | Pexels, Pixabay (stock) |
-| **Video Generation** | Grok, Kling Official, fal.ai, Seedance via Volcengine Ark, Runway, Veo, Gemini Omni, Higgsfield, MiniMax, HeyGen, Tencent Hunyuan, ComfyUI Partner Nodes | WAN, Hunyuan, CogVideo, LTX, ComfyUI WAN, ComfyUI MiniMax H3 | Pexels, Pixabay (stock) |
+| **Image Generation** | FLUX, Kling Official, Google Imagen, GPT Image 2, Recraft | Local Diffusion | Pexels, Pixabay (stock) |
+| **Video Generation** | Agnes AI, Kling Official, fal.ai, Seedance via Volcengine Ark, Runway, Veo, Gemini Omni, Higgsfield, MiniMax, HeyGen, Tencent Hunyuan, ComfyUI Partner Nodes | WAN, Hunyuan, CogVideo, LTX, ComfyUI WAN, ComfyUI MiniMax H3 | Pexels, Pixabay (stock) |
 | **Text-to-Speech** | Azure AI Speech, ElevenLabs, fish.audio, Google TTS, Kling Official, OpenAI | Piper | Piper, Google free tier, ElevenLabs free tier, Azure free tier, fish.audio s2.1-pro-free |
 | **Music Generation** | ElevenLabs, Suno, Google Lyria | — | ElevenLabs free tier |
 | **Post-Production** | — | FFmpeg (compose, stitch, trim, mix, enhance, grade) | All free |
