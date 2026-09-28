@@ -1,6 +1,19 @@
 # OpenMontage Current Project State
 
-Updated: 2026-09-27
+Updated: 2026-09-28
+
+## 2026-09-28 Agnes local image-to-video bridge repair
+
+- `agnes_video` now declares and accepts `reference_image_path`, so
+  `video_selector` preserves the local file for the provider instead of forcing
+  the generic FAL upload path.
+- The Agnes adapter follows the provider client's local-media behavior by
+  uploading a local reference image to one-hour ephemeral Litterbox storage,
+  then submitting the returned HTTPS URL to the existing Agnes Video v2.0
+  image-to-video contract.
+- Focused provider and selector regression coverage passes. No live image
+  upload or paid video generation was run during the repair; those external
+  layers remain unverified.
 
 ## Current decision
 

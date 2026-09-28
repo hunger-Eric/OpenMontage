@@ -24,6 +24,7 @@ from typing import Any
 import pytest
 
 from tools.base_tool import ToolResult, ToolStatus
+from tools.video.agnes_video import AgnesVideo
 from tools.video.video_selector import VideoSelector
 
 
@@ -383,3 +384,34 @@ def test_ark_local_reference_routes_without_fal_upload(rankings, monkeypatch, tm
     assert "image_url" not in ark.last_execute_inputs
     assert result.data["selected_tool"] == "seedance_ark"
     assert result.data["selected_provider"] == "ark"
+
+
+def test_agnes_local_reference_routes_to_provider_without_fal_upload(rankings, monkeypatch, tmp_path):
+    """Agnes owns its local-file bridge instead of requiring FAL credentials."""
+    agnes = _StubTool("agnes_video", "agnes")
+    agnes.input_schema = AgnesVideo.input_schema
+    rankings.append(_ScoreStub("agnes_video", "agnes", 0.99))
+
+    def fail_upload(*args, **kwargs):
+        raise AssertionError("Agnes local references must use the Agnes upload bridge")
+
+    monkeypatch.setattr("tools.video._shared.upload_image_fal", fail_upload)
+    image_path = tmp_path / "anchor.jpg"
+    image_path.write_bytes(b"not-read-by-selector")
+
+    selector = VideoSelector()
+    selector._providers = lambda: [agnes]  # type: ignore[assignment]
+    result = selector.execute({
+        "prompt": "motion",
+        "operation": "image_to_video",
+        "preferred_provider": "agnes",
+        "allowed_providers": ["agnes"],
+        "reference_image_path": str(image_path),
+    })
+
+    assert result.success is True
+    assert agnes.last_execute_inputs is not None
+    assert agnes.last_execute_inputs["reference_image_path"] == str(image_path)
+    assert "image_url" not in agnes.last_execute_inputs
+    assert result.data["selected_tool"] == "agnes_video"
+    assert result.data["selected_provider"] == "agnes"

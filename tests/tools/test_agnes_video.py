@@ -17,6 +17,12 @@ class _Response:
         return self._payload
 
 
+class _UploadResponse(_Response):
+    def __init__(self, text):
+        super().__init__()
+        self.text = text
+
+
 def test_agnes_video_creates_polls_downloads_and_preserves_receipt(monkeypatch, tmp_path):
     calls = []
     states = iter([
@@ -84,6 +90,58 @@ def test_agnes_video_image_mode_uses_selector_compatible_url(monkeypatch, tmp_pa
     assert result.success
     assert captured["image"] == "https://example.com/reference.jpg"
     assert captured["mode"] == "ti2vid"
+
+
+def test_agnes_video_image_mode_uploads_local_reference_without_fal(monkeypatch, tmp_path):
+    monkeypatch.setenv("AGNES_API_KEY", "test-key")
+    monkeypatch.setattr(module.shutil, "which", lambda _name: "ffprobe")
+    local_image = tmp_path / "reference.jpg"
+    local_image.write_bytes(b"image-bytes")
+    uploaded = {}
+
+    def fake_upload(path):
+        uploaded["path"] = path
+        return "https://litterbox.example/reference.jpg"
+
+    monkeypatch.setattr(module, "upload_image_litterbox", fake_upload, raising=False)
+    captured = {}
+    monkeypatch.setattr(module.requests, "post", lambda _url, **kwargs: captured.update(kwargs["json"]) or _Response({"id": "task-local"}))
+    monkeypatch.setattr(module.requests, "get", lambda url, **_kwargs: _Response(content=b"video") if url.startswith("https://cdn") else _Response({"status": "completed", "url": "https://cdn.example/local.mp4"}))
+    monkeypatch.setattr(module, "probe_output", lambda _path: {"duration_seconds": 5.0, "video_width": 648, "video_height": 1152})
+
+    result = AgnesVideo().execute({
+        "prompt": "Subtle product movement",
+        "output_path": str(tmp_path / "local-image.mp4"),
+        "operation": "image_to_video",
+        "reference_image_path": str(local_image),
+        "aspect_ratio": "9:16",
+        "poll_interval_seconds": 1,
+    })
+
+    assert result.success
+    assert uploaded["path"] == str(local_image)
+    assert captured["image"] == "https://litterbox.example/reference.jpg"
+    assert captured["mode"] == "ti2vid"
+
+
+def test_agnes_reference_upload_uses_ephemeral_litterbox_contract(monkeypatch, tmp_path):
+    local_image = tmp_path / "reference.jpg"
+    local_image.write_bytes(b"image-bytes")
+    captured = {}
+
+    def fake_post(url, **kwargs):
+        captured["url"] = url
+        captured.update(kwargs)
+        return _UploadResponse("https://litter.catbox.moe/reference.jpg\n")
+
+    monkeypatch.setattr(module.requests, "post", fake_post)
+
+    result = module.upload_image_litterbox(str(local_image))
+
+    assert result == "https://litter.catbox.moe/reference.jpg"
+    assert captured["url"] == module.LITTERBOX_UPLOAD_URL
+    assert captured["data"] == {"reqtype": "fileupload", "time": "1h"}
+    assert captured["files"]["fileToUpload"][0] == "reference.jpg"
 
 
 def test_agnes_video_preserves_81_frame_request(monkeypatch, tmp_path):

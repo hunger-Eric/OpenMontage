@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import importlib.util
+import mimetypes
 import os
 import shutil
 import time
@@ -29,6 +30,7 @@ from tools.video._shared import probe_output
 DEFAULT_BASE_URL = "https://apihub.agnes-ai.com/v1"
 DEFAULT_MODEL = "agnes-video-v2.0"
 TERMINAL_FAILURES = {"failed", "cancelled", "canceled"}
+LITTERBOX_UPLOAD_URL = "https://litterbox.catbox.moe/resources/internals/api.php"
 
 
 def _api_key() -> str | None:
@@ -64,9 +66,30 @@ def _frame_count(duration_seconds: float, frame_rate: float) -> int:
     return min(441, max(9, round((requested - 1) / 8) * 8 + 1))
 
 
+def upload_image_litterbox(image_path: str) -> str:
+    """Upload a local Agnes reference image to an ephemeral public URL."""
+    path = Path(image_path)
+    if not path.is_file():
+        raise FileNotFoundError(f"Image not found: {image_path}")
+
+    content_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+    with path.open("rb") as handle:
+        response = requests.post(
+            LITTERBOX_UPLOAD_URL,
+            data={"reqtype": "fileupload", "time": "1h"},
+            files={"fileToUpload": (path.name, handle, content_type)},
+            timeout=120,
+        )
+    response.raise_for_status()
+    image_url = response.text.strip()
+    if not image_url.startswith("https://"):
+        raise RuntimeError("Litterbox upload did not return an HTTPS image URL")
+    return image_url
+
+
 class AgnesVideo(BaseTool):
     name = "agnes_video"
-    version = "0.3.0"
+    version = "0.3.1"
     tier = ToolTier.GENERATE
     capability = "video_generation"
     provider = "agnes"
@@ -111,6 +134,7 @@ class AgnesVideo(BaseTool):
             "model": {"type": "string", "enum": [DEFAULT_MODEL], "default": DEFAULT_MODEL},
             "image_url": {"type": "string"},
             "reference_image_url": {"type": "string"},
+            "reference_image_path": {"type": "string"},
             "reference_image_urls": {"type": "array", "items": {"type": "string"}},
             "aspect_ratio": {"type": "string", "enum": ["16:9", "9:16", "1:1"], "default": "16:9"},
             "width": {"type": "integer", "minimum": 1},
@@ -129,6 +153,7 @@ class AgnesVideo(BaseTool):
         cpu_cores=1, ram_mb=512, vram_mb=0, disk_mb=2048, network_required=True
     )
     side_effects = [
+        "uploads local reference images to ephemeral public Litterbox storage for 1 hour",
         "creates one Agnes video task",
         "may consume Agnes account credits",
         "downloads a completed MP4 to output_path",
@@ -161,8 +186,27 @@ class AgnesVideo(BaseTool):
         single_image = inputs.get("image_url") or inputs.get("reference_image_url")
         if single_image:
             image_urls.insert(0, str(single_image))
+        local_image = inputs.get("reference_image_path")
+        if (
+            operation in {"image_to_video", "reference_to_video"}
+            and local_image
+            and not image_urls
+        ):
+            try:
+                image_urls.insert(0, upload_image_litterbox(str(local_image)))
+            except Exception as exc:
+                return ToolResult(
+                    success=False,
+                    error=f"Failed to upload Agnes reference image: {exc}",
+                )
         if operation in {"image_to_video", "reference_to_video"} and not image_urls:
-            return ToolResult(success=False, error=f"{operation} requires an image_url or reference_image_urls")
+            return ToolResult(
+                success=False,
+                error=(
+                    f"{operation} requires reference_image_path, image_url, "
+                    "or reference_image_urls"
+                ),
+            )
 
         frame_rate = float(inputs.get("frame_rate", 24))
         num_frames = int(inputs.get("num_frames") or _frame_count(float(inputs.get("duration", 5)), frame_rate))
