@@ -98,6 +98,15 @@ For each script section:
 8. Record the applied `voice_performance` metadata on each narration asset
 9. Verify the audio file exists and duration matches expected timing (±15%)
 
+**Narration timing is not a license to stretch speech.** If the generated read
+misses the planned duration by more than 15%, revise the script/scene timing or
+regenerate with a provider-supported speaking-rate control. Do not use global
+post-generation `atempo` merely to fill the visual timeline. Any slowdown below
+`0.90` requires explicit user approval plus an actual listening review; without
+both, the asset must remain unapproved. A provider that receives only verbatim
+text and a voice name has not applied section-level delivery cues — record
+`delivery_cues_applied: false` instead of inferring approval from decode success.
+
 **Pronunciation guide**: If the script contains technical terms, jargon, or names with non-obvious pronunciation, include a pronunciation map in the TTS request.
 
 **Flat voice failure:** If the approved voice sounds monotone, robotic, rushed,

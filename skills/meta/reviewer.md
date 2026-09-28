@@ -84,7 +84,7 @@ Count findings by severity:
 |----------|--------|
 | 0 critical, any suggestions/nitpicks | **Pass** — proceed to checkpoint. Note suggestions for the record. |
 | 1+ critical findings | **Revise** — fix all critical findings, then re-review (max 2 rounds). |
-| After 2 revision rounds, still critical | **Pass with warnings** — proceed anyway, note unresolved issues. Never block indefinitely. |
+| After 2 revision rounds, still critical | **Stop and escalate** — keep the artifact non-deliverable, report the unresolved findings, and request the smallest decision needed. |
 
 ### Step 7: Record Review
 
@@ -310,7 +310,12 @@ Run at **compose** and **publish** stages. Ensures the agent reviewed the actual
    - `promise_preservation` must confirm `delivery_promise_honored`
    - `subtitle_check` must report presence/absence
    - Any check with missing data: **SUGGESTION** — "Self-review check [X] has incomplete data"
-4. **Promise preservation**: If `promise_preservation.silent_downgrade_detected` is true: **CRITICAL** — "Self-review detected silent downgrade from motion-led to still-led."
+4. **Audio balance and pace** (when narration or music assets are declared):
+   - `mix_balance_verified` must be `true`; a combined audio stream is not per-track evidence.
+   - `music_audible == false` or `music_to_narration_lu > 20` → **CRITICAL** — revise the mix.
+   - `narration_pace_acceptable == false` or `narration_tempo_ratio < 0.90` → **CRITICAL** — restore a natural read and revise visual timing.
+   - `final_review.status` of `revise` is non-deliverable; it must not be presented as a completed video.
+5. **Promise preservation**: If `promise_preservation.silent_downgrade_detected` is true: **CRITICAL** — "Self-review detected silent downgrade from motion-led to still-led."
 
 ### At publish stage:
 1. Verify that `final_review` was passed through as a required artifact

@@ -14,6 +14,13 @@ Read `edit_decisions.render_runtime` before anything else. It was locked at prop
 - **`render_runtime="ffmpeg"`** — simple concat/trim. Call `video_compose` directly; it will NOT auto-upgrade to Remotion when this runtime is explicitly locked.
 - **Runtime unavailable** — surface the blocker per AGENT_GUIDE.md > "Escalate Blockers Explicitly" and get user approval (recorded as a `render_runtime_selection` decision in decision_log) before switching.
 
+`hyperframes_compose` is an internal renderer, not a delivery entry point. A
+direct call may create an MP4 but does not satisfy the pipeline's final-review
+contract. Every final render, including HyperFrames atelier work, MUST enter
+through `video_compose(operation="render")` with `edit_decisions`,
+`asset_manifest`, and `proposal_packet`; only that path may produce a
+deliverable `final_review`.
+
 `final_review.checks.promise_preservation.render_runtime_used` must equal the runtime that actually ran; `runtime_swap_detected` must be `false` unless an approved decision authorizes the swap.
 
 **Pass `proposal_packet` to `video_compose.execute()`** so in-tool swap detection can actually fire. Without it the `runtime_swap_check` is reported as `skipped` and you have to rely on the reviewer skill's cross-artifact comparison instead.
@@ -297,7 +304,7 @@ Common catches:
 
 After rendering, the agent **must review its own output** before presenting to the user. This catches issues the validator can't see (visual quality, audio sync, subtitle readability).
 
-**CRITICAL: You MUST complete ALL of steps 6a through 6e. Do NOT skip any step.
+**CRITICAL: You MUST complete ALL of steps 6a through 6g. Do NOT skip any step.
 The most common agent failure is doing 6a (frames) and 6c (visual) while skipping
 6b (audio transcription) — which misses catastrophic issues like missing audio entirely.**
 
@@ -352,7 +359,14 @@ result = Transcriber().execute({
 - Is the full narration captured? (compare last transcribed word to last scripted word)
 - Any words cut off at the end? (narration exceeding video duration)
 - Timing alignment — do narration segments roughly match their intended scenes?
-- Is background music audible? (transcriber may not capture music, but ffprobe confirms audio stream)
+- Inspect `final_review.checks.audio_spotcheck`: `mix_balance_verified` must be true,
+  `music_audible` must not be false, and `music_to_narration_lu` must be ≤20.
+  `ffprobe` proves only that a combined audio stream exists; it cannot prove that
+  the music bed is audible.
+- `narration_pace_acceptable` must be true. A declared `narration_tempo_ratio`
+  below `0.90` is a revision blocker, not a way to make narration fill the edit.
+- Listen to the rendered mix. Objective levels catch gross failures but do not
+  replace a perceptual check of speech naturalness, music presence, and ducking.
 
 **6f. Compile and present review to user:**
 
@@ -366,9 +380,27 @@ result = Transcriber().execute({
 >
 > **Recommendations:** [what to fix, if anything]
 >
-> Want me to fix these issues and re-render, or is this good to go?
+> Automatic repair: [not needed / completed in N rounds / blocked by decision]
 
 **Only after user approves (or agent finds zero issues) should the video be considered final.**
+
+### Step 6g: Automatic repair loop (mandatory for pre-authorized runs)
+
+`final_review.status="revise"` is an internal repair state, never a terminal
+delivery state. When the user authorized full automatic completion, apply the
+smallest repair inside the already-approved provider/runtime/creative path and
+re-run compose plus final review, up to two repair rounds:
+
+1. `narration_pace_acceptable=false`: restore the approved natural narration;
+   retime visuals/captions to the voice. Never stretch speech to fill the cut.
+2. `music_audible=false`: recompute stem gain from measured LUFS, remix through
+   `audio_mixer`, then re-render.
+3. Missing/cut-off audio: repair the mux/timeline and re-render.
+
+Stop and ask only when the repair requires a new paid generation call, a
+provider/runtime change, or a material creative change outside existing
+approval. If two repair rounds do not produce `status="pass"`, surface the
+remaining evidence and blocker; do not return the revise artifact as delivery.
 
 ### Step 6-old: File and Content Verification
 
@@ -386,6 +418,8 @@ result = Transcriber().execute({
 **Quality check (covered by self-review above):**
 - [ ] Visual: all scene frames inspected
 - [ ] Audio: full transcription verified
+- [ ] Audio: per-track balance verified and background music is audible
+- [ ] Audio: narration pace is natural; no unapproved global slowdown
 - [ ] Subtitles: visible and correctly timed
 
 ### Step 7: Build Render Report

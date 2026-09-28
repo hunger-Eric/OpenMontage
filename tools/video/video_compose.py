@@ -33,6 +33,7 @@ from __future__ import annotations
 import json
 import hashlib
 import logging
+import math
 import shutil
 import subprocess
 import time
@@ -81,11 +82,12 @@ class VideoCompose(BaseTool):
         "properties": {
             "operation": {
                 "type": "string",
-                "enum": ["compose", "render", "remotion_render", "burn_subtitles", "overlay", "encode"],
+                "enum": ["compose", "render", "review", "remotion_render", "burn_subtitles", "overlay", "encode"],
                 "description": (
                     "compose: low-level concat cuts + audio + subtitles. "
                     "render: high-level — resolves asset IDs, auto-routes to Remotion "
                     "for images/animations or FFmpeg for video-only. Preferred for compose-director. "
+                    "review: run the mandatory final-review gate on an existing repaired render. "
                     "remotion_render: render via Remotion (Node.js). "
                     "burn_subtitles: burn subtitle file into existing video. "
                     "overlay: composite overlays onto base video. "
@@ -341,6 +343,8 @@ class VideoCompose(BaseTool):
                 result = self._compose(inputs)
             elif operation == "render":
                 result = self._render(inputs)
+            elif operation == "review":
+                result = self._review_existing_render(inputs)
             elif operation == "remotion_render":
                 result = self._remotion_render(inputs)
             elif operation == "burn_subtitles":
@@ -356,6 +360,43 @@ class VideoCompose(BaseTool):
 
         result.duration_seconds = round(time.time() - start, 2)
         return result
+
+    def _review_existing_render(self, inputs: dict[str, Any]) -> ToolResult:
+        """Apply the delivery gate to a render repaired by approved post tools."""
+        raw_path = inputs.get("input_path") or inputs.get("output_path")
+        if not raw_path:
+            return ToolResult(success=False, error="review requires input_path")
+        output_path = Path(raw_path).resolve()
+        if not output_path.is_file():
+            return ToolResult(success=False, error=f"Review input not found: {output_path}")
+
+        review = self._run_final_review(
+            output_path=output_path,
+            edit_decisions=inputs.get("edit_decisions"),
+            proposal_packet=inputs.get("proposal_packet"),
+            narration_transcript_path=inputs.get("narration_transcript_path"),
+            script_text=inputs.get("script_text") or self._read_text_file(
+                inputs.get("script_path")
+            ),
+            asset_manifest=inputs.get("asset_manifest"),
+        )
+        data = {
+            "operation": "review",
+            "output": str(output_path),
+            "final_review": review,
+            "final_review_status": review["status"],
+        }
+        if review["status"] != "pass":
+            return ToolResult(
+                success=False,
+                error=(
+                    "Existing render is not ready for delivery.\n"
+                    + "\n".join(f"  • {issue}" for issue in review.get("issues_found", []))
+                ),
+                data=data,
+                artifacts=[str(output_path)],
+            )
+        return ToolResult(success=True, data=data, artifacts=[str(output_path)])
 
     _IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".tif", ".webp"}
 
@@ -1023,6 +1064,7 @@ class VideoCompose(BaseTool):
             proposal_packet=inputs.get("proposal_packet"),
             narration_transcript_path=inputs.get("narration_transcript_path"),
             script_text=inputs.get("script_text"),
+            asset_manifest=inputs.get("asset_manifest"),
         )
 
         atelier_checks = self._run_atelier_checks(entry_path, bespoke)
@@ -1046,11 +1088,11 @@ class VideoCompose(BaseTool):
             "final_review_status": final_review.get("status"),
         }
 
-        if final_review.get("status") == "fail":
+        if final_review.get("status") in {"revise", "fail"}:
             return ToolResult(
                 success=False,
                 error=(
-                    "Atelier render produced an invalid output:\n"
+                    "Atelier render is not ready for delivery:\n"
                     + "\n".join(f"  • {i}" for i in final_review.get("issues_found", []))
                 ),
                 data=data,
@@ -1599,6 +1641,7 @@ class VideoCompose(BaseTool):
             return self._render_via_ffmpeg(
                 inputs=inputs,
                 edit_decisions=edit_decisions,
+                asset_manifest=asset_manifest,
                 resolved_cuts=resolved_cuts,
                 output_path=output_path,
                 profile=profile,
@@ -1675,6 +1718,7 @@ class VideoCompose(BaseTool):
                 script_text=inputs.get("script_text") or self._read_text_file(
                     inputs.get("script_path")
                 ),
+                asset_manifest=asset_manifest,
             )
 
             # Attach final_review to the ToolResult data so the compose-director
@@ -1684,12 +1728,13 @@ class VideoCompose(BaseTool):
             render_result.data["final_review"] = final_review
             render_result.data["final_review_status"] = final_review["status"]
 
-            # If the self-review says fail, downgrade the ToolResult
-            if final_review["status"] == "fail":
+            # A revise result is also non-deliverable.  Returning success here
+            # allowed callers to skip the repair and hand the file to users.
+            if final_review["status"] in {"revise", "fail"}:
                 return ToolResult(
                     success=False,
                     error=(
-                        "Post-render self-review FAILED. The output is not presentable.\n"
+                        "Post-render self-review requires revision. The output is not presentable.\n"
                         + "\n".join(f"  • {i}" for i in final_review.get("issues_found", []))
                     ),
                     data=render_result.data,
@@ -1812,16 +1857,17 @@ class VideoCompose(BaseTool):
                 script_text=inputs.get("script_text") or self._read_text_file(
                     inputs.get("script_path")
                 ),
+                asset_manifest=asset_manifest,
             )
             if render_result.data is None:
                 render_result.data = {}
             render_result.data["final_review"] = final_review
             render_result.data["final_review_status"] = final_review["status"]
-            if final_review["status"] == "fail":
+            if final_review["status"] in {"revise", "fail"}:
                 return ToolResult(
                     success=False,
                     error=(
-                        "Post-render self-review FAILED (HyperFrames). The output is not presentable.\n"
+                        "Post-render self-review requires revision (HyperFrames). The output is not presentable.\n"
                         + "\n".join(f"  • {i}" for i in final_review.get("issues_found", []))
                     ),
                     data=render_result.data,
@@ -1834,6 +1880,7 @@ class VideoCompose(BaseTool):
         *,
         inputs: dict[str, Any],
         edit_decisions: dict[str, Any],
+        asset_manifest: dict[str, Any],
         resolved_cuts: list[dict],
         output_path: Path,
         profile: Optional[str],
@@ -1872,16 +1919,17 @@ class VideoCompose(BaseTool):
                 script_text=inputs.get("script_text") or self._read_text_file(
                     inputs.get("script_path")
                 ),
+                asset_manifest=asset_manifest,
             )
             if render_result.data is None:
                 render_result.data = {}
             render_result.data["final_review"] = final_review
             render_result.data["final_review_status"] = final_review["status"]
-            if final_review["status"] == "fail":
+            if final_review["status"] in {"revise", "fail"}:
                 return ToolResult(
                     success=False,
                     error=(
-                        "Post-render self-review FAILED (FFmpeg). The output is not presentable.\n"
+                        "Post-render self-review requires revision (FFmpeg). The output is not presentable.\n"
                         + "\n".join(f"  • {i}" for i in final_review.get("issues_found", []))
                     ),
                     data=render_result.data,
@@ -2213,6 +2261,166 @@ class VideoCompose(BaseTool):
 
         return result
 
+    @staticmethod
+    def _measure_integrated_loudness(path: Path) -> float | None:
+        """Return EBU R128 integrated loudness for one source asset.
+
+        The final mix's overall loudness cannot prove that each constituent
+        track is audible.  Measure narration and music separately so a loud
+        voice track cannot hide a practically silent music bed.
+        """
+        try:
+            proc = subprocess.run(
+                [
+                    "ffmpeg", "-hide_banner", "-nostats", "-i", str(path),
+                    "-af", "loudnorm=I=-16:LRA=7:TP=-1.5:print_format=json",
+                    "-f", "null", "-",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            stderr = proc.stderr or ""
+            start = stderr.rfind("{")
+            end = stderr.rfind("}")
+            if start < 0 or end <= start:
+                return None
+            payload = json.loads(stderr[start : end + 1])
+            value = float(payload["input_i"])
+            return value if math.isfinite(value) else None
+        except (FileNotFoundError, KeyError, TypeError, ValueError, json.JSONDecodeError):
+            return None
+        except subprocess.TimeoutExpired:
+            return None
+
+    @staticmethod
+    def _resolve_review_asset_path(raw_path: str, output_path: Path) -> Path:
+        path = Path(raw_path)
+        if path.is_absolute():
+            return path
+        candidates = [
+            output_path.parent.parent / path,
+            output_path.parent / path,
+            Path.cwd() / path,
+        ]
+        return next((candidate for candidate in candidates if candidate.exists()), candidates[0])
+
+    def _review_audio_assets(
+        self,
+        *,
+        asset_manifest: dict[str, Any],
+        edit_decisions: dict[str, Any],
+        output_path: Path,
+    ) -> dict[str, Any]:
+        """Review source-track balance and narration tempo before delivery.
+
+        Background music more than 20 LU below narration is treated as
+        effectively inaudible.  Narration slowed by more than 10% is treated
+        as a pacing distortion: edit timing must adapt to speech, rather than
+        stretching a natural read to fill the visual timeline.
+        """
+        result: dict[str, Any] = {
+            "narration_present": False,
+            "music_present": False,
+            "music_audible": None,
+            "mix_balance_verified": False,
+            "narration_pace_acceptable": True,
+            "narration_lufs": None,
+            "music_lufs": None,
+            "effective_music_lufs": None,
+            "music_to_narration_lu": None,
+            "narration_tempo_ratio": None,
+            "issues": [],
+        }
+
+        assets = {
+            str(asset.get("id")): asset
+            for asset in asset_manifest.get("assets", [])
+            if isinstance(asset, dict) and asset.get("id")
+        }
+        audio = edit_decisions.get("audio") or {}
+        narration_cfg = audio.get("narration") or {}
+        narration_ids = [
+            str(segment.get("asset_id"))
+            for segment in narration_cfg.get("segments", [])
+            if isinstance(segment, dict) and segment.get("asset_id")
+        ]
+        narration_assets = [assets[asset_id] for asset_id in narration_ids if asset_id in assets]
+        if not narration_assets:
+            narration_assets = [
+                asset for asset in assets.values() if asset.get("type") == "narration"
+            ]
+
+        music_cfg = audio.get("music") or edit_decisions.get("music") or {}
+        music_id = music_cfg.get("asset_id")
+        music_asset = assets.get(str(music_id)) if music_id else None
+        if music_asset is None:
+            music_asset = next(
+                (asset for asset in assets.values() if asset.get("type") == "music"),
+                None,
+            )
+
+        narration_asset = narration_assets[0] if narration_assets else None
+        if narration_asset and narration_asset.get("path"):
+            narration_path = self._resolve_review_asset_path(
+                str(narration_asset["path"]), output_path
+            )
+            result["narration_present"] = narration_path.exists()
+            if result["narration_present"]:
+                result["narration_lufs"] = self._measure_integrated_loudness(narration_path)
+
+            provider_settings = (
+                (narration_asset.get("voice_performance") or {}).get("provider_settings")
+                or {}
+            )
+            raw_tempo = provider_settings.get("atempo")
+            if raw_tempo is not None:
+                try:
+                    tempo = float(raw_tempo)
+                    result["narration_tempo_ratio"] = round(tempo, 3)
+                    if tempo < 0.9:
+                        result["narration_pace_acceptable"] = False
+                        result["issues"].append(
+                            "Narration tempo distortion: atempo="
+                            f"{tempo:.2f} slows the approved read by {(1 / tempo - 1) * 100:.0f}%. "
+                            "Do not stretch speech to fill the visual timeline; revise the edit timing."
+                        )
+                except (TypeError, ValueError, ZeroDivisionError):
+                    result["issues"].append(
+                        f"Narration tempo could not be verified: invalid atempo={raw_tempo!r}"
+                    )
+
+        if music_asset and music_asset.get("path"):
+            music_path = self._resolve_review_asset_path(str(music_asset["path"]), output_path)
+            result["music_present"] = music_path.exists()
+            if result["music_present"]:
+                result["music_lufs"] = self._measure_integrated_loudness(music_path)
+
+        narration_lufs = result["narration_lufs"]
+        music_lufs = result["music_lufs"]
+        if narration_lufs is not None and music_lufs is not None:
+            try:
+                music_volume = float(music_cfg.get("volume", 0.15))
+            except (TypeError, ValueError):
+                music_volume = 0.15
+            if music_volume <= 0:
+                effective_music_lufs = -120.0
+            else:
+                effective_music_lufs = music_lufs + 20 * math.log10(music_volume)
+            gap = narration_lufs - effective_music_lufs
+            result["effective_music_lufs"] = round(effective_music_lufs, 2)
+            result["music_to_narration_lu"] = round(gap, 2)
+            result["mix_balance_verified"] = True
+            result["music_audible"] = gap <= 20.0
+            if not result["music_audible"]:
+                result["issues"].append(
+                    "Background music effectively inaudible: estimated music is "
+                    f"{gap:.1f} LU below narration after the configured volume. "
+                    "Keep the narration-to-music gap at or below 20 LU and verify by listening."
+                )
+
+        return result
+
     def _run_final_review(
         self,
         output_path: Path,
@@ -2220,6 +2428,7 @@ class VideoCompose(BaseTool):
         proposal_packet: dict[str, Any] | None = None,
         narration_transcript_path: str | Path | None = None,
         script_text: str | None = None,
+        asset_manifest: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Run post-render self-review and produce a final_review artifact.
 
@@ -2373,6 +2582,14 @@ class VideoCompose(BaseTool):
         audio_spotcheck: dict[str, Any] = {
             "narration_present": False,
             "music_present": False,
+            "music_audible": None,
+            "mix_balance_verified": False,
+            "narration_pace_acceptable": True,
+            "narration_lufs": None,
+            "music_lufs": None,
+            "effective_music_lufs": None,
+            "music_to_narration_lu": None,
+            "narration_tempo_ratio": None,
             "unexpected_silence": False,
             "clipping_detected": False,
             "mix_intelligible": True,
@@ -2413,9 +2630,6 @@ class VideoCompose(BaseTool):
                     # Assume narration present if mean volume is reasonable
                     if mean_vol > -40:
                         audio_spotcheck["narration_present"] = True
-                    # Assume music present if audio exists (conservative)
-                    if mean_vol > -50:
-                        audio_spotcheck["music_present"] = True
 
                 if max_vol is not None and max_vol > -0.5:
                     audio_spotcheck["clipping_detected"] = True
@@ -2424,6 +2638,22 @@ class VideoCompose(BaseTool):
                     )
             except Exception as e:
                 audio_spotcheck["issues"].append(f"Audio analysis error: {e}")
+
+        if asset_manifest and edit_decisions:
+            asset_audio_review = self._review_audio_assets(
+                asset_manifest=asset_manifest,
+                edit_decisions=edit_decisions,
+                output_path=output_path,
+            )
+            for key, value in asset_audio_review.items():
+                if key == "issues":
+                    audio_spotcheck["issues"].extend(value)
+                else:
+                    audio_spotcheck[key] = value
+        else:
+            audio_spotcheck["issues"].append(
+                "Per-track audio balance unverified — asset_manifest was not provided to final_review"
+            )
 
         issues.extend(audio_spotcheck.get("issues", []))
 
@@ -2586,6 +2816,8 @@ class VideoCompose(BaseTool):
                 "silent downgrade", "delivery promise violation",
                 "effectively silent", "ffprobe failed", "suspiciously short",
                 "tts punctuation leak",  # reading literal punctuation aloud
+                "background music effectively inaudible",
+                "narration tempo distortion",
             ])
         ]
 

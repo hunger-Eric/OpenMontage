@@ -94,7 +94,7 @@ Use the playbook's typography for font choices.
     },
     "music": {
       "asset_id": "music-bg",
-      "volume": 0.08,
+      "volume": 0.25,
       "fade_in_seconds": 2,
       "fade_out_seconds": 3,
       "ducking": {
@@ -111,6 +111,13 @@ Use the playbook's typography for font choices.
 ```
 
 **Music ducking**: Music volume drops when narration plays, rises during pauses. Use playbook's `audio.ducking_threshold_db`.
+
+The numeric volume is only a starting point, not acceptance evidence. Measure
+the narration and music stems independently after configured gain. The estimated
+music bed must remain no more than 20 LU below narration before optional ducking;
+otherwise it is effectively inaudible and the edit cannot advance. Do not claim
+ducking is configured unless the selected composition/mixing path actually
+executes it.
 
 ### Step 5: Apply Pacing Rules
 
@@ -138,6 +145,8 @@ Adjust cut timing if any violates these rules.
 - [ ] Narration segments are ordered and non-overlapping
 - [ ] Narration timing aligns with corresponding visual cuts
 - [ ] Music ducking is configured
+- [ ] Narration/music stems were measured independently and the pre-ducking gap is ≤20 LU
+- [ ] Narration was not globally slowed below `atempo=0.90` to fill the timeline
 
 **Subtitles:**
 - [ ] Subtitles enabled

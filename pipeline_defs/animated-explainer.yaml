@@ -233,7 +233,6 @@ stages:
       - video_stitch
     tools_available:
       - video_compose
-      - hyperframes_compose
       - video_stitch
       - audio_mixer
     checkpoint_required: true
@@ -242,11 +241,16 @@ stages:
       - Output video exists and is playable
       - "Duration within +/-5% of target"
       - Audio is clear with proper narration/music balance
+      - final_review audio_spotcheck confirms mix_balance_verified and narration_pace_acceptable
+      - Background music is no more than 20 LU below narration before optional ducking
+      - Final rendering enters through video_compose; low-level runtime tools are not delivery entry points
       - "render_runtime in edit_decisions matches proposal_packet — silent swap to another runtime is a CRITICAL governance violation"
       - "If render_runtime='hyperframes': `hyperframes lint` and `hyperframes validate` must pass before render"
     success_criteria:
       - Schema-valid render_report with output paths
       - Output file exists and passes ffprobe validation
+      - final_review.status is pass; revise and fail are non-deliverable
+      - Pre-authorized runs automatically repair and re-render revise findings up to two rounds
 
   - name: publish
     skill: pipelines/explainer/publish-director
