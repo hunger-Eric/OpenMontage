@@ -1,4 +1,4 @@
-"""Transcription tool wrapping faster-whisper / WhisperX.
+"""Transcription tool wrapping faster-whisper / OpenAI Whisper / WhisperX.
 
 Provides speech-to-text with word-level timestamps and optional speaker
 diarization. Falls back gracefully when GPU or diarization dependencies
@@ -28,7 +28,7 @@ from tools.base_tool import (
 
 class Transcriber(BaseTool):
     name = "transcriber"
-    version = "0.1.0"
+    version = "0.2.0"
     tier = ToolTier.CORE
     capability = "analysis"
     provider = "whisperx"
@@ -36,9 +36,10 @@ class Transcriber(BaseTool):
     execution_mode = ExecutionMode.SYNC
     determinism = Determinism.DETERMINISTIC
 
-    dependencies = ["python:faster_whisper"]
+    dependencies = []
     install_instructions = (
-        "pip install faster-whisper  # CPU mode\n"
+        "pip install faster-whisper  # Preferred CPU mode\n"
+        "pip install openai-whisper  # Compatible local fallback\n"
         "pip install faster-whisper[gpu]  # GPU mode (requires CUDA)\n"
         "pip install whisperx  # For diarization support"
     )
@@ -96,11 +97,23 @@ class Transcriber(BaseTool):
     ]
 
     def get_status(self) -> ToolStatus:
+        return (
+            ToolStatus.AVAILABLE
+            if self._available_backend() is not None
+            else ToolStatus.UNAVAILABLE
+        )
+
+    @staticmethod
+    def _available_backend() -> Optional[str]:
         try:
             import faster_whisper  # noqa: F401
-            return ToolStatus.AVAILABLE
+            return "faster-whisper"
         except ImportError:
-            return ToolStatus.UNAVAILABLE
+            try:
+                import whisper  # noqa: F401
+                return "openai-whisper"
+            except ImportError:
+                return None
 
     def _has_diarization(self) -> bool:
         try:
@@ -125,15 +138,82 @@ class Transcriber(BaseTool):
 
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        try:
-            from faster_whisper import WhisperModel
-        except ImportError:
+        backend = self._available_backend()
+        if backend is None:
             return ToolResult(
                 success=False,
-                error="faster-whisper is not installed. Run: pip install faster-whisper",
+                error=(
+                    "No supported Whisper backend is installed. Run: "
+                    "pip install faster-whisper or pip install openai-whisper"
+                ),
             )
 
         start = time.time()
+
+        if backend == "openai-whisper":
+            try:
+                import whisper
+
+                model = whisper.load_model(model_size, device="cpu")
+                raw = model.transcribe(
+                    str(input_path),
+                    language=language,
+                    word_timestamps=True,
+                    fp16=False,
+                )
+                segments = []
+                word_timestamps = []
+                for index, segment in enumerate(raw.get("segments", [])):
+                    words = []
+                    for word in segment.get("words", []) or []:
+                        entry = {
+                            "word": str(word.get("word", "")),
+                            "start": round(float(word.get("start", 0.0)), 3),
+                            "end": round(float(word.get("end", 0.0)), 3),
+                            "probability": round(float(word.get("probability", 0.0)), 3),
+                        }
+                        words.append(entry)
+                        word_timestamps.append(entry)
+                    parsed = {
+                        "id": int(segment.get("id", index)),
+                        "start": round(float(segment.get("start", 0.0)), 3),
+                        "end": round(float(segment.get("end", 0.0)), 3),
+                        "text": str(segment.get("text", "")).strip(),
+                    }
+                    if words:
+                        parsed["words"] = words
+                    segments.append(parsed)
+
+                duration = max((segment["end"] for segment in segments), default=0.0)
+                result_data = {
+                    "segments": segments,
+                    "word_timestamps": word_timestamps,
+                    "language": language or raw.get("language") or "unknown",
+                    "duration_seconds": round(duration, 3),
+                    "model_size": model_size,
+                    "device": "cpu",
+                    "compute_type": "float32",
+                    "backend": backend,
+                    "gpu_fallback_reason": None,
+                }
+                output_path = output_dir / f"{input_path.stem}_transcript.json"
+                output_path.write_text(
+                    json.dumps(result_data, indent=2, ensure_ascii=False),
+                    encoding="utf-8",
+                )
+                return ToolResult(
+                    success=True,
+                    data=result_data,
+                    artifacts=[str(output_path)],
+                    duration_seconds=round(time.time() - start, 2),
+                )
+            except Exception as exc:
+                return ToolResult(
+                    success=False,
+                    error=f"OpenAI Whisper transcription failed: {type(exc).__name__}: {exc}",
+                )
+
+        from faster_whisper import WhisperModel
 
         # faster-whisper executes through CTranslate2, so that runtime—not
         # PyTorch—is authoritative for CUDA availability and compute types.
@@ -225,6 +305,7 @@ class Transcriber(BaseTool):
             "model_size": model_size,
             "device": device,
             "compute_type": compute_type,
+            "backend": backend,
             "gpu_fallback_reason": gpu_fallback_reason,
         }
 

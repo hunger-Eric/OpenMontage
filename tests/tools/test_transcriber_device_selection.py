@@ -4,6 +4,57 @@ from types import SimpleNamespace
 from tools.analysis.transcriber import Transcriber
 
 
+def test_transcriber_uses_openai_whisper_when_faster_whisper_is_missing(
+    monkeypatch, tmp_path
+) -> None:
+    class FakeModel:
+        def transcribe(self, input_path, **kwargs):
+            assert kwargs["word_timestamps"] is True
+            return {
+                "language": "zh",
+                "segments": [
+                    {
+                        "id": 0,
+                        "start": 0.0,
+                        "end": 1.25,
+                        "text": " 你好 ",
+                        "words": [
+                            {
+                                "word": "你好",
+                                "start": 0.0,
+                                "end": 1.25,
+                                "probability": 0.98,
+                            }
+                        ],
+                    }
+                ],
+            }
+
+    monkeypatch.delitem(sys.modules, "faster_whisper", raising=False)
+    monkeypatch.setitem(
+        sys.modules,
+        "whisper",
+        SimpleNamespace(load_model=lambda model_size, device: FakeModel()),
+    )
+    monkeypatch.setattr(
+        Transcriber,
+        "_available_backend",
+        staticmethod(lambda: "openai-whisper"),
+    )
+    input_path = tmp_path / "audio.wav"
+    input_path.write_bytes(b"fake")
+
+    result = Transcriber().execute(
+        {"input_path": str(input_path), "output_dir": str(tmp_path), "language": "zh"}
+    )
+
+    assert result.success, result.error
+    assert result.data["backend"] == "openai-whisper"
+    assert result.data["segments"][0]["text"] == "你好"
+    assert result.data["word_timestamps"][0]["word"] == "你好"
+    assert result.data["duration_seconds"] == 1.25
+
+
 class _Info:
     language = "en"
     duration = 1.0
