@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import importlib.util
+import json
 import mimetypes
 import os
 import shutil
@@ -31,6 +32,13 @@ DEFAULT_BASE_URL = "https://apihub.agnes-ai.com/v1"
 DEFAULT_MODEL = "agnes-video-v2.0"
 TERMINAL_FAILURES = {"failed", "cancelled", "canceled"}
 LITTERBOX_UPLOAD_URL = "https://litterbox.catbox.moe/resources/internals/api.php"
+ASPECT_RATIO_DIMENSIONS = {
+    "16:9": (1152, 648),
+    "9:16": (648, 1152),
+    "1:1": (768, 768),
+    "4:3": (1024, 768),
+    "3:4": (768, 1024),
+}
 
 
 def _api_key() -> str | None:
@@ -44,6 +52,10 @@ def _api_key() -> str | None:
 def _base_url() -> str:
     value = os.environ.get("AGNES_API_BASE_URL", DEFAULT_BASE_URL).strip().rstrip("/")
     return value if value.endswith("/v1") else f"{value}/v1"
+
+
+def _video_lookup_url() -> str:
+    return f"{_base_url().removesuffix('/v1')}/agnesapi"
 
 
 def _video_url(payload: dict[str, Any]) -> str | None:
@@ -63,7 +75,32 @@ def _video_url(payload: dict[str, Any]) -> str | None:
 
 def _frame_count(duration_seconds: float, frame_rate: float) -> int:
     requested = max(1, round(duration_seconds * frame_rate))
-    return min(441, max(9, round((requested - 1) / 8) * 8 + 1))
+    return max(9, round((requested - 1) / 8) * 8 + 1)
+
+
+def _task_receipt_path(output_path: Path) -> Path:
+    return output_path.with_suffix(".agnes-task.json")
+
+
+def _write_task_receipt(output_path: Path, payload: dict[str, Any]) -> Path:
+    receipt_path = _task_receipt_path(output_path)
+    receipt_path.parent.mkdir(parents=True, exist_ok=True)
+    receipt = {
+        "model": DEFAULT_MODEL,
+        "task_id": payload.get("task_id") or payload.get("id"),
+        "video_id": payload.get("video_id"),
+        "status": payload.get("status"),
+        "progress": payload.get("progress"),
+        "seconds": payload.get("seconds"),
+        "size": payload.get("size"),
+    }
+    temporary_path = receipt_path.with_suffix(f"{receipt_path.suffix}.tmp")
+    temporary_path.write_text(
+        json.dumps(receipt, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    temporary_path.replace(receipt_path)
+    return receipt_path
 
 
 def upload_image_litterbox(image_path: str) -> str:
@@ -89,7 +126,7 @@ def upload_image_litterbox(image_path: str) -> str:
 
 class AgnesVideo(BaseTool):
     name = "agnes_video"
-    version = "0.3.1"
+    version = "0.4.0"
     tier = ToolTier.GENERATE
     capability = "video_generation"
     provider = "agnes"
@@ -115,7 +152,7 @@ class AgnesVideo(BaseTool):
     }
     best_for = [
         "Token Plan Agnes Video v2.0 text and image-conditioned generation",
-        "asynchronous first-party tasks with task_id polling",
+        "asynchronous first-party tasks with video_id polling and task_id compatibility",
     ]
     not_good_for = ["offline generation"]
     fallback_tools: list[str] = []
@@ -136,16 +173,38 @@ class AgnesVideo(BaseTool):
             "reference_image_url": {"type": "string"},
             "reference_image_path": {"type": "string"},
             "reference_image_urls": {"type": "array", "items": {"type": "string"}},
-            "aspect_ratio": {"type": "string", "enum": ["16:9", "9:16", "1:1"], "default": "16:9"},
+            "aspect_ratio": {
+                "type": "string",
+                "enum": ["16:9", "9:16", "1:1", "4:3", "3:4"],
+                "default": "16:9",
+                "description": "v2.0 request canvas preset; image-driven modes inherit the reference image dimensions.",
+            },
             "width": {"type": "integer", "minimum": 1},
             "height": {"type": "integer", "minimum": 1},
-            "duration": {"type": "number", "minimum": 1, "maximum": 18},
-            "num_frames": {"type": "integer", "minimum": 9, "maximum": 441},
-            "frame_rate": {"type": "number", "minimum": 1, "maximum": 60, "default": 24},
+            "duration": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "maximum": 441,
+                "default": 5,
+                "description": "Adapter convenience input. It is converted to the nearest valid 8n + 1 frame count; duration * frame_rate must not exceed 441.",
+            },
+            "num_frames": {
+                "type": "integer",
+                "minimum": 9,
+                "maximum": 441,
+                "description": "Exact v2.0 frame count; must satisfy 8n + 1 and be <= 441. Overrides duration.",
+            },
+            "frame_rate": {
+                "type": "number",
+                "minimum": 1,
+                "maximum": 60,
+                "default": 24,
+                "description": "v2.0 playback rate from 1 to 60 FPS; output seconds = num_frames / frame_rate.",
+            },
             "num_inference_steps": {"type": "integer", "minimum": 1},
             "seed": {"type": "integer"},
             "negative_prompt": {"type": "string"},
-            "poll_interval_seconds": {"type": "number", "minimum": 1, "maximum": 60, "default": 3},
+            "poll_interval_seconds": {"type": "number", "minimum": 1, "maximum": 60, "default": 5},
             "timeout_seconds": {"type": "integer", "minimum": 30, "maximum": 3600, "default": 900},
         },
     }
@@ -209,23 +268,35 @@ class AgnesVideo(BaseTool):
             )
 
         frame_rate = float(inputs.get("frame_rate", 24))
-        num_frames = int(inputs.get("num_frames") or _frame_count(float(inputs.get("duration", 5)), frame_rate))
-        if num_frames > 441 or (num_frames - 1) % 8 != 0:
-            return ToolResult(success=False, error="Agnes num_frames must be <= 441 and satisfy 8n + 1")
+        explicit_frames = inputs.get("num_frames")
+        duration = float(inputs.get("duration", 5))
+        if not 1 <= frame_rate <= 60:
+            return ToolResult(
+                success=False,
+                error="Agnes Video v2.0 frame_rate must be between 1 and 60",
+            )
+        if explicit_frames is None and (duration <= 0 or duration * frame_rate > 441):
+            return ToolResult(
+                success=False,
+                error="Agnes Video v2.0 duration * frame_rate must be greater than 0 and no more than 441",
+            )
+        num_frames = int(explicit_frames if explicit_frames is not None else _frame_count(duration, frame_rate))
+        if num_frames < 9 or num_frames > 441 or (num_frames - 1) % 8 != 0:
+            return ToolResult(success=False, error="Agnes num_frames must be between 9 and 441 and satisfy 8n + 1")
 
         ratio = str(inputs.get("aspect_ratio", "16:9"))
-        default_dimensions = {"16:9": (1152, 768), "9:16": (768, 1152), "1:1": (768, 768)}
-        width, height = default_dimensions[ratio]
+        width, height = ASPECT_RATIO_DIMENSIONS[ratio]
         width = int(inputs.get("width", width))
         height = int(inputs.get("height", height))
         payload: dict[str, Any] = {
             "model": DEFAULT_MODEL,
             "prompt": str(inputs["prompt"]),
-            "width": width,
-            "height": height,
             "num_frames": num_frames,
             "frame_rate": frame_rate,
         }
+        if operation == "text_to_video":
+            payload["width"] = width
+            payload["height"] = height
         for name in ("num_inference_steps", "seed", "negative_prompt"):
             if inputs.get(name) is not None:
                 payload[name] = inputs[name]
@@ -237,21 +308,46 @@ class AgnesVideo(BaseTool):
 
         headers = {"Authorization": f"Bearer {_api_key()}", "Content-Type": "application/json"}
         task_id: str | None = None
+        video_id: str | None = None
+        task_receipt_path: Path | None = None
         try:
             created = requests.post(f"{_base_url()}/videos", headers=headers, json=payload, timeout=120)
             created.raise_for_status()
             created_data = created.json()
             task_id = str(created_data.get("task_id") or created_data.get("id") or "").strip() or None
-            if not task_id:
-                raise RuntimeError("Agnes create response did not include a task id")
+            video_id = str(created_data.get("video_id") or "").strip() or None
+            if not task_id and not video_id:
+                raise RuntimeError("Agnes create response did not include a task_id or video_id")
+            receipt_data = {
+                **created_data,
+                "task_id": task_id,
+                "video_id": video_id,
+            }
+            task_receipt_path = _write_task_receipt(output_path, receipt_data)
 
             deadline = time.time() + int(inputs.get("timeout_seconds", 900))
-            interval = float(inputs.get("poll_interval_seconds", 3))
+            interval = float(inputs.get("poll_interval_seconds", 5))
             result_data: dict[str, Any] = created_data
             while time.time() < deadline:
-                response = requests.get(f"{_base_url()}/videos/{task_id}", headers=headers, timeout=120)
+                if video_id:
+                    response = requests.get(
+                        _video_lookup_url(),
+                        headers=headers,
+                        params={"video_id": video_id, "model_name": DEFAULT_MODEL},
+                        timeout=120,
+                    )
+                else:
+                    response = requests.get(f"{_base_url()}/videos/{task_id}", headers=headers, timeout=120)
                 response.raise_for_status()
                 result_data = response.json()
+                receipt_data.update(
+                    {key: value for key, value in result_data.items() if value is not None}
+                )
+                receipt_data.update({"task_id": task_id, "video_id": video_id})
+                _write_task_receipt(
+                    output_path,
+                    receipt_data,
+                )
                 status = str(result_data.get("status", "")).lower()
                 if status == "completed":
                     break
@@ -283,7 +379,14 @@ class AgnesVideo(BaseTool):
             return ToolResult(
                 success=False,
                 error=f"Agnes API HTTP {status_code}: {detail}",
-                data={"provider": "agnes", "model": DEFAULT_MODEL, "task_id": task_id, "fallback_used": False},
+                data={
+                    "provider": "agnes",
+                    "model": DEFAULT_MODEL,
+                    "task_id": task_id,
+                    "video_id": video_id,
+                    "task_receipt_path": str(task_receipt_path) if task_receipt_path else None,
+                    "fallback_used": False,
+                },
             )
         except Exception as exc:
             if output_path.exists():
@@ -291,7 +394,14 @@ class AgnesVideo(BaseTool):
             return ToolResult(
                 success=False,
                 error=str(exc),
-                data={"provider": "agnes", "model": DEFAULT_MODEL, "task_id": task_id, "fallback_used": False},
+                data={
+                    "provider": "agnes",
+                    "model": DEFAULT_MODEL,
+                    "task_id": task_id,
+                    "video_id": video_id,
+                    "task_receipt_path": str(task_receipt_path) if task_receipt_path else None,
+                    "fallback_used": False,
+                },
             )
 
         sha256 = hashlib.sha256(output_path.read_bytes()).hexdigest()
@@ -301,6 +411,8 @@ class AgnesVideo(BaseTool):
                 "provider": "agnes",
                 "model": DEFAULT_MODEL,
                 "task_id": task_id,
+                "video_id": video_id,
+                "task_receipt_path": str(task_receipt_path) if task_receipt_path else None,
                 "status": "completed",
                 "output": str(output_path),
                 "output_path": str(output_path),
@@ -309,6 +421,7 @@ class AgnesVideo(BaseTool):
                 "height_requested": height,
                 "num_frames_requested": num_frames,
                 "frame_rate_requested": frame_rate,
+                "effective_duration_seconds": num_frames / frame_rate,
                 "fallback_used": False,
                 **probe,
             },
