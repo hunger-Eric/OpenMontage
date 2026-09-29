@@ -30,6 +30,13 @@ from tools.video._shared import probe_output
 
 DEFAULT_BASE_URL = "https://apihub.agnes-ai.com/v1"
 DEFAULT_MODEL = "agnes-video-v2.0"
+MIN_NUM_FRAMES = 9
+MAX_NUM_FRAMES = 441
+FRAME_COUNT_STEP = 8
+MIN_FRAME_RATE = 1
+MAX_FRAME_RATE = 60
+DEFAULT_FRAME_RATE = 24
+MAX_DURATION_AT_DEFAULT_FPS = MAX_NUM_FRAMES / DEFAULT_FRAME_RATE
 TERMINAL_FAILURES = {"failed", "cancelled", "canceled"}
 LITTERBOX_UPLOAD_URL = "https://litterbox.catbox.moe/resources/internals/api.php"
 ASPECT_RATIO_DIMENSIONS = {
@@ -38,6 +45,34 @@ ASPECT_RATIO_DIMENSIONS = {
     "1:1": (768, 768),
     "4:3": (1024, 768),
     "3:4": (768, 1024),
+}
+MODEL_USAGE_CONDITIONS = {
+    "fixed_model": DEFAULT_MODEL,
+    "single_call_output": "one generated clip",
+    "num_frames": {
+        "minimum": MIN_NUM_FRAMES,
+        "maximum": MAX_NUM_FRAMES,
+        "rule": "8n + 1",
+    },
+    "frame_rate_fps": {
+        "minimum": MIN_FRAME_RATE,
+        "maximum": MAX_FRAME_RATE,
+        "default": DEFAULT_FRAME_RATE,
+    },
+    "duration_seconds": {
+        "formula": "num_frames / frame_rate",
+        "maximum_at_default_24_fps": MAX_DURATION_AT_DEFAULT_FPS,
+        "maximum_at_30_fps": MAX_NUM_FRAMES / 30,
+        "maximum_at_60_fps": MAX_NUM_FRAMES / 60,
+        "absolute_maximum_at_1_fps": float(MAX_NUM_FRAMES),
+    },
+    "aspect_ratio_presets": list(ASPECT_RATIO_DIMENSIONS),
+    "long_video_policy": (
+        "Split productions longer than the per-call duration into planned shots, "
+        "generate each shot separately, then compose them; never submit the full "
+        "production duration as one Agnes task."
+    ),
+    "fallback_policy": "fail without switching model or provider",
 }
 
 
@@ -149,16 +184,28 @@ class AgnesVideo(BaseTool):
         "reference_image": True,
         "seed": True,
         "async_tasks": True,
+        "usage_conditions": MODEL_USAGE_CONDITIONS,
     }
     best_for = [
         "Token Plan Agnes Video v2.0 text and image-conditioned generation",
         "asynchronous first-party tasks with video_id polling and task_id compatibility",
+        "single clips up to 18.375 seconds at the default 24 FPS",
     ]
-    not_good_for = ["offline generation"]
+    not_good_for = [
+        "offline generation",
+        "a single unsegmented clip longer than 18.375 seconds at 24 FPS",
+    ]
     fallback_tools: list[str] = []
 
     input_schema = {
         "type": "object",
+        "description": (
+            "Fixed Agnes Video v2.0 single-clip contract. Frame count must be 8n + 1 "
+            "from 9 through 441. At the default 24 FPS one call can produce at most "
+            "18.375 seconds; at 30 FPS the limit is 14.7 seconds and at 60 FPS it is "
+            "7.35 seconds. Longer productions must be split into planned shots and "
+            "composed after generation. The adapter never switches model or provider."
+        ),
         "required": ["prompt", "output_path"],
         "properties": {
             "prompt": {"type": "string"},
@@ -184,22 +231,31 @@ class AgnesVideo(BaseTool):
             "duration": {
                 "type": "number",
                 "exclusiveMinimum": 0,
-                "maximum": 441,
+                "maximum": MAX_NUM_FRAMES / MIN_FRAME_RATE,
                 "default": 5,
-                "description": "Adapter convenience input. It is converted to the nearest valid 8n + 1 frame count; duration * frame_rate must not exceed 441.",
+                "description": (
+                    "Requested seconds for one clip. It is converted to the nearest valid "
+                    "8n + 1 frame count, so the effective duration may differ slightly. "
+                    "duration * frame_rate must not exceed 441. With the default 24 FPS, "
+                    "the maximum is 18.375 seconds. Split longer productions into shots."
+                ),
             },
             "num_frames": {
                 "type": "integer",
-                "minimum": 9,
-                "maximum": 441,
+                "minimum": MIN_NUM_FRAMES,
+                "maximum": MAX_NUM_FRAMES,
                 "description": "Exact v2.0 frame count; must satisfy 8n + 1 and be <= 441. Overrides duration.",
             },
             "frame_rate": {
                 "type": "number",
-                "minimum": 1,
-                "maximum": 60,
-                "default": 24,
-                "description": "v2.0 playback rate from 1 to 60 FPS; output seconds = num_frames / frame_rate.",
+                "minimum": MIN_FRAME_RATE,
+                "maximum": MAX_FRAME_RATE,
+                "default": DEFAULT_FRAME_RATE,
+                "description": (
+                    "v2.0 playback rate from 1 to 60 FPS; output seconds = num_frames / "
+                    "frame_rate. The 441-frame ceiling means higher FPS reduces the maximum "
+                    "single-clip duration."
+                ),
             },
             "num_inference_steps": {"type": "integer", "minimum": 1},
             "seed": {"type": "integer"},
@@ -234,6 +290,21 @@ class AgnesVideo(BaseTool):
         if self.get_status() != ToolStatus.AVAILABLE:
             return ToolResult(success=False, error=self.install_instructions, data={"fallback_used": False})
 
+        requested_model = str(inputs.get("model", DEFAULT_MODEL)).strip()
+        if requested_model != DEFAULT_MODEL:
+            return ToolResult(
+                success=False,
+                error=(
+                    f"Agnes video model is fixed to {DEFAULT_MODEL}; "
+                    f"refusing requested model {requested_model or '<empty>'}"
+                ),
+                data={
+                    "provider": "agnes",
+                    "model": DEFAULT_MODEL,
+                    "fallback_used": False,
+                },
+            )
+
         output_path = Path(str(inputs.get("output_path", "")))
         if output_path.suffix.lower() != ".mp4":
             return ToolResult(success=False, error="Agnes video output_path must end in .mp4")
@@ -267,22 +338,55 @@ class AgnesVideo(BaseTool):
                 ),
             )
 
-        frame_rate = float(inputs.get("frame_rate", 24))
+        frame_rate = float(inputs.get("frame_rate", DEFAULT_FRAME_RATE))
         explicit_frames = inputs.get("num_frames")
         duration = float(inputs.get("duration", 5))
-        if not 1 <= frame_rate <= 60:
+        if not MIN_FRAME_RATE <= frame_rate <= MAX_FRAME_RATE:
             return ToolResult(
                 success=False,
-                error="Agnes Video v2.0 frame_rate must be between 1 and 60",
+                error=(
+                    f"Agnes Video v2.0 frame_rate must be between "
+                    f"{MIN_FRAME_RATE} and {MAX_FRAME_RATE} FPS"
+                ),
             )
-        if explicit_frames is None and (duration <= 0 or duration * frame_rate > 441):
+        if explicit_frames is None and (
+            duration <= 0 or duration * frame_rate > MAX_NUM_FRAMES
+        ):
+            maximum_seconds = MAX_NUM_FRAMES / frame_rate
             return ToolResult(
                 success=False,
-                error="Agnes Video v2.0 duration * frame_rate must be greater than 0 and no more than 441",
+                error=(
+                    "Agnes Video v2.0 can generate at most "
+                    f"{maximum_seconds:g} seconds in one call at {frame_rate:g} FPS "
+                    f"({MAX_NUM_FRAMES} frames). Split a longer production into planned "
+                    "shots, generate each shot separately, then compose them."
+                ),
+                data={
+                    "provider": "agnes",
+                    "model": DEFAULT_MODEL,
+                    "usage_conditions": MODEL_USAGE_CONDITIONS,
+                    "fallback_used": False,
+                },
             )
         num_frames = int(explicit_frames if explicit_frames is not None else _frame_count(duration, frame_rate))
-        if num_frames < 9 or num_frames > 441 or (num_frames - 1) % 8 != 0:
-            return ToolResult(success=False, error="Agnes num_frames must be between 9 and 441 and satisfy 8n + 1")
+        if (
+            num_frames < MIN_NUM_FRAMES
+            or num_frames > MAX_NUM_FRAMES
+            or (num_frames - 1) % FRAME_COUNT_STEP != 0
+        ):
+            return ToolResult(
+                success=False,
+                error=(
+                    f"Agnes num_frames must be between {MIN_NUM_FRAMES} and "
+                    f"{MAX_NUM_FRAMES} and satisfy 8n + 1"
+                ),
+                data={
+                    "provider": "agnes",
+                    "model": DEFAULT_MODEL,
+                    "usage_conditions": MODEL_USAGE_CONDITIONS,
+                    "fallback_used": False,
+                },
+            )
 
         ratio = str(inputs.get("aspect_ratio", "16:9"))
         width, height = ASPECT_RATIO_DIMENSIONS[ratio]
@@ -422,6 +526,7 @@ class AgnesVideo(BaseTool):
                 "num_frames_requested": num_frames,
                 "frame_rate_requested": frame_rate,
                 "effective_duration_seconds": num_frames / frame_rate,
+                "usage_conditions": MODEL_USAGE_CONDITIONS,
                 "fallback_used": False,
                 **probe,
             },

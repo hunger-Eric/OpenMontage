@@ -248,6 +248,19 @@ def test_agnes_is_the_locked_default_provider(rankings):
     assert VideoSelector.input_schema["properties"]["preferred_provider"]["default"] == "agnes"
 
 
+def test_agnes_ranking_exposes_single_clip_usage_conditions():
+    rankings = VideoSelector()._serialize_rankings(
+        [AgnesVideo()],
+        [_ScoreStub("agnes_video", "agnes", 1.0)],
+    )
+
+    conditions = rankings[0]["supports"]["usage_conditions"]
+    assert conditions["fixed_model"] == "agnes-video-v2.0"
+    assert conditions["num_frames"]["maximum"] == 441
+    assert conditions["duration_seconds"]["maximum_at_default_24_fps"] == 18.375
+    assert "Split productions" in conditions["long_video_policy"]
+
+
 def test_agnes_default_does_not_fall_back_to_another_provider(rankings):
     """Unavailable Agnes must stop instead of spending through another provider."""
     agnes = _StubTool(

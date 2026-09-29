@@ -174,13 +174,56 @@ def test_agnes_video_preserves_81_frame_request(monkeypatch, tmp_path):
 
 def test_agnes_video_v20_schema_exposes_the_frame_duration_contract():
     schema = AgnesVideo.input_schema["properties"]
+    conditions = AgnesVideo().get_info()["supports"]["usage_conditions"]
 
     assert schema["model"]["enum"] == ["agnes-video-v2.0"]
     assert schema["duration"]["default"] == 5
     assert schema["duration"]["maximum"] == 441
+    assert "18.375 seconds" in schema["duration"]["description"]
+    assert "Longer productions must be split" in AgnesVideo.input_schema["description"]
     assert "8n + 1" in schema["num_frames"]["description"]
     assert "num_frames / frame_rate" in schema["frame_rate"]["description"]
     assert schema["poll_interval_seconds"]["default"] == 5
+    assert conditions["fixed_model"] == "agnes-video-v2.0"
+    assert conditions["num_frames"] == {
+        "minimum": 9,
+        "maximum": 441,
+        "rule": "8n + 1",
+    }
+    assert conditions["frame_rate_fps"]["default"] == 24
+    assert conditions["duration_seconds"]["maximum_at_default_24_fps"] == 18.375
+    assert conditions["duration_seconds"]["maximum_at_30_fps"] == 14.7
+    assert "Split productions" in conditions["long_video_policy"]
+
+
+def test_agnes_video_rejects_other_models_before_any_external_request(monkeypatch, tmp_path):
+    monkeypatch.setenv("AGNES_API_KEY", "test-key")
+    monkeypatch.setattr(module.shutil, "which", lambda _name: "ffprobe")
+    external_calls = []
+    monkeypatch.setattr(
+        module,
+        "upload_image_litterbox",
+        lambda *_args, **_kwargs: external_calls.append("upload"),
+    )
+    monkeypatch.setattr(
+        module.requests,
+        "post",
+        lambda *_args, **_kwargs: external_calls.append("post"),
+    )
+
+    result = AgnesVideo().execute({
+        "prompt": "Do not submit this task",
+        "output_path": str(tmp_path / "rejected.mp4"),
+        "operation": "image_to_video",
+        "reference_image_path": str(tmp_path / "reference.jpg"),
+        "model": "agnes-video-2.5",
+    })
+
+    assert result.success is False
+    assert "fixed to agnes-video-v2.0" in result.error
+    assert result.data["model"] == "agnes-video-v2.0"
+    assert result.data["fallback_used"] is False
+    assert external_calls == []
 
 
 def test_agnes_video_maps_18_seconds_to_the_nearest_valid_frame_count(monkeypatch, tmp_path):
@@ -236,7 +279,10 @@ def test_agnes_video_rejects_duration_beyond_the_frame_budget(monkeypatch, tmp_p
     })
 
     assert not result.success
-    assert "duration * frame_rate" in result.error
+    assert "18.375 seconds in one call at 24 FPS" in result.error
+    assert "Split a longer production into planned shots" in result.error
+    assert result.data["usage_conditions"]["num_frames"]["maximum"] == 441
+    assert result.data["fallback_used"] is False
     assert calls == []
 
 

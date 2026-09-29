@@ -128,6 +128,39 @@ stable contract for them at the time of this update.
 - Image-conditioned product and short-form video
 - Asynchronous generation with task receipts and explicit polling
 
+#### Agnes Video v2.0 usage conditions
+
+`agnes_video` is deliberately fixed to `agnes-video-v2.0`. It does not switch
+to Agnes 2.5, Agnes 2.5 Flash, or another provider when a request is outside
+the v2.0 contract.
+
+| Constraint | Agnes Video v2.0 contract |
+|------------|---------------------------|
+| Output per API call | One generated clip |
+| Frame count | 9–441 frames, and the value must satisfy `8n + 1` |
+| Frame rate | 1–60 FPS; default 24 FPS |
+| Duration formula | `num_frames / frame_rate` |
+| Maximum at 24 FPS | 18.375 seconds (441 frames) |
+| Maximum at 30 FPS | 14.7 seconds (441 frames) |
+| Maximum at 60 FPS | 7.35 seconds (441 frames) |
+| Absolute mathematical maximum | 441 seconds at 1 FPS; this is not normal-motion output |
+| Aspect-ratio presets | `16:9`, `9:16`, `1:1`, `4:3`, `3:4` |
+| Supported routes | Text-to-video, image-to-video, reference-to-video |
+| Local reference image | Uploaded to one-hour ephemeral Litterbox storage before submission |
+| Output path | Must end in `.mp4`; an existing file is never overwritten |
+| Failure/fallback | Stop and report; never switch model or provider automatically |
+
+The `duration` input is only a convenience value. The adapter converts it to
+the nearest valid `8n + 1` frame count, so the effective clip duration can
+differ slightly from the requested duration. At the default 24 FPS, any single
+request above 18.375 seconds is rejected before image upload or paid generation.
+
+A longer finished video is a multi-shot production, not one Agnes task. Plan
+shots no longer than the per-call limit, generate and verify each approved shot
+separately, and then compose those clips through the OpenMontage production
+pipeline. Do not lower FPS merely to fit a long production into one call unless
+that low-frame-rate visual treatment is explicitly intended and approved.
+
 ---
 
 ### Volcengine Jimeng — 即梦 AI Video Generation
