@@ -107,3 +107,206 @@ def test_execute_forwards_storage_state_to_metadata_and_video_download(tmp_path,
         ("metadata", str(state_path.resolve())),
         ("video", str(state_path.resolve())),
     ]
+
+
+def test_normalizes_douyin_jingxuan_modal_url_before_cookie_backed_download(tmp_path, monkeypatch):
+    state_path = tmp_path / "storage-state.json"
+    _write_storage_state(state_path)
+    seen = []
+    downloader = VideoDownloader()
+    monkeypatch.setattr(
+        downloader,
+        "_extract_metadata",
+        lambda url, storage_state: seen.append(("metadata", url, storage_state)) or {
+            "title": "reference", "duration": 133,
+        },
+    )
+    monkeypatch.setattr(
+        downloader,
+        "_download_video",
+        lambda url, _output_dir, _max_res, storage_state: (
+            seen.append(("video", url, storage_state)) or (None, None)
+        ),
+    )
+
+    original = "https://www.douyin.com/jingxuan?modal_id=7681624043124162469"
+    canonical = "https://www.douyin.com/video/7681624043124162469"
+    result = downloader.execute({
+        "url": original,
+        "output_dir": str(tmp_path / "output"),
+        "format": "video",
+        "playwright_storage_state_path": str(state_path.resolve()),
+    })
+
+    assert result.success is True
+    assert result.data["platform"] == "douyin"
+    assert result.data["requested_url"] == original
+    assert result.data["resolved_url"] == canonical
+    assert result.data["url_resolution_kind"] == "resolved_alias"
+    assert seen == [
+        ("metadata", canonical, str(state_path.resolve())),
+        ("video", canonical, str(state_path.resolve())),
+    ]
+
+
+def test_metadata_only_distinguishes_unsupported_url_from_cookie_failure(tmp_path, monkeypatch):
+    downloader = VideoDownloader()
+    monkeypatch.setattr(
+        downloader,
+        "_extract_metadata",
+        lambda _url, _storage_state: {
+            "error": "ERROR: Unsupported URL", "title": "", "duration": 0,
+        },
+    )
+
+    result = downloader.execute({
+        "url": "https://example.test/watch/123",
+        "output_dir": str(tmp_path / "output"),
+        "format": "metadata_only",
+    })
+
+    assert result.success is False
+    assert result.data["error_kind"] == "UNSUPPORTED_URL"
+    assert result.data["error_kind"] != "AUTH_REQUIRED"
+    assert result.data["url_resolution_kind"] == "passthrough"
+
+
+@pytest.mark.parametrize("original", [
+    "https://www.douyin.com/jingxuan?modal_id=7681624043124162469",
+    "https://www.douyin.com/search/%E5%86%B0%E6%B2%B3?modal_id=7681624043124162469",
+    "https://www.douyin.com/?modal_id=7681624043124162469",
+])
+def test_resolves_multiple_douyin_page_url_shapes(original):
+    resolved, kind = VideoDownloader()._resolve_url(original)
+
+    assert resolved == "https://www.douyin.com/video/7681624043124162469"
+    assert kind == "resolved_alias"
+
+
+def test_preserves_canonical_douyin_video_url():
+    original = "https://www.douyin.com/video/7681624043124162469"
+
+    assert VideoDownloader()._resolve_url(original) == (original, "canonical")
+
+
+def test_passes_unknown_url_to_extractor_without_auth_assumption():
+    original = "https://example.test/watch/123"
+
+    assert VideoDownloader()._resolve_url(original) == (original, "passthrough")
+
+
+def test_successful_media_download_overrides_remote_metadata_auth_warning(tmp_path, monkeypatch):
+    downloader = VideoDownloader()
+    state_path = tmp_path / "storage-state.json"
+    _write_storage_state(state_path)
+    video_path = tmp_path / "reference_video.mp4"
+    video_path.write_bytes(b"downloaded-media")
+    monkeypatch.setattr(
+        downloader,
+        "_extract_metadata",
+        lambda _url, _storage_state: {
+            "error": "Fresh cookies (not necessarily logged in) are needed",
+            "title": "", "duration": 0,
+        },
+    )
+    monkeypatch.setattr(
+        downloader,
+        "_download_video",
+        lambda _url, _output_dir, _max_res, _storage_state: (str(video_path), None),
+    )
+    monkeypatch.setattr(
+        downloader,
+        "_probe_local_media",
+        lambda _video_path: {"duration": 133.0, "resolution": "720x1280", "fps": 30.0},
+    )
+
+    result = downloader.execute({
+        "url": "https://www.douyin.com/video/7681624043124162469",
+        "output_dir": str(tmp_path),
+        "format": "video",
+        "playwright_storage_state_path": str(state_path.resolve()),
+    })
+
+    assert result.success is True
+    assert result.data["metadata_status"] == "local_media_recovered"
+    assert result.data["remote_metadata_warning_kind"] == "AUTH_REQUIRED"
+    assert result.data["metadata"]["duration"] == 133.0
+    assert result.data["metadata"]["resolution"] == "720x1280"
+    assert "error" not in result.data["metadata"]
+
+
+def test_douyin_reuses_uploader_default_storage_state(tmp_path):
+    home = tmp_path / "tester"
+    state_path = home / ".social-auto-upload" / "runtime" / "cookies" / "douyin_tester.json"
+    state_path.parent.mkdir(parents=True)
+    _write_storage_state(state_path)
+
+    resolved, source = VideoDownloader()._resolve_storage_state_path(
+        None, "douyin", env={}, home=home
+    )
+
+    assert resolved == str(state_path.resolve())
+    assert source == "uploader_default"
+
+
+def test_non_douyin_url_does_not_inherit_douyin_uploader_state(tmp_path):
+    resolved, source = VideoDownloader()._resolve_storage_state_path(
+        None, "youtube", env={}, home=tmp_path
+    )
+
+    assert resolved is None
+    assert source == "none"
+
+
+def test_cookie_backed_download_retries_ambiguous_fresh_cookie_signal(monkeypatch):
+    attempts = []
+
+    class FakeYoutubeDL:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def download(self, urls):
+            attempts.append(urls)
+            if len(attempts) < 3:
+                raise RuntimeError("Fresh cookies (not necessarily logged in) are needed")
+
+    downloader = VideoDownloader()
+    monkeypatch.setattr(downloader, "_youtube_dl", lambda _opts, _state: FakeYoutubeDL())
+    monkeypatch.setattr("tools.analysis.video_downloader.time.sleep", lambda _delay: None)
+
+    count = downloader._download_with_background_retry(
+        "https://www.douyin.com/video/7681624043124162469",
+        {"quiet": True},
+        "/authorized/storage-state.json",
+    )
+
+    assert count == 3
+    assert len(attempts) == 3
+
+
+def test_unsupported_url_is_not_retried_as_an_auth_failure(monkeypatch):
+    attempts = []
+
+    class FakeYoutubeDL:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def download(self, _urls):
+            attempts.append(True)
+            raise RuntimeError("ERROR: Unsupported URL")
+
+    downloader = VideoDownloader()
+    monkeypatch.setattr(downloader, "_youtube_dl", lambda _opts, _state: FakeYoutubeDL())
+
+    with pytest.raises(RuntimeError, match="Unsupported URL"):
+        downloader._download_with_background_retry(
+            "https://example.test/watch/123", {"quiet": True}, "/authorized/storage-state.json"
+        )
+
+    assert attempts == [True]

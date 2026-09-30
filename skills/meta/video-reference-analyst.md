@@ -31,15 +31,20 @@ Do NOT trigger when:
 
 Resolve the media before interpreting it:
 
-- For a Douyin search URL containing `modal_id=<id>`, normalize the source to
-  `https://www.douyin.com/video/<id>` before download. A search-result page is not
-  itself a supported media URL.
-- If Douyin requests fresh cookies and an authorized Playwright storage-state file
-  already exists, verify only that its absolute path points to valid JSON with a
-  non-empty `cookies` array, then pass the path as
-  `playwright_storage_state_path`. Never print cookie names or values, copy them into
-  logs, or create a second plaintext cookie file. If no authorized state exists, ask
-  the user to provide a video file or login-state artifact.
+- For any Douyin page-shaped URL containing `modal_id=<id>`, normalize the source
+  to `https://www.douyin.com/video/<id>` before download. Canonical `/video/<id>`
+  URLs pass through unchanged; unknown shapes are tested by the extractor rather
+  than guessed to be authentication failures.
+- `video_downloader` automatically reuses the primary uploader state at
+  `~/.social-auto-upload/runtime/cookies/douyin_<local-user>.json` for Douyin only.
+  `playwright_storage_state_path` is an explicit override, not a required caller
+  argument. Never print cookie names or values, copy them into logs, or create a
+  second plaintext cookie file. If no verified authorized state exists, ask the user
+  to provide a video file or refresh the existing uploader login state.
+- A metadata-endpoint `Fresh cookies` warning is not a final cookie verdict. Continue
+  the same background media acquisition with the authorized state and accept verified
+  downloaded bytes plus local `ffprobe` metadata as success. The downloader may retry
+  that read-only request within its bounded policy; do not open a browser.
 - Do not treat the outer `ToolResult.success` flag as proof that analysis succeeded.
   Require a downloaded media file, positive duration, representative keyframes, and
   relevant entries in `_analysis_meta.steps_completed`. Empty default fields, zero
@@ -48,6 +53,15 @@ Resolve the media before interpreting it:
   file is present and `ffprobe` plus keyframe/scene outputs validate it, continue the
   visual analysis and label title/uploader metadata as partial rather than discarding
   the successful media evidence.
+- Treat URL resolution and authentication as separate states. A canonical supported
+  URL passes through unchanged; a known page-shaped alias such as any Douyin URL with
+  a valid `modal_id` resolves to `/video/<id>`; an unknown shape is passed to the
+  extractor and is unsupported only when the extractor returns `UNSUPPORTED_URL`.
+  Never report `UNSUPPORTED_URL` as expired cookies.
+- Never open a headed browser, auto-play the page, inspect browser network traffic,
+  or trigger QR login as an automatic download fallback. Only `AUTH_REQUIRED` after
+  the normalized URL was attempted with the authorized storage state is a login-state
+  problem; preserve the current task and ask the user to refresh that existing state.
 
 Run VideoAnalyzer with `analysis_depth: "standard"`:
 
@@ -449,7 +463,10 @@ When the user provides multiple reference URLs:
 
 | Failure | Action |
 |---------|--------|
-| URL download fails | Report error, suggest: try another URL, provide local file, or proceed without reference |
+| Known page-shaped URL | Resolve it to the canonical media URL and retry the same background acquisition |
+| Extractor returns `UNSUPPORTED_URL` | Report an extractor/input-shape issue, never expired cookies |
+| Authenticated background download returns `AUTH_REQUIRED` | Preserve the task and request refresh of the existing authorized state; never open a visible browser automatically |
+| Other URL download failure | Report the classified error, suggest another URL or local file, and do not pretend the reference was analyzed |
 | Music-only soundtrack | Skip STT; record `music_only` and treat `has_transcript: false` as expected |
 | Speech present but no captions/transcript | Download video and use a configured local transcriber; report the boundary if unavailable |
 | Scene detection fails | Fall back to uniform frame sampling |

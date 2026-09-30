@@ -9,11 +9,13 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import re
 import time
 from http.cookiejar import Cookie
 from pathlib import Path
 from typing import Any
+from urllib.parse import parse_qs, urlparse
 
 from tools.base_tool import (
     BaseTool,
@@ -146,6 +148,7 @@ class VideoDownloader(BaseTool):
         "720p": 720,
         "1080p": 1080,
     }
+    _BACKGROUND_RETRY_DELAYS = (0.5, 1.5)
 
     def _detect_platform(self, url: str) -> str:
         """Detect platform from URL."""
@@ -158,11 +161,64 @@ class VideoDownloader(BaseTool):
             return "instagram"
         if "tiktok.com" in url_lower:
             return "tiktok"
+        if "douyin.com" in url_lower:
+            return "douyin"
         if "vimeo.com" in url_lower:
             return "vimeo"
         if "twitter.com" in url_lower or "x.com" in url_lower:
             return "twitter"
         return "other_url"
+
+    def _resolve_url(self, url: str) -> tuple[str, str]:
+        """Classify canonical URLs, resolve known aliases, and pass unknowns through."""
+        try:
+            parsed = urlparse(url)
+            host = (parsed.hostname or "").lower()
+            is_douyin = host == "douyin.com" or host.endswith(".douyin.com")
+            if is_douyin and re.fullmatch(r"/video/\d{10,30}/?", parsed.path):
+                return url, "canonical"
+            if is_douyin:
+                modal_ids = parse_qs(parsed.query).get("modal_id", [])
+                if len(modal_ids) == 1 and re.fullmatch(r"\d{10,30}", modal_ids[0]):
+                    return f"https://www.douyin.com/video/{modal_ids[0]}", "resolved_alias"
+        except (TypeError, ValueError):
+            pass
+        return url, "passthrough"
+
+    def _classify_download_error(self, message: str) -> str:
+        lowered = message.lower()
+        if "unsupported url" in lowered:
+            return "UNSUPPORTED_URL"
+        if any(marker in lowered for marker in (
+            "fresh cookies", "sign in", "login required", "log in", "cookie",
+        )):
+            return "AUTH_REQUIRED"
+        if any(marker in lowered for marker in ("timed out", "timeout", "temporary", "http error 5")):
+            return "TRANSIENT_NETWORK"
+        return "DOWNLOAD_FAILED"
+
+    def _download_with_background_retry(
+        self, url: str, ydl_opts: dict[str, Any], storage_state_path: str | None,
+    ) -> int:
+        """Retry read-only media acquisition when an authenticated endpoint is unstable."""
+        attempts = 0
+        while True:
+            attempts += 1
+            try:
+                with self._youtube_dl(ydl_opts, storage_state_path) as ydl:
+                    ydl.download([url])
+                return attempts
+            except Exception as exc:
+                kind = self._classify_download_error(str(exc))
+                retry_index = attempts - 1
+                can_retry = (
+                    storage_state_path is not None
+                    and kind in {"AUTH_REQUIRED", "TRANSIENT_NETWORK"}
+                    and retry_index < len(self._BACKGROUND_RETRY_DELAYS)
+                )
+                if not can_retry:
+                    raise
+                time.sleep(self._BACKGROUND_RETRY_DELAYS[retry_index])
 
     def _load_playwright_cookies(self, storage_state_path: str | None) -> list[Cookie]:
         """Load Playwright storage-state cookies without persisting their values."""
@@ -218,6 +274,37 @@ class VideoDownloader(BaseTool):
             ))
         return cookies
 
+    def _resolve_storage_state_path(
+        self,
+        explicit_path: str | None,
+        platform: str,
+        *,
+        env: dict[str, str] | None = None,
+        home: Path | None = None,
+    ) -> tuple[str | None, str]:
+        """Resolve one authorized state source without copying cookie contents."""
+        if platform != "douyin":
+            return explicit_path, "input" if explicit_path else "none"
+
+        environment = os.environ if env is None else env
+        configured = explicit_path or environment.get("CODEX_DOUYIN_STORAGE_STATE_PATH")
+        if configured:
+            absolute = str(Path(configured).expanduser().resolve())
+            self._load_playwright_cookies(absolute)
+            return absolute, "input" if explicit_path else "environment"
+
+        account_home = Path.home() if home is None else home
+        default_path = (
+            account_home / ".social-auto-upload" / "runtime" / "cookies"
+            / f"douyin_{account_home.name}.json"
+        )
+        try:
+            absolute = str(default_path.resolve())
+            self._load_playwright_cookies(absolute)
+            return absolute, "uploader_default"
+        except ValueError:
+            return None, "none"
+
     def _youtube_dl(self, ydl_opts: dict[str, Any], storage_state_path: str | None):
         """Create yt-dlp and inject cookies in memory only."""
         import yt_dlp
@@ -226,6 +313,31 @@ class VideoDownloader(BaseTool):
         for cookie in self._load_playwright_cookies(storage_state_path):
             ydl.cookiejar.set_cookie(cookie)
         return ydl
+
+    def _probe_local_media(self, video_path: str) -> dict[str, Any]:
+        """Recover technical metadata from downloaded bytes when page metadata fails."""
+        result = self.run_command([
+            "ffprobe", "-v", "quiet", "-of", "json",
+            "-show_entries", "format=duration:stream=codec_type,width,height,avg_frame_rate",
+            video_path,
+        ], timeout=30)
+        payload = json.loads(result.stdout)
+        video_stream = next(
+            (item for item in payload.get("streams", []) if item.get("codec_type") == "video"), {}
+        )
+        fps = 0.0
+        rate = video_stream.get("avg_frame_rate")
+        if isinstance(rate, str) and re.fullmatch(r"\d+(?:\.\d+)?/\d+(?:\.\d+)?", rate):
+            numerator, denominator = (float(item) for item in rate.split("/", 1))
+            if denominator:
+                fps = numerator / denominator
+        width = int(video_stream.get("width") or 0)
+        height = int(video_stream.get("height") or 0)
+        return {
+            "duration": float(payload.get("format", {}).get("duration") or 0),
+            "resolution": f"{width}x{height}" if width and height else "",
+            "fps": fps,
+        }
 
     def _extract_metadata(self, url: str, storage_state_path: str | None = None) -> dict:
         """Extract metadata without downloading."""
@@ -254,15 +366,32 @@ class VideoDownloader(BaseTool):
             return {"error": str(e), "title": "", "duration": 0}
 
     def execute(self, inputs: dict[str, Any]) -> ToolResult:
-        url = inputs["url"]
+        requested_url = inputs["url"]
+        url, url_resolution_kind = self._resolve_url(requested_url)
         output_dir = Path(inputs["output_dir"])
         dl_format = inputs.get("format", "video")
         max_res = inputs.get("max_resolution", "720p")
         max_duration = inputs.get("max_duration_seconds", 600)
-        storage_state_path = inputs.get("playwright_storage_state_path")
+        platform = self._detect_platform(url)
+        try:
+            storage_state_path, storage_state_source = self._resolve_storage_state_path(
+                inputs.get("playwright_storage_state_path"), platform
+            )
+        except ValueError as exc:
+            return ToolResult(
+                success=False,
+                error=f"Storage state invalid: {exc}",
+                data={
+                    "platform": platform,
+                    "requested_url": requested_url,
+                    "resolved_url": url,
+                    "url_resolution_kind": url_resolution_kind,
+                    "error_kind": "INVALID_STORAGE_STATE",
+                    "storage_state_source": "input" if inputs.get("playwright_storage_state_path") else "environment",
+                },
+            )
 
         output_dir.mkdir(parents=True, exist_ok=True)
-        platform = self._detect_platform(url)
         start = time.time()
 
         # Step 1: Always get metadata first
@@ -277,10 +406,25 @@ class VideoDownloader(BaseTool):
                     f"Video is {duration}s, exceeds max_duration_seconds={max_duration}. "
                     f"Increase the limit or use a shorter video."
                 ),
-                data={"metadata": metadata, "platform": platform},
+                data={"metadata": metadata, "platform": platform, "storage_state_source": storage_state_source},
             )
 
         if dl_format == "metadata_only":
+            if metadata.get("error"):
+                return ToolResult(
+                    success=False,
+                    error=f"Metadata extraction failed: {metadata['error']}",
+                    data={
+                        "metadata": metadata,
+                        "platform": platform,
+                        "requested_url": requested_url,
+                        "resolved_url": url,
+                        "url_resolution_kind": url_resolution_kind,
+                        "error_kind": self._classify_download_error(metadata["error"]),
+                        "storage_state_source": storage_state_source,
+                    },
+                    duration_seconds=round(time.time() - start, 2),
+                )
             return ToolResult(
                 success=True,
                 data={
@@ -289,6 +433,10 @@ class VideoDownloader(BaseTool):
                     "subtitle_path": None,
                     "metadata": metadata,
                     "platform": platform,
+                    "requested_url": requested_url,
+                    "resolved_url": url,
+                    "url_resolution_kind": url_resolution_kind,
+                    "storage_state_source": storage_state_source,
                 },
                 duration_seconds=round(time.time() - start, 2),
             )
@@ -308,15 +456,37 @@ class VideoDownloader(BaseTool):
                 subtitle_path = self._download_subtitles(url, output_dir, storage_state_path)
         except Exception as e:
             elapsed = time.time() - start
+            message = str(e)
             return ToolResult(
                 success=False,
-                error=f"Download failed: {e}",
-                data={"metadata": metadata, "platform": platform},
+                error=f"Download failed: {message}",
+                data={
+                    "metadata": metadata,
+                    "platform": platform,
+                    "requested_url": requested_url,
+                    "resolved_url": url,
+                    "url_resolution_kind": url_resolution_kind,
+                    "error_kind": self._classify_download_error(message),
+                    "storage_state_source": storage_state_source,
+                },
                 duration_seconds=round(elapsed, 2),
             )
 
         elapsed = time.time() - start
         artifacts = [p for p in [video_path, audio_path, subtitle_path] if p]
+        metadata_status = "complete"
+        remote_metadata_error = metadata.pop("error", None)
+        if video_path and (remote_metadata_error or not metadata.get("duration")):
+            try:
+                local_metadata = self._probe_local_media(video_path)
+                for key, value in local_metadata.items():
+                    if value:
+                        metadata[key] = value
+                metadata_status = "local_media_recovered"
+            except Exception:
+                metadata_status = "partial"
+        elif remote_metadata_error:
+            metadata_status = "partial"
 
         return ToolResult(
             success=True,
@@ -326,6 +496,15 @@ class VideoDownloader(BaseTool):
                 "subtitle_path": subtitle_path,
                 "metadata": metadata,
                 "platform": platform,
+                "requested_url": requested_url,
+                "resolved_url": url,
+                "url_resolution_kind": url_resolution_kind,
+                "metadata_status": metadata_status,
+                "remote_metadata_warning_kind": (
+                    self._classify_download_error(remote_metadata_error)
+                    if remote_metadata_error else None
+                ),
+                "storage_state_source": storage_state_source,
             },
             artifacts=artifacts,
             duration_seconds=round(elapsed, 2),
@@ -347,8 +526,7 @@ class VideoDownloader(BaseTool):
             "quiet": True,
             "no_warnings": True,
         }
-        with self._youtube_dl(ydl_opts, storage_state_path) as ydl:
-            ydl.download([url])
+        self._download_with_background_retry(url, ydl_opts, storage_state_path)
 
         # Find the downloaded video file
         video_path = self._find_downloaded(output_dir, "reference_video", ["mp4", "mkv", "webm"])
@@ -392,8 +570,7 @@ class VideoDownloader(BaseTool):
             "quiet": True,
             "no_warnings": True,
         }
-        with self._youtube_dl(ydl_opts, storage_state_path) as ydl:
-            ydl.download([url])
+        self._download_with_background_retry(url, ydl_opts, storage_state_path)
         return self._find_downloaded(output_dir, "reference_audio", ["wav", "mp3", "m4a", "opus"])
 
     def _download_subtitles(
@@ -413,8 +590,7 @@ class VideoDownloader(BaseTool):
             "no_warnings": True,
         }
         try:
-            with self._youtube_dl(ydl_opts, storage_state_path) as ydl:
-                ydl.download([url])
+            self._download_with_background_retry(url, ydl_opts, storage_state_path)
         except Exception:
             pass
         return self._find_downloaded(output_dir, "reference_subs", ["srt", "vtt", "ass"])

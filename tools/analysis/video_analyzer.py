@@ -76,7 +76,7 @@ class VideoAnalyzer(BaseTool):
         "properties": {
             "source": {
                 "type": "string",
-                "description": "Video file path or URL (YouTube, Shorts, Instagram, TikTok)",
+                "description": "Video file path or URL (YouTube, Shorts, Instagram, TikTok, Douyin)",
             },
             "analysis_depth": {
                 "type": "string",
@@ -150,6 +150,8 @@ class VideoAnalyzer(BaseTool):
             return "instagram"
         if "tiktok.com" in s:
             return "tiktok"
+        if "douyin.com" in s:
+            return "douyin"
         return "other_url"
 
     def _is_youtube(self, platform: str) -> bool:
@@ -229,6 +231,9 @@ class VideoAnalyzer(BaseTool):
 
                 if dl_result.success:
                     metadata = dl_result.data.get("metadata", {})
+                    resolved_url = dl_result.data.get("resolved_url")
+                    if resolved_url and resolved_url != source:
+                        brief["source"]["resolved_url"] = resolved_url
                     video_path = dl_result.data.get("video_path")
                     audio_path = dl_result.data.get("audio_path")
                     brief["source"]["title"] = metadata.get("title", "")
@@ -245,6 +250,9 @@ class VideoAnalyzer(BaseTool):
                     if video_path:
                         steps_completed.append("download")
                 else:
+                    brief["source"]["download_error_kind"] = dl_result.data.get(
+                        "error_kind", "DOWNLOAD_FAILED"
+                    )
                     steps_failed.append(f"download: {dl_result.error}")
             except Exception as e:
                 steps_failed.append(f"download: {e}")
@@ -324,6 +332,9 @@ class VideoAnalyzer(BaseTool):
                     "playwright_storage_state_path": storage_state_path,
                 })
                 if dl_result.success:
+                    resolved_url = dl_result.data.get("resolved_url")
+                    if resolved_url and resolved_url != source:
+                        brief["source"]["resolved_url"] = resolved_url
                     video_path = dl_result.data.get("video_path")
                     audio_path = dl_result.data.get("audio_path")
                     if video_path:
@@ -333,6 +344,11 @@ class VideoAnalyzer(BaseTool):
                         metadata = dl_result.data.get("metadata", {})
                         brief["source"]["title"] = metadata.get("title", "")
                         brief["source"]["duration_seconds"] = metadata.get("duration", 0)
+                else:
+                    brief["source"]["download_error_kind"] = dl_result.data.get(
+                        "error_kind", "DOWNLOAD_FAILED"
+                    )
+                    steps_failed.append(f"download_for_whisper: {dl_result.error}")
             except Exception as e:
                 steps_failed.append(f"download_for_whisper: {e}")
 
@@ -386,6 +402,25 @@ class VideoAnalyzer(BaseTool):
             self._save_brief(brief, output_dir)
             return ToolResult(
                 success=True,
+                data=brief,
+                artifacts=[str(output_dir / "video_analysis_brief.json")],
+                duration_seconds=round(time.time() - start, 2),
+            )
+
+        if is_url and video_path is None:
+            brief["_analysis_meta"] = {
+                "depth": depth,
+                "steps_completed": steps_completed,
+                "steps_failed": steps_failed,
+                "duration_seconds": round(time.time() - start, 2),
+            }
+            self._save_brief(brief, output_dir)
+            error_kind = brief["source"].get(
+                "download_error_kind", "REFERENCE_MEDIA_UNAVAILABLE"
+            )
+            return ToolResult(
+                success=False,
+                error=f"Reference media unavailable ({error_kind})",
                 data=brief,
                 artifacts=[str(output_dir / "video_analysis_brief.json")],
                 duration_seconds=round(time.time() - start, 2),
