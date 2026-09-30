@@ -81,6 +81,33 @@ If the user rejects a sample:
 
 This step typically costs $0.03–0.08 total and prevents $1–3 of wasted generation.
 
+### Step 2c: Model Video Contract and Continuation
+
+For every model-generated video asset, read
+`proposal_packet.production_plan.video_generation_contract` before submitting.
+The provider's per-call frame/duration/aspect envelope is a shot-planning input,
+not a reason to stop the whole production. Split long productions into planned
+shots and keep generating until every delivery clip is accepted.
+
+For Agnes, use only `agnes-video-v2.0`. The hard per-call contract is 9–441
+frames with `8n + 1`; at 24 FPS the maximum is 18.375 seconds (30 FPS: 14.7;
+60 FPS: 7.35). Image/reference modes must declare `aspect_mismatch_policy`
+(`center_crop` or `pad`) before submission.
+
+Each output path owns a stable `attempt_id`, request fingerprint, provider task
+ID, and append-only attempt ledger. On interruption or ambiguous status, resume
+or poll that provider task; do not submit a duplicate. Create a new attempt only
+after the previous provider task is terminal-failed. Do not switch models or
+providers silently.
+
+Review the first generated clip from its actual decoded media before batch
+continuation. A model (not a deterministic heuristic) must evaluate identity,
+required action, continuity, and reference alignment and persist the receipt in
+`asset_manifest.assets[].semantic_review`. A failed review is regenerated. An
+approved deviation must be written to `decision_log` as
+`category: "semantic_adaptation"` and propagated into the script/scene plan
+before downstream work continues.
+
 ### Step 3: Generate Narration
 
 For each script section:
@@ -167,7 +194,7 @@ Assemble all generated assets into the manifest:
 
 ```json
 {
-  "version": "1.0",
+  "version": "1.1",
   "assets": [
     {
       "id": "narration-s1",
@@ -232,6 +259,8 @@ Assemble all generated assets into the manifest:
 - [ ] Subtitle text and timing are derived from that verified transcript
 - [ ] Every scene with `required_assets` has all assets generated
 - [ ] Background music file exists
+- [ ] Every generated video records attempt_id, provider_task_id, request_fingerprint, and attempt_ledger_path
+- [ ] Interrupted/ambiguous provider tasks were resumed rather than re-submitted
 
 **Quality check:**
 - [ ] Narration durations within ±15% of expected timing
@@ -240,6 +269,8 @@ Assemble all generated assets into the manifest:
 - [ ] Images match the playbook's style (review consistency anchors)
 - [ ] Diagrams are legible and complete
 - [ ] Total cost within budget
+- [ ] Token Plan usage is recorded as null when unknown, never as zero USD
+- [ ] Every generated motion asset has a model-owned semantic review receipt
 
 ### Step 8: Self-Evaluate
 

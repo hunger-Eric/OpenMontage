@@ -12,7 +12,7 @@ The parallel pipeline produces "technically correct" but low-quality videos beca
 - No feedback loop when TTS narration is too long for the video duration
 - No style consistency enforcement across image generation calls
 - No A/V sync validation before the final render
-- No budget reallocation when early stages overspend
+- No reliable usage reconciliation when providers bill through plans or credits
 - No ability to send a single stage back without re-running everything
 
 The EP solves all of these by maintaining cumulative state and applying judgment at each gate.
@@ -36,9 +36,9 @@ EP_STATE:
   pipeline: animated-explainer
   playbook: <selected playbook name>
   target_duration_seconds: <from proposal_packet.selected_concept>
-  budget_total_usd: <from proposal_packet.approval.approved_budget_usd or configured limit>
-  budget_spent_usd: 0.0
-  budget_remaining_usd: <budget_total>
+  billing_mode: <usd | token_plan | unpriced>
+  explicit_budget_cap_usd: <user-provided cap or null>
+  usage_actual: []            # append-only provider receipts; unknown values stay null
 
   # Accumulated from each stage (8 stages)
   artifacts:
@@ -55,14 +55,14 @@ EP_STATE:
   research_brief: null         # full research_brief artifact — available to all downstream stages
   selected_concept: null       # the approved concept from proposal_packet
   production_plan: null        # the approved tool/provider plan
-  approved_budget_usd: null    # explicit user-approved spend cap
+  approved_budget_usd: null    # optional; null means no artificial project cap
 
   # Cross-stage tracking
   narration_durations: {}    # section_id → actual_seconds
   total_narration_seconds: 0
   total_visual_seconds: 0
   style_anchors: {}          # consistency tokens carried forward
-  revision_counts: {}        # stage_name → number of revisions
+  revision_counts: {}        # observability only; never an automatic stop condition
   issues_log: []             # all issues found, with resolution status
 ```
 
@@ -72,7 +72,7 @@ EP_STATE:
 
 1. Load the pipeline manifest (`animated-explainer.yaml`)
 2. Load the playbook (from user selection or default)
-3. Set budget from configuration or user input (default: $2.00)
+3. Set billing to observation mode. Apply a budget cap only when the user explicitly supplied one; do not invent a default cap.
 4. Initialize EP_STATE
 
 ### Phase 1: Execute Stages Serially
@@ -87,7 +87,7 @@ For each stage in order: `research → proposal → script → scene_plan → as
 After proposal approval, extract and store in EP_STATE:
 - `selected_concept` from `proposal_packet.selected_concept` (drives script, scene, visual decisions)
 - `production_plan` from `proposal_packet.production_plan` (drives tool selection in assets stage)
-- `approved_budget_usd` from `proposal_packet.approval.approved_budget_usd` (overrides default budget)
+- `approved_budget_usd` only when explicitly supplied by the user; otherwise keep it `null`
 - `playbook` from `proposal_packet.selected_concept → concept_options[selected].suggested_playbook`
 
 ```
@@ -95,7 +95,7 @@ EXECUTE_STAGE(stage_name):
 
   1. PREPARE
      - Load the director skill for this stage
-     - Inject EP_STATE as context (prior artifacts, budget remaining, style anchors)
+     - Inject EP_STATE as context (prior artifacts, observed usage, style anchors)
      - Inject any EP feedback from previous revision attempts
 
   2. SPAWN DIRECTOR
@@ -112,19 +112,16 @@ EXECUTE_STAGE(stage_name):
   4. GATE DECISION
      If PASS:
        - Store artifact in EP_STATE
-       - Update cumulative tracking (budget, durations, etc.)
+       - Update cumulative tracking (provider attempts/usage, durations, etc.)
        - Log: "[stage] PASSED — moving to next stage"
        - Continue to next stage
 
      If REVISE:
        - Increment revision_counts[stage_name]
-       - If revision_counts[stage_name] >= 3:
-           - PASS WITH WARNINGS (never block forever)
-           - Log unresolved issues
-       - Else:
-           - Compose specific feedback for the director
-           - Re-run SPAWN DIRECTOR with feedback injected
-           - Re-run REVIEW
+       - Compose specific feedback for the director
+       - Re-run SPAWN DIRECTOR with feedback injected
+       - Re-run REVIEW
+       - Do not convert an unresolved delivery failure into PASS because a retry count was reached
 
      If SEND_BACK(target_stage):
        - This is the EP's special power: send work BACK to a prior stage
@@ -132,7 +129,8 @@ EXECUTE_STAGE(stage_name):
        - Example: TTS returns 16s audio for a scene planned at 10s
          → Send back to script director: "Rewrite section 3. Max 25 words."
        - Re-execute from target_stage forward (artifacts after target are invalidated)
-       - Max 1 send-back per stage pair (prevent infinite loops)
+       - Continue until the invalidated downstream artifacts are rebuilt and pass
+       - Stop only for a real external blocker, an explicit user cap, or a user decision that changes the plan
 ```
 
 ### Phase 2: Final Quality Assurance
@@ -157,9 +155,10 @@ FINAL_QA:
      - Check color palette adherence
      - Check typography consistency
 
-  4. BUDGET RECONCILIATION:
-     - Total actual spend vs. budget
-     - Log per-stage cost breakdown
+  4. USAGE RECONCILIATION:
+     - Reconcile provider task IDs and actual reported USD/tokens/credits when available
+     - Keep unknown plan usage as null; never infer zero spend
+     - Enforce a cap only when the user explicitly set one
 
   5. DECISION:
      If all checks pass → APPROVE for publish stage
@@ -190,8 +189,8 @@ CHECK: Approval gate (CRITICAL — the entire point of pre-production)
   - Is approval.status == "approved" or "approved_with_changes"?
   - If "pending" or "rejected": STOP. Present to user and wait.
   - If "approved_with_changes": apply modifications to selected_concept before proceeding
-  - Extract: target_duration_seconds, playbook, budget, tool selections
-  - Initialize budget from approved_budget_usd (not default)
+  - Extract: target_duration_seconds, playbook, billing mode, tool selections
+  - Initialize a cap only from an explicit approved_budget_usd; otherwise remain completion-driven
 
 CHECK: Production feasibility
   - Does the production plan reference tools that are actually available?

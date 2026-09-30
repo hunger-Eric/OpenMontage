@@ -7,6 +7,7 @@ checkpoints to resume pipelines and to present state at human checkpoints.
 from __future__ import annotations
 
 import json
+import uuid
 from functools import lru_cache
 from datetime import datetime, timezone
 from pathlib import Path
@@ -202,6 +203,7 @@ def init_project(
     pipeline_type: str,
     pipeline_dir: Optional[Path] = None,
     style_playbook: Optional[str] = None,
+    execution_binding: Optional[dict[str, str]] = None,
 ) -> Path:
     """Initialize a project workspace with the canonical layout + marker file.
 
@@ -236,11 +238,22 @@ def init_project(
 
     marker.setdefault("version", "1.0")
     marker.setdefault("created_at", datetime.now(timezone.utc).isoformat())
+    marker.setdefault("run_id", str(uuid.uuid4()))
     marker["project_id"] = project_id
     marker["title"] = title
     marker["pipeline_type"] = pipeline_type
     if style_playbook is not None:
         marker["style_playbook"] = style_playbook
+    if execution_binding is not None:
+        allowed = {"feishu_task_id", "codex_thread_id", "codex_turn_id", "source_message_id"}
+        unexpected = set(execution_binding) - allowed
+        if unexpected:
+            raise CheckpointValidationError(
+                f"Unknown execution_binding fields: {sorted(unexpected)}"
+            )
+        marker["execution_binding"] = {
+            key: str(value) for key, value in execution_binding.items() if value
+        }
 
     with open(marker_path, "w", encoding="utf-8") as f:
         json.dump(marker, f, indent=2)
@@ -441,7 +454,7 @@ def write_checkpoint(
     # cannot bypass either gate enforcement or style validation.
     marker = None
     marker_path = pipeline_dir / project_id / PROJECT_MARKER_FILENAME
-    if marker_path.exists() and (not pipeline_type or not style_playbook):
+    if marker_path.exists():
         try:
             with open(marker_path, encoding="utf-8") as f:
                 marker = json.load(f)
@@ -501,9 +514,23 @@ def write_checkpoint(
         status,
     )
 
+    run_id = str((marker or {}).get("run_id") or uuid.uuid4())
+    current_path = _checkpoint_path(pipeline_dir, project_id, stage)
+    stage_attempt_id = None
+    if current_path.exists():
+        try:
+            current = json.loads(current_path.read_text(encoding="utf-8"))
+            if current.get("status") == "in_progress" and current.get("run_id") == run_id:
+                stage_attempt_id = current.get("stage_attempt_id")
+        except (OSError, json.JSONDecodeError):
+            pass
+    stage_attempt_id = str(stage_attempt_id or uuid.uuid4())
+
     checkpoint = {
         "version": "1.0",
         "project_id": project_id,
+        "run_id": run_id,
+        "stage_attempt_id": stage_attempt_id,
         "pipeline_type": pipeline_type or "unknown",
         "stage": stage,
         "status": status,

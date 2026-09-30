@@ -172,6 +172,10 @@ def _instrument_execute(fn: Callable) -> Callable:
         tool_name = getattr(self, "name", "") or self.__class__.__name__
         scene_id = inputs.get("scene_id") if isinstance(inputs, dict) else None
         output_path = inputs.get("output_path") if isinstance(inputs, dict) else None
+        operation = inputs.get("operation") if isinstance(inputs, dict) else None
+        run_id = inputs.get("run_id") if isinstance(inputs, dict) else None
+        stage_attempt_id = inputs.get("stage_attempt_id") if isinstance(inputs, dict) else None
+        attempt_id = inputs.get("attempt_id") if isinstance(inputs, dict) else None
         # Nesting depth: selector tools delegate to provider tools' execute().
         # Both emit (the ticker wants the provider name too), but depth lets
         # consumers dedupe — e.g. sum cost_usd only at depth 0.
@@ -183,6 +187,10 @@ def _instrument_execute(fn: Callable) -> Callable:
             "tool": tool_name,
             "scene_id": scene_id,
             "depth": depth if depth else None,
+            "operation": operation,
+            "run_id": run_id,
+            "stage_attempt_id": stage_attempt_id,
+            "attempt_id": attempt_id,
         }
         if project_dir is not None:
             emit_event(project_dir, {
@@ -210,8 +218,14 @@ def _instrument_execute(fn: Callable) -> Callable:
             project_dir = infer_project_dir(inputs)
         if project_dir is not None:
             cost = getattr(result, "cost_usd", None)
+            result_data = getattr(result, "data", {})
+            if not isinstance(result_data, dict):
+                result_data = {}
             emit_event(project_dir, {
                 **base, "event": "finish",
+                "attempt_id": result_data.get("attempt_id") or attempt_id,
+                "provider_task_id": result_data.get("task_id"),
+                "provider_video_id": result_data.get("video_id"),
                 "output_path": str(output_path) if output_path else None,
                 "success": getattr(result, "success", None),
                 # NOTE: 0.0 is meaningful (ran for free) — only None is dropped.

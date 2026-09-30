@@ -32,6 +32,13 @@ def test_selector_exposes_one_unified_generation_skill():
     assert VideoSelector.agent_skills == ["ai-video-gen"]
 
 
+def test_selector_allows_provider_generation_waits_longer_than_fifteen_minutes():
+    timeout_schema = VideoSelector.input_schema["properties"]["timeout_seconds"]
+
+    assert timeout_schema["maximum"] == 3600
+    assert timeout_schema["default"] == 3600
+
+
 class _StubTool:
     """Minimal stand-in satisfying what _select_best_tool / _filter_candidates touch."""
 

@@ -110,7 +110,11 @@ class DeliveryPromise:
         """Get the enforcement rules for this promise type."""
         return PROMISE_RULES.get(self.promise_type.value, {})
 
-    def validate_cuts(self, cuts: list[dict]) -> dict[str, Any]:
+    def validate_cuts(
+        self,
+        cuts: list[dict],
+        asset_manifest: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Validate a list of edit cuts against this delivery promise.
 
         Returns a dict with 'valid', 'violations', and 'motion_ratio'.
@@ -131,13 +135,21 @@ class DeliveryPromise:
             "progress", "callout",
         })
         _REAL_MOTION_TYPES = frozenset({"video", "animation", "avatar"})
+        asset_types: dict[str, str] = {}
+        for asset in (asset_manifest or {}).get("assets", []):
+            if not isinstance(asset, dict):
+                continue
+            asset_type = str(asset.get("type") or "").lower()
+            for key in (asset.get("id"), asset.get("path")):
+                if key:
+                    asset_types[str(key)] = asset_type
 
         motion_cuts = 0
         slide_cuts = 0
         still_cuts = 0
         for cut in cuts:
             source = cut.get("source", "")
-            cut_type = cut.get("type", "")
+            cut_type = cut.get("media_type") or cut.get("type", "")
 
             # Determine category for this cut
             is_motion = False
@@ -146,6 +158,8 @@ class DeliveryPromise:
             if source:
                 ext = source.rsplit(".", 1)[-1].lower() if "." in source else ""
                 if ext in ("mp4", "mov", "webm", "avi", "mkv"):
+                    is_motion = True
+                if asset_types.get(str(source)) in _REAL_MOTION_TYPES:
                     is_motion = True
             if cut_type in _REAL_MOTION_TYPES:
                 is_motion = True

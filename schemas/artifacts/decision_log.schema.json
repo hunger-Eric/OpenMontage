@@ -41,7 +41,8 @@
               "approval_policy",
               "capability_extension",
               "playbook_override",
-              "visual_accuracy_check"
+              "visual_accuracy_check",
+              "semantic_adaptation"
             ],
             "description": "What class of decision this is"
           },

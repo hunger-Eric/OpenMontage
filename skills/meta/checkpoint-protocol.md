@@ -35,6 +35,12 @@ Gather everything needed for the checkpoint:
 
 ### Step 3: Write Checkpoint
 
+At project initialization, pass an `execution_binding` whenever the caller
+provides it (`feishu_task_id`, `codex_thread_id`, `codex_turn_id`, and/or
+`source_message_id`). `init_project` persists a stable `run_id`; each active
+stage checkpoint preserves its `stage_attempt_id` from `in_progress` through
+completion. Do not replace these identities merely because a process reconnects.
+
 Call the checkpoint utility:
 
 ```python
@@ -177,6 +183,13 @@ next_stage = get_next_stage(pipeline_dir, project_name)
 This reads all existing checkpoints and returns the next stage that needs to run, or `None` if the pipeline is complete.
 
 ### Step 7: Resume Protocol
+
+Before re-running a provider stage, inspect the asset receipt and append-only
+attempt ledger. A non-terminal provider task must be polled/resumed with its
+existing `attempt_id` and provider task ID. Silence, process loss, or an unknown
+external status is not terminal failure and must not create a second paid
+submission. Retry only after terminal failure, while keeping the failed attempt
+in the ledger.
 
 At the START of any pipeline run (not just after a stage), always check for existing progress:
 

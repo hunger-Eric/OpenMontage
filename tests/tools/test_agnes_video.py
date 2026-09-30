@@ -89,6 +89,7 @@ def test_agnes_video_image_mode_uses_selector_compatible_url(monkeypatch, tmp_pa
         "output_path": str(tmp_path / "image.mp4"),
         "operation": "image_to_video",
         "image_url": "https://example.com/reference.jpg",
+        "aspect_mismatch_policy": "center_crop",
         "poll_interval_seconds": 1,
     })
 
@@ -122,6 +123,7 @@ def test_agnes_video_image_mode_uploads_local_reference_without_fal(monkeypatch,
         "operation": "image_to_video",
         "reference_image_path": str(local_image),
         "aspect_ratio": "9:16",
+        "aspect_mismatch_policy": "center_crop",
         "poll_interval_seconds": 1,
     })
 
@@ -184,6 +186,7 @@ def test_agnes_video_v20_schema_exposes_the_frame_duration_contract():
     assert "8n + 1" in schema["num_frames"]["description"]
     assert "num_frames / frame_rate" in schema["frame_rate"]["description"]
     assert schema["poll_interval_seconds"]["default"] == 5
+    assert schema["timeout_seconds"]["default"] == 3600
     assert conditions["fixed_model"] == "agnes-video-v2.0"
     assert conditions["num_frames"] == {
         "minimum": 9,
@@ -358,15 +361,15 @@ def test_agnes_video_persists_recovery_receipt_before_polling(monkeypatch, tmp_p
     assert not result.success
     receipt_path = output.with_suffix(".agnes-task.json")
     receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
-    assert receipt == {
-        "model": "agnes-video-v2.0",
-        "task_id": "task-recover",
-        "video_id": "video-recover",
-        "status": "queued",
-        "progress": None,
-        "seconds": "5.0",
-        "size": "1280x720",
-    }
+    assert receipt["model"] == "agnes-video-v2.0"
+    assert receipt["task_id"] == "task-recover"
+    assert receipt["video_id"] == "video-recover"
+    assert receipt["status"] == "queued"
+    assert receipt["progress"] is None
+    assert receipt["seconds"] == "5.0"
+    assert receipt["size"] == "1280x720"
+    assert receipt["attempt_id"]
+    assert receipt["request_fingerprint"]
     assert result.data["task_receipt_path"] == str(receipt_path)
 
 
@@ -412,6 +415,220 @@ def test_agnes_video_poll_receipt_preserves_create_only_recovery_fields(monkeypa
     assert receipt["progress"] == 50
     assert receipt["seconds"] == "5.0"
     assert receipt["size"] == "1152x648"
+
+
+def test_agnes_video_resumes_persisted_task_without_resubmitting(monkeypatch, tmp_path):
+    monkeypatch.setenv("AGNES_API_KEY", "test-key")
+    monkeypatch.setattr(module.shutil, "which", lambda _name: "ffprobe")
+    output = tmp_path / "resume.mp4"
+    output.with_suffix(".agnes-task.json").write_text(
+        json.dumps({
+            "model": "agnes-video-v2.0",
+            "task_id": "task-existing",
+            "video_id": "video-existing",
+            "status": "in_progress",
+        }),
+        encoding="utf-8",
+    )
+    posts = []
+    monkeypatch.setattr(
+        module.requests,
+        "post",
+        lambda *_args, **_kwargs: posts.append(True) or _Response({"id": "unexpected"}),
+    )
+
+    def fake_get(url, **_kwargs):
+        if url.startswith("https://cdn"):
+            return _Response(content=b"recovered-video")
+        return _Response({
+            "status": "completed",
+            "url": "https://cdn.example/recovered.mp4",
+        })
+
+    monkeypatch.setattr(module.requests, "get", fake_get)
+    monkeypatch.setattr(
+        module,
+        "probe_output",
+        lambda _path: {
+            "duration_seconds": 5.0,
+            "video_width": 1152,
+            "video_height": 648,
+        },
+    )
+
+    result = AgnesVideo().execute({
+        "prompt": "Recover the same shot",
+        "output_path": str(output),
+        "duration": 5,
+    })
+
+    assert result.success
+    assert posts == []
+    assert result.data["resumed_existing_task"] is True
+    attempts = [
+        json.loads(line)
+        for line in output.with_suffix(".agnes-attempts.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    assert [event["event"] for event in attempts] == ["resumed", "completed"]
+    assert {event["attempt_id"] for event in attempts} == {attempts[0]["attempt_id"]}
+
+
+def test_agnes_image_resume_does_not_reupload_reference_or_resubmit(monkeypatch, tmp_path):
+    monkeypatch.setenv("AGNES_API_KEY", "test-key")
+    monkeypatch.setattr(module.shutil, "which", lambda _name: "ffprobe")
+    output = tmp_path / "resume-image.mp4"
+    reference = tmp_path / "reference.png"
+    reference.write_bytes(b"stable-reference")
+    output.with_suffix(".agnes-task.json").write_text(
+        json.dumps({
+            "model": "agnes-video-v2.0",
+            "task_id": "task-existing-image",
+            "video_id": "video-existing-image",
+            "status": "in_progress",
+        }),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        module,
+        "upload_image_litterbox",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("resume must not upload the reference again")
+        ),
+    )
+    monkeypatch.setattr(
+        module.requests,
+        "post",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("resume must not submit another task")
+        ),
+    )
+
+    def fake_get(url, **_kwargs):
+        if url.startswith("https://cdn"):
+            return _Response(content=b"recovered-image-video")
+        return _Response({
+            "status": "completed",
+            "url": "https://cdn.example/recovered-image.mp4",
+        })
+
+    monkeypatch.setattr(module.requests, "get", fake_get)
+    monkeypatch.setattr(
+        module,
+        "probe_output",
+        lambda _path: {
+            "duration_seconds": 5.0,
+            "video_width": 1088,
+            "video_height": 832,
+        },
+    )
+
+    result = AgnesVideo().execute({
+        "prompt": "Recover the same image-conditioned shot",
+        "output_path": str(output),
+        "operation": "image_to_video",
+        "reference_image_path": str(reference),
+        "aspect_ratio": "16:9",
+        "aspect_mismatch_policy": "center_crop",
+    })
+
+    assert result.success
+    assert result.data["resumed_existing_task"] is True
+
+
+def test_agnes_refuses_changed_inputs_for_versioned_resumable_receipt(monkeypatch, tmp_path):
+    monkeypatch.setenv("AGNES_API_KEY", "test-key")
+    monkeypatch.setattr(module.shutil, "which", lambda _name: "ffprobe")
+    output = tmp_path / "resume-mismatch.mp4"
+    output.with_suffix(".agnes-task.json").write_text(
+        json.dumps({
+            "model": "agnes-video-v2.0",
+            "task_id": "task-existing-mismatch",
+            "status": "in_progress",
+            "request_fingerprint": "old-logical-fingerprint",
+            "request_fingerprint_version": 2,
+        }),
+        encoding="utf-8",
+    )
+    posts = []
+    monkeypatch.setattr(
+        module.requests,
+        "post",
+        lambda *_args, **_kwargs: posts.append(True) or _Response({"id": "unexpected"}),
+    )
+
+    result = AgnesVideo().execute({
+        "prompt": "Changed prompt must not attach to the old task",
+        "output_path": str(output),
+    })
+
+    assert result.success is False
+    assert "different inputs" in result.error
+    assert posts == []
+
+
+def test_agnes_image_mode_requires_explicit_aspect_mismatch_policy_before_submit(
+    monkeypatch, tmp_path
+):
+    monkeypatch.setenv("AGNES_API_KEY", "test-key")
+    monkeypatch.setattr(module.shutil, "which", lambda _name: "ffprobe")
+    posts = []
+    monkeypatch.setattr(
+        module.requests,
+        "post",
+        lambda *_args, **_kwargs: posts.append(True) or _Response({"id": "unexpected"}),
+    )
+
+    result = AgnesVideo().execute({
+        "prompt": "Image-driven shot",
+        "output_path": str(tmp_path / "image.mp4"),
+        "operation": "image_to_video",
+        "image_url": "https://example.com/reference.jpg",
+        "aspect_ratio": "16:9",
+    })
+
+    assert not result.success
+    assert "aspect_mismatch_policy" in result.error
+    assert posts == []
+
+
+def test_agnes_records_actual_aspect_and_declared_center_crop(monkeypatch, tmp_path):
+    monkeypatch.setenv("AGNES_API_KEY", "test-key")
+    monkeypatch.setattr(module.shutil, "which", lambda _name: "ffprobe")
+    monkeypatch.setattr(
+        module.requests,
+        "post",
+        lambda *_args, **_kwargs: _Response({"id": "task-aspect"}),
+    )
+    monkeypatch.setattr(
+        module.requests,
+        "get",
+        lambda url, **_kwargs: _Response(content=b"video")
+        if url.startswith("https://cdn")
+        else _Response({"status": "completed", "url": "https://cdn.example/aspect.mp4"}),
+    )
+    monkeypatch.setattr(
+        module,
+        "probe_output",
+        lambda _path: {
+            "duration_seconds": 5.0,
+            "video_width": 1088,
+            "video_height": 832,
+        },
+    )
+
+    result = AgnesVideo().execute({
+        "prompt": "Image-driven shot",
+        "output_path": str(tmp_path / "aspect.mp4"),
+        "operation": "image_to_video",
+        "image_url": "https://example.com/reference.jpg",
+        "aspect_ratio": "16:9",
+        "aspect_mismatch_policy": "center_crop",
+    })
+
+    assert result.success
+    assert result.data["aspect_ratio_matches"] is False
+    assert result.data["aspect_mismatch_policy"] == "center_crop"
+    assert result.data["requires_aspect_normalization"] is True
 
 
 def test_agnes_video_is_unavailable_without_key(monkeypatch):

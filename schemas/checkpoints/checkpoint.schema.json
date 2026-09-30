@@ -8,6 +8,8 @@
   "properties": {
     "version": { "type": "string", "const": "1.0" },
     "project_id": { "type": "string" },
+    "run_id": { "type": "string", "description": "Stable identity for one project execution run." },
+    "stage_attempt_id": { "type": "string", "description": "Stable identity from in_progress through completion of one stage attempt." },
     "stage": {
       "type": "string",
       "description": "Stage name — validated at runtime against the pipeline manifest's stage list"

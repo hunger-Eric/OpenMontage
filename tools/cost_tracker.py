@@ -46,7 +46,7 @@ class CostTracker:
         reserve_pct: float = 0.10,
         single_action_approval_usd: float = 0.50,
         require_approval_for_new_paid_tool: bool = True,
-        mode: BudgetMode = BudgetMode.WARN,
+        mode: BudgetMode = BudgetMode.OBSERVE,
         cost_log_path: Optional[Path] = None,
     ) -> None:
         self.budget_total_usd = budget_total_usd

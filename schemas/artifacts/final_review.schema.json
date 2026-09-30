@@ -23,6 +23,7 @@
         "visual_spotcheck",
         "audio_spotcheck",
         "promise_preservation",
+        "semantic_alignment",
         "subtitle_check"
       ],
       "properties": {
@@ -56,6 +57,11 @@
             "broken_overlays": { "type": "boolean" },
             "missing_assets": { "type": "boolean" },
             "unreadable_text": { "type": "boolean" },
+            "uniform_borders_detected": { "type": "boolean" },
+            "border_findings": {
+              "type": "array",
+              "items": { "type": "object" }
+            },
             "issues": {
               "type": "array",
               "items": { "type": "string" }
@@ -111,6 +117,19 @@
               "items": { "type": "string" }
             }
           }
+        },
+        "semantic_alignment": {
+          "type": "object",
+          "description": "Model-owned review coverage for generated motion and logged handling of approved deviations.",
+          "required": ["required", "complete", "reviewed_assets", "missing_assets", "issues"],
+          "properties": {
+            "required": { "type": "boolean" },
+            "complete": { "type": "boolean" },
+            "reviewed_assets": { "type": "integer", "minimum": 0 },
+            "missing_assets": { "type": "array", "items": { "type": ["string", "null"] } },
+            "issues": { "type": "array", "items": { "type": "string" } }
+          },
+          "additionalProperties": false
         },
         "subtitle_check": {
           "type": "object",

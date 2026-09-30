@@ -88,6 +88,19 @@ class VideoSelector(BaseTool):
                 "default": "16:9",
                 "description": "Video aspect ratio. Passed through to the selected provider.",
             },
+            "aspect_mismatch_policy": {
+                "type": "string",
+                "enum": ["center_crop", "pad"],
+                "description": "Required by Agnes image/reference modes to declare aspect normalization before submission.",
+            },
+            "idempotency_key": {
+                "type": "string",
+                "description": "Stable caller key used to resume or deduplicate an external generation attempt.",
+            },
+            "attempt_id": {
+                "type": "string",
+                "description": "Stable stage-attempt identity preserved in provider receipts and events.",
+            },
             "duration": {
                 "type": "string",
                 "description": "Duration hint (e.g., '5', '10'). Passed through to the selected provider.",
@@ -262,8 +275,9 @@ class VideoSelector(BaseTool):
             "timeout_seconds": {
                 "type": "integer",
                 "minimum": 30,
-                "maximum": 900,
-                "description": "Provider generation timeout in seconds.",
+                "maximum": 3600,
+                "default": 3600,
+                "description": "Provider polling window in seconds; silence alone is not a terminal task state.",
             },
         },
     }

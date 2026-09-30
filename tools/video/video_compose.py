@@ -118,6 +118,13 @@ class VideoCompose(BaseTool):
                     "edit_decisions.metadata.proposal_render_runtime."
                 ),
             },
+            "decision_log": {
+                "type": "object",
+                "description": (
+                    "Cumulative decision_log artifact. Required when a model semantic "
+                    "review approves a deviation from the approved script or scene plan."
+                ),
+            },
             "narration_transcript_path": {
                 "type": "string",
                 "description": (
@@ -379,6 +386,7 @@ class VideoCompose(BaseTool):
                 inputs.get("script_path")
             ),
             asset_manifest=inputs.get("asset_manifest"),
+            decision_log=inputs.get("decision_log"),
         )
         data = {
             "operation": "review",
@@ -1065,6 +1073,7 @@ class VideoCompose(BaseTool):
             narration_transcript_path=inputs.get("narration_transcript_path"),
             script_text=inputs.get("script_text"),
             asset_manifest=inputs.get("asset_manifest"),
+            decision_log=inputs.get("decision_log"),
         )
 
         atelier_checks = self._run_atelier_checks(entry_path, bespoke)
@@ -1719,6 +1728,7 @@ class VideoCompose(BaseTool):
                     inputs.get("script_path")
                 ),
                 asset_manifest=asset_manifest,
+                decision_log=inputs.get("decision_log"),
             )
 
             # Attach final_review to the ToolResult data so the compose-director
@@ -1858,6 +1868,7 @@ class VideoCompose(BaseTool):
                     inputs.get("script_path")
                 ),
                 asset_manifest=asset_manifest,
+                decision_log=inputs.get("decision_log"),
             )
             if render_result.data is None:
                 render_result.data = {}
@@ -1920,6 +1931,7 @@ class VideoCompose(BaseTool):
                     inputs.get("script_path")
                 ),
                 asset_manifest=asset_manifest,
+                decision_log=inputs.get("decision_log"),
             )
             if render_result.data is None:
                 render_result.data = {}
@@ -2430,6 +2442,7 @@ class VideoCompose(BaseTool):
         narration_transcript_path: str | Path | None = None,
         script_text: str | None = None,
         asset_manifest: dict[str, Any] | None = None,
+        decision_log: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Run post-render self-review and produce a final_review artifact.
 
@@ -2535,6 +2548,8 @@ class VideoCompose(BaseTool):
             "broken_overlays": False,
             "missing_assets": False,
             "unreadable_text": False,
+            "uniform_borders_detected": False,
+            "border_findings": [],
             "issues": [],
         }
         duration = technical_probe.get("duration_seconds", 0)
@@ -2562,6 +2577,13 @@ class VideoCompose(BaseTool):
                         # a 1920x1080 PNG of pure black is ~5KB)
                         if frame_path.stat().st_size < 2000:
                             visual_spotcheck["black_frames_detected"] = True
+                        border = self._detect_uniform_borders(frame_path)
+                        if border.get("detected"):
+                            visual_spotcheck["uniform_borders_detected"] = True
+                            visual_spotcheck["border_findings"].append({
+                                "frame": str(frame_path),
+                                **border,
+                            })
 
                 visual_spotcheck["frames_sampled"] = len(frame_paths)
                 visual_spotcheck["frame_paths"] = frame_paths
@@ -2573,6 +2595,10 @@ class VideoCompose(BaseTool):
                 if visual_spotcheck["black_frames_detected"]:
                     visual_spotcheck["issues"].append(
                         "Black frame detected — possible missing asset or failed render segment"
+                    )
+                if visual_spotcheck["uniform_borders_detected"]:
+                    visual_spotcheck["issues"].append(
+                        "Uniform pillarbox/letterbox borders detected in sampled rendered frames"
                     )
             except Exception as e:
                 visual_spotcheck["issues"].append(f"Frame sampling error: {e}")
@@ -2729,7 +2755,7 @@ class VideoCompose(BaseTool):
                     from lib.delivery_promise import DeliveryPromise
                     promise = DeliveryPromise.from_dict(delivery_data)
                     cuts = edit_decisions.get("cuts", [])
-                    result = promise.validate_cuts(cuts)
+                    result = promise.validate_cuts(cuts, asset_manifest=asset_manifest)
                     motion_ratio = result.get("motion_ratio", 0)
                     promise_preservation["motion_ratio_actual"] = round(motion_ratio, 3)
 
@@ -2739,7 +2765,7 @@ class VideoCompose(BaseTool):
                             promise_preservation["issues"].append(v)
 
                     # Detect silent downgrade: motion-led promise but <50% motion
-                    if (delivery_data.get("type") == "motion_led"
+                    if (delivery_data.get("promise_type") == "motion_led"
                             and motion_ratio < 0.5):
                         promise_preservation["silent_downgrade_detected"] = True
                         promise_preservation["issues"].append(
@@ -2751,7 +2777,91 @@ class VideoCompose(BaseTool):
                         f"Could not validate delivery promise: {e}"
                     )
 
+        production_plan = (proposal_packet or {}).get("production_plan") or {}
+        music_plan = production_plan.get("music_source") or {}
+        music_source_type = str(music_plan.get("source_type") or "").lower()
+        music_expected = bool(music_plan) and music_source_type not in {
+            "none", "no_music", "without_music",
+        }
+        if music_expected and not audio_spotcheck.get("music_present"):
+            promise_preservation["delivery_promise_honored"] = False
+            promise_preservation["issues"].append(
+                "Approved proposal includes music, but no music asset is present in the final mix"
+            )
+
         issues.extend(promise_preservation.get("issues", []))
+
+        semantic_alignment: dict[str, Any] = {
+            "required": False,
+            "complete": True,
+            "reviewed_assets": 0,
+            "missing_assets": [],
+            "issues": [],
+        }
+        delivery_plan = production_plan.get("delivery_promise") or {}
+        generated_motion_assets = [
+            asset for asset in (asset_manifest or {}).get("assets", [])
+            if isinstance(asset, dict)
+            and asset.get("type") in {"video", "animation"}
+            and (asset.get("model") or asset.get("provider"))
+        ]
+        semantic_alignment["required"] = bool(
+            delivery_plan.get("motion_required") and generated_motion_assets
+        )
+        if semantic_alignment["required"]:
+            decisions = (
+                decision_log.get("decisions", [])
+                if isinstance(decision_log, dict)
+                else []
+            )
+            for asset in generated_motion_assets:
+                review = asset.get("semantic_review")
+                valid_receipt = (
+                    isinstance(review, dict)
+                    and review.get("status") in {"pass", "approved_deviation"}
+                    and review.get("executor_type") == "model"
+                    and bool(review.get("provider"))
+                    and bool(review.get("model"))
+                    and bool(review.get("response_id") or review.get("integrity_hash"))
+                    and bool(review.get("requirements"))
+                )
+                if valid_receipt:
+                    semantic_alignment["reviewed_assets"] += 1
+                    has_deviation = (
+                        review.get("status") == "approved_deviation"
+                        or any(
+                            isinstance(requirement, dict)
+                            and requirement.get("status") == "deviation"
+                            for requirement in review.get("requirements", [])
+                        )
+                    )
+                    if has_deviation:
+                        asset_id = str(asset.get("id") or "")
+                        has_logged_adaptation = any(
+                            isinstance(decision, dict)
+                            and decision.get("category") == "semantic_adaptation"
+                            and (
+                                asset_id in str(decision.get("subject") or "")
+                                or asset_id in str(decision.get("reason") or "")
+                            )
+                            for decision in decisions
+                        )
+                        if not has_logged_adaptation:
+                            semantic_alignment["complete"] = False
+                            semantic_alignment["issues"].append(
+                                "Approved semantic deviation for generated asset "
+                                f"{asset_id or '<unknown>'} has no matching semantic_adaptation "
+                                "decision log entry"
+                            )
+                else:
+                    semantic_alignment["complete"] = False
+                    semantic_alignment["missing_assets"].append(asset.get("id"))
+            if not semantic_alignment["complete"]:
+                semantic_alignment["issues"].append(
+                    "Model semantic review receipt missing or incomplete for generated motion assets: "
+                    + ", ".join(str(value) for value in semantic_alignment["missing_assets"])
+                )
+        issues.extend(semantic_alignment["issues"])
 
         narration_expected = bool(
             ((edit_decisions or {}).get("audio") or {})
@@ -2875,6 +2985,9 @@ class VideoCompose(BaseTool):
                 "background music effectively inaudible",
                 "narration tempo distortion",
                 "subtitle content provenance invalid",
+                "uniform pillarbox/letterbox borders detected",
+                "approved proposal includes music",
+                "model semantic review receipt missing",
             ])
         ]
 
@@ -2914,6 +3027,7 @@ class VideoCompose(BaseTool):
                 "visual_spotcheck": visual_spotcheck,
                 "audio_spotcheck": audio_spotcheck,
                 "promise_preservation": promise_preservation,
+                "semantic_alignment": semantic_alignment,
                 "subtitle_check": subtitle_check,
                 "transcript_comparison": transcript_comparison,
             },
@@ -2927,6 +3041,64 @@ class VideoCompose(BaseTool):
         )
 
         return final_review
+
+    @staticmethod
+    def _detect_uniform_borders(frame_path: Path) -> dict[str, Any]:
+        """Detect likely pillarbox/letterbox bands in a rendered frame.
+
+        This deterministic check only detects technical framing defects. It
+        never substitutes for model-owned visual or semantic review.
+        """
+        try:
+            from PIL import Image, ImageStat
+
+            image = Image.open(frame_path).convert("RGB")
+            width, height = image.size
+            max_x = max(1, int(width * 0.2))
+            max_y = max(1, int(height * 0.2))
+
+            def dark_uniform(box: tuple[int, int, int, int]) -> bool:
+                stat = ImageStat.Stat(image.crop(box))
+                return max(stat.mean) <= 20 and max(stat.stddev) <= 8
+
+            left = 0
+            for x in range(1, max_x + 1):
+                if dark_uniform((0, 0, x, height)):
+                    left = x
+                else:
+                    break
+            right = 0
+            for x in range(1, max_x + 1):
+                if dark_uniform((width - x, 0, width, height)):
+                    right = x
+                else:
+                    break
+            top = 0
+            for y in range(1, max_y + 1):
+                if dark_uniform((0, 0, width, y)):
+                    top = y
+                else:
+                    break
+            bottom = 0
+            for y in range(1, max_y + 1):
+                if dark_uniform((0, height - y, width, height)):
+                    bottom = y
+                else:
+                    break
+
+            pillarbox = left >= width * 0.02 and right >= width * 0.02
+            letterbox = top >= height * 0.02 and bottom >= height * 0.02
+            return {
+                "detected": bool(pillarbox or letterbox),
+                "pillarbox": bool(pillarbox),
+                "letterbox": bool(letterbox),
+                "left_px": left,
+                "right_px": right,
+                "top_px": top,
+                "bottom_px": bottom,
+            }
+        except Exception as exc:
+            return {"detected": False, "error": str(exc)}
 
     @staticmethod
     def _parse_probe_fps(fps_str: str) -> float:

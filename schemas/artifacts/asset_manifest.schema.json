@@ -6,7 +6,7 @@
   "type": "object",
   "required": ["version", "assets"],
   "properties": {
-    "version": { "type": "string", "const": "1.0" },
+    "version": { "type": "string", "enum": ["1.0", "1.1"] },
     "assets": {
       "type": "array",
       "items": {
@@ -24,7 +24,7 @@
           "prompt": { "type": "string", "description": "Generation prompt if AI-generated" },
           "seed": { "type": "integer", "description": "Seed if applicable" },
           "model": { "type": "string", "description": "Model used for generation" },
-          "cost_usd": { "type": "number", "minimum": 0 },
+          "cost_usd": { "type": ["number", "null"], "minimum": 0 },
           "duration_seconds": { "type": "number", "minimum": 0 },
           "resolution": { "type": "string" },
           "format": { "type": "string" },
@@ -32,6 +32,19 @@
           "subtype": { "type": "string", "description": "Sub-classification (e.g. 'background', 'stock', 'generated')" },
           "generation_summary": { "type": "string", "description": "Brief summary of how the asset was generated or sourced" },
           "provider": { "type": "string", "description": "Provider name (e.g. pixabay, google_imagen)" },
+          "attempt_id": { "type": "string", "description": "Stable local identity for one provider submission/resume lifecycle." },
+          "provider_task_id": { "type": "string", "description": "Provider-side asynchronous task identity." },
+          "request_fingerprint": { "type": "string", "description": "Fingerprint used to prevent accidental re-submission with changed inputs." },
+          "attempt_ledger_path": { "type": "string", "description": "Append-only attempt ledger retained beside the generated media." },
+          "billing_mode": {
+            "type": "string",
+            "enum": ["usd", "token_plan", "unpriced"],
+            "description": "Billing basis for this asset; token-plan usage must not be recorded as zero USD when unknown."
+          },
+          "usage_units": { "type": ["number", "null"], "minimum": 0 },
+          "aspect_ratio_requested": { "type": "string" },
+          "aspect_ratio_actual": { "type": "string" },
+          "aspect_mismatch_policy": { "type": "string", "enum": ["center_crop", "pad"] },
           "license": { "type": "string", "description": "License type (e.g. Pixabay License, CC0)" },
           "original_url": { "type": "string", "description": "Source URL if downloaded from a stock service" },
           "voice_performance": {
@@ -50,12 +63,47 @@
               "review_notes": { "type": "string" }
             },
             "additionalProperties": false
+          },
+          "semantic_review": {
+            "type": "object",
+            "description": "Model-owned review receipt proving identity/action/continuity requirements were evaluated from actual media.",
+            "required": ["status", "executor_type", "provider", "model", "requirements"],
+            "properties": {
+              "status": { "type": "string", "enum": ["pass", "fail", "approved_deviation"] },
+              "executor_type": { "type": "string", "const": "model" },
+              "provider": { "type": "string", "minLength": 1 },
+              "model": { "type": "string", "minLength": 1 },
+              "response_id": { "type": "string", "minLength": 1 },
+              "integrity_hash": { "type": "string", "minLength": 1 },
+              "contract_version": { "type": "string" },
+              "requirements": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "required": ["kind", "requirement", "status"],
+                  "properties": {
+                    "kind": { "type": "string", "enum": ["identity", "action", "continuity", "reference_alignment", "audio_visual_alignment"] },
+                    "requirement": { "type": "string", "minLength": 1 },
+                    "status": { "type": "string", "enum": ["pass", "fail", "deviation"] },
+                    "evidence": { "type": "string" }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "notes": { "type": "string" }
+            },
+            "anyOf": [
+              { "required": ["response_id"] },
+              { "required": ["integrity_hash"] }
+            ],
+            "additionalProperties": false
           }
         },
         "additionalProperties": false
       }
     },
-    "total_cost_usd": { "type": "number", "minimum": 0 },
+    "total_cost_usd": { "type": ["number", "null"], "minimum": 0 },
     "metadata": { "type": "object" }
   },
   "additionalProperties": false

@@ -6,6 +6,7 @@ import subprocess
 
 import yaml
 
+from schemas.artifacts import validate_artifact
 from tools.video.video_compose import VideoCompose
 
 
@@ -200,6 +201,173 @@ def test_review_operation_can_gate_a_repaired_existing_render(tmp_path, monkeypa
 
     assert result.success is False
     assert result.data["final_review_status"] == "revise"
+
+
+def test_final_review_revises_when_proposal_music_is_missing(tmp_path):
+    output = tmp_path / "final.mp4"
+    subprocess.run(
+        [
+            "ffmpeg", "-y", "-f", "lavfi", "-i", "color=c=blue:s=320x240:d=1",
+            "-f", "lavfi", "-i", "sine=frequency=440:duration=1",
+            "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac",
+            "-shortest", str(output),
+        ],
+        check=True,
+        capture_output=True,
+        timeout=30,
+    )
+
+    review = VideoCompose()._run_final_review(
+        output,
+        edit_decisions={
+            "version": "1.0",
+            "render_runtime": "remotion",
+            "renderer_family": "documentary-montage",
+            "cuts": [],
+        },
+        proposal_packet={
+            "production_plan": {
+                "render_runtime": "remotion",
+                "music_source": {"source_type": "bring_your_own"},
+            }
+        },
+        asset_manifest={"version": "1.0", "assets": []},
+    )
+
+    assert review["status"] == "revise"
+    assert review["checks"]["promise_preservation"]["delivery_promise_honored"] is False
+    assert any("music" in issue.lower() for issue in review["issues_found"])
+
+
+def test_final_review_requires_model_semantic_receipts_for_generated_motion(tmp_path):
+    output = tmp_path / "semantic.mp4"
+    subprocess.run(
+        [
+            "ffmpeg", "-y", "-f", "lavfi", "-i", "color=c=blue:s=320x240:d=1",
+            "-c:v", "libx264", "-pix_fmt", "yuv420p", str(output),
+        ],
+        check=True,
+        capture_output=True,
+        timeout=30,
+    )
+    proposal = {
+        "production_plan": {
+            "render_runtime": "remotion",
+            "delivery_promise": {
+                "promise_type": "motion_led",
+                "motion_required": True,
+                "tone_mode": "cinematic",
+                "quality_floor": "presentable",
+            },
+        }
+    }
+    edit = {
+        "version": "1.0",
+        "render_runtime": "remotion",
+        "renderer_family": "documentary-montage",
+        "cuts": [{"id": "c1", "source": "clip", "in_seconds": 0, "out_seconds": 1}],
+    }
+    manifest = {
+        "version": "1.1",
+        "assets": [{
+            "id": "clip", "type": "video", "path": "assets/video/clip.mp4",
+            "source_tool": "video_selector", "scene_id": "s1",
+            "provider": "agnes", "model": "agnes-video-v2.0",
+        }],
+    }
+
+    review = VideoCompose()._run_final_review(
+        output,
+        edit_decisions=edit,
+        proposal_packet=proposal,
+        asset_manifest=manifest,
+    )
+
+    assert review["status"] == "revise"
+    assert review["checks"]["semantic_alignment"]["complete"] is False
+    assert any("semantic review" in issue.lower() for issue in review["issues_found"])
+    assert validate_artifact("final_review", review) is None
+
+
+def test_final_review_requires_decision_log_for_approved_semantic_deviation(tmp_path):
+    output = tmp_path / "semantic-deviation.mp4"
+    subprocess.run(
+        [
+            "ffmpeg", "-y", "-f", "lavfi", "-i", "color=c=blue:s=320x240:d=1",
+            "-c:v", "libx264", "-pix_fmt", "yuv420p", str(output),
+        ],
+        check=True,
+        capture_output=True,
+        timeout=30,
+    )
+    proposal = {
+        "production_plan": {
+            "render_runtime": "remotion",
+            "delivery_promise": {
+                "promise_type": "motion_led",
+                "motion_required": True,
+                "tone_mode": "cinematic",
+                "quality_floor": "presentable",
+            },
+        }
+    }
+    edit = {
+        "version": "1.0",
+        "render_runtime": "remotion",
+        "renderer_family": "documentary-montage",
+        "cuts": [{"id": "c1", "source": "clip", "in_seconds": 0, "out_seconds": 1}],
+    }
+    manifest = {
+        "version": "1.1",
+        "assets": [{
+            "id": "clip", "type": "video", "path": "assets/video/clip.mp4",
+            "source_tool": "video_selector", "scene_id": "s1",
+            "provider": "agnes", "model": "agnes-video-v2.0",
+            "semantic_review": {
+                "status": "approved_deviation",
+                "executor_type": "model",
+                "provider": "openai",
+                "model": "gpt-5",
+                "response_id": "resp-1",
+                "requirements": [{
+                    "kind": "action",
+                    "requirement": "the creature's tail glows",
+                    "status": "deviation",
+                    "evidence": "the generated clip uses a glowing stone instead",
+                }],
+            },
+        }],
+    }
+
+    review = VideoCompose()._run_final_review(
+        output,
+        edit_decisions=edit,
+        proposal_packet=proposal,
+        asset_manifest=manifest,
+        decision_log={"version": "1.0", "project_id": "test", "decisions": []},
+    )
+
+    assert review["status"] == "revise"
+    assert review["checks"]["semantic_alignment"]["complete"] is False
+    assert any("decision log" in issue.lower() for issue in review["issues_found"])
+
+
+def test_uniform_border_detector_finds_pillarbox_and_accepts_full_bleed(tmp_path):
+    from PIL import Image
+
+    pillar = Image.new("RGB", (100, 60), "black")
+    for x in range(10, 90):
+        for y in range(60):
+            pillar.putpixel((x, y), (20 + x, 80, 160))
+    pillar_path = tmp_path / "pillar.png"
+    pillar.save(pillar_path)
+
+    full = Image.new("RGB", (100, 60), (30, 100, 180))
+    full_path = tmp_path / "full.png"
+    full.save(full_path)
+
+    assert VideoCompose._detect_uniform_borders(pillar_path)["pillarbox"] is True
+    assert VideoCompose._detect_uniform_borders(full_path)["detected"] is False
 
 
 def test_chinese_transcript_comparison_keeps_cjk_content(tmp_path):

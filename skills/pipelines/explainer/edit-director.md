@@ -53,6 +53,11 @@ Each cut defines what visual is shown and when:
 }
 ```
 
+Set `cuts[].media_type` from the referenced asset manifest entry (`video`,
+`animation`, `image`, and so on). Do not invent the legacy `cuts[].type` field:
+the strict schema rejects it. Motion-promise validation resolves the source
+through `asset_manifest`, so preserve the original asset ID in `source`.
+
 **Layering rules:**
 - `primary` — main visual (one at a time)
 - `overlay` — text cards, stat cards, key terms (on top of primary)
@@ -138,6 +143,7 @@ Adjust cut timing if any violates these rules.
 
 **Asset references:**
 - [ ] Every cut's `source` references a valid asset_id from the manifest
+- [ ] Every cut records schema-valid `media_type` matching that manifest asset
 - [ ] Every narration segment references a valid audio asset
 - [ ] Music asset exists
 

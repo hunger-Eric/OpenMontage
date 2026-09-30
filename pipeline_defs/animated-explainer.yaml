@@ -45,10 +45,6 @@ required_skills:
 orchestration:
   mode: executive-producer
   skill: pipelines/explainer/executive-producer
-  budget_default_usd: 2.00
-  max_revisions_per_stage: 3
-  max_send_backs: 3
-  max_wall_time_minutes: 20
 
 compatible_playbooks:
   recommended:
@@ -93,14 +89,14 @@ stages:
       - Concept options are genuinely different (structure, hook, audience)
       - Each concept is grounded in research findings, not generic
       - Production plan reflects actual tool availability from preflight
-      - Cost estimate is itemized and honest
+      - Provider billing/usage estimate is itemized and honest; unknown Token Plan usage is null, never zero
       - Quality/cost tradeoffs are clearly presented
       - Alternative production paths shown at different price points
       - "Concept differentiation from reference (if reference-driven)"
     success_criteria:
       - Schema-valid proposal_packet with at least 3 concept_options
       - selected_concept references a valid concept_id
-      - cost_estimate has itemized line_items with per-tool costs
+      - cost_estimate has itemized line_items with per-tool billing/usage and no invented zero-dollar plan usage
       - approval.status is "approved" or "approved_with_changes" before proceeding
     sub_stages:
       - name: sample
@@ -143,6 +139,7 @@ stages:
       - script
     optional_artifacts_in:
       - proposal_packet
+      - decision_log
     produces:
       - scene_plan
     tools_available: []
@@ -164,6 +161,7 @@ stages:
       - script
     optional_artifacts_in:
       - proposal_packet
+      - decision_log
     produces:
       - asset_manifest
     required_tools:
@@ -189,7 +187,8 @@ stages:
       - All asset files exist on disk
       - Narration covers all script sections
       - Narration assets apply the approved voice performance plan and sample settings
-      - Total cost within approved budget from proposal_packet
+      - Provider attempts and actual usage are reconciled; an explicit user budget cap is honored when present
+      - Generated motion has model-owned semantic review receipts before batch continuation
       - Image style consistency across all generated visuals
     success_criteria:
       - Schema-valid asset_manifest with all required assets generated
@@ -223,6 +222,8 @@ stages:
       - asset_manifest
     optional_artifacts_in:
       - scene_plan
+      - proposal_packet
+      - decision_log
     produces:
       - render_report
       - final_review
@@ -245,6 +246,9 @@ stages:
       - Audio is clear with proper narration/music balance
       - final_review audio_spotcheck confirms mix_balance_verified and narration_pace_acceptable
       - final_review transcript_comparison confirms the final spoken audio matches the approved script
+      - final_review semantic_alignment confirms generated motion realizes identity/action/continuity requirements
+      - Approved semantic deviations have matching decision_log entries and revised source artifacts
+      - Sampled frames contain no unintended pillarbox or letterbox borders
       - Subtitles are generated from the final narration transcript, never projected from script timing alone
       - Background music is no more than 20 LU below narration before optional ducking
       - Final rendering enters through video_compose; low-level runtime tools are not delivery entry points
@@ -255,7 +259,7 @@ stages:
       - Output file exists and passes ffprobe validation
       - final_review.status is pass; revise and fail are non-deliverable
       - Missing, unreadable, empty, or below-threshold narration transcription is non-deliverable
-      - Pre-authorized runs automatically repair and re-render revise findings up to two rounds
+      - Pre-authorized runs repair and re-render until final_review passes or a real external blocker/user decision is required
 
   - name: publish
     skill: pipelines/explainer/publish-director

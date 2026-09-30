@@ -18,12 +18,18 @@ Read `edit_decisions.render_runtime` before anything else. It was locked at prop
 direct call may create an MP4 but does not satisfy the pipeline's final-review
 contract. Every final render, including HyperFrames atelier work, MUST enter
 through `video_compose(operation="render")` with `edit_decisions`,
-`asset_manifest`, and `proposal_packet`; only that path may produce a
+`asset_manifest`, `proposal_packet`, and `decision_log`; only that path may produce a
 deliverable `final_review`.
 
 `final_review.checks.promise_preservation.render_runtime_used` must equal the runtime that actually ran; `runtime_swap_detected` must be `false` unless an approved decision authorizes the swap.
 
 **Pass `proposal_packet` to `video_compose.execute()`** so in-tool swap detection can actually fire. Without it the `runtime_swap_check` is reported as `skipped` and you have to rely on the reviewer skill's cross-artifact comparison instead.
+
+Also pass `asset_manifest` and `decision_log`. The final gate is non-deliverable
+when generated motion lacks a model semantic receipt, an approved semantic
+deviation lacks a matching `semantic_adaptation` decision, approved music is
+missing, or sampled frames contain pillar/letterbox borders. A valid container
+or successful provider response does not override these failures.
 
 ## Prerequisites
 

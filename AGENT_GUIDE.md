@@ -513,6 +513,19 @@ Selectors route based on: user preference > availability > discovery order. They
 
 ## User-Facing Planning Protocol
 
+Production is completion-driven. Cost and usage reporting exists to make paid
+operations visible and prevent duplicate submissions; it is not a default stop
+condition. Do not invent a budget cap, wall-clock timeout, or retry ceiling. A
+cap is binding only when the user explicitly sets one. For Token Plan providers,
+record unknown USD/tokens as `null`, never as zero.
+
+Provider capability limits are per-call planning constraints, not whole-video
+limits. Split long work into shots and compose them. Persist an attempt ledger
+and resume ambiguous/non-terminal tasks before any new paid submission. A
+generated clip becomes usable only after model-owned semantic review of actual
+media; deterministic probes validate technical properties but cannot approve
+identity or action realization.
+
 Before committing to execution, present:
 
 1. `4-5` concept directions when the brief is still open.

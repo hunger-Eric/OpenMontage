@@ -9,6 +9,8 @@ import mimetypes
 import os
 import shutil
 import time
+import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -117,6 +119,38 @@ def _task_receipt_path(output_path: Path) -> Path:
     return output_path.with_suffix(".agnes-task.json")
 
 
+def _attempt_ledger_path(output_path: Path) -> Path:
+    return output_path.with_suffix(".agnes-attempts.jsonl")
+
+
+def _read_task_receipt(output_path: Path) -> dict[str, Any] | None:
+    try:
+        value = json.loads(_task_receipt_path(output_path).read_text(encoding="utf-8"))
+        return value if isinstance(value, dict) else None
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+def _append_attempt_event(
+    output_path: Path,
+    *,
+    attempt_id: str,
+    event: str,
+    payload: dict[str, Any] | None = None,
+) -> Path:
+    path = _attempt_ledger_path(output_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    entry = {
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "attempt_id": attempt_id,
+        "event": event,
+        **(payload or {}),
+    }
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(entry, ensure_ascii=False, default=str) + "\n")
+    return path
+
+
 def _write_task_receipt(output_path: Path, payload: dict[str, Any]) -> Path:
     receipt_path = _task_receipt_path(output_path)
     receipt_path.parent.mkdir(parents=True, exist_ok=True)
@@ -128,6 +162,11 @@ def _write_task_receipt(output_path: Path, payload: dict[str, Any]) -> Path:
         "progress": payload.get("progress"),
         "seconds": payload.get("seconds"),
         "size": payload.get("size"),
+        "attempt_id": payload.get("attempt_id"),
+        "request_fingerprint": payload.get("request_fingerprint"),
+        "request_fingerprint_version": payload.get("request_fingerprint_version"),
+        "aspect_mismatch_policy": payload.get("aspect_mismatch_policy"),
+        "last_error": payload.get("last_error"),
     }
     temporary_path = receipt_path.with_suffix(f"{receipt_path.suffix}.tmp")
     temporary_path.write_text(
@@ -226,6 +265,15 @@ class AgnesVideo(BaseTool):
                 "default": "16:9",
                 "description": "v2.0 request canvas preset; image-driven modes inherit the reference image dimensions.",
             },
+            "aspect_mismatch_policy": {
+                "type": "string",
+                "enum": ["center_crop", "pad"],
+                "description": (
+                    "Required for image/reference-driven generation because Agnes inherits "
+                    "reference dimensions. Declares how composition will normalize an output "
+                    "whose actual aspect ratio differs from the requested canvas."
+                ),
+            },
             "width": {"type": "integer", "minimum": 1},
             "height": {"type": "integer", "minimum": 1},
             "duration": {
@@ -261,7 +309,13 @@ class AgnesVideo(BaseTool):
             "seed": {"type": "integer"},
             "negative_prompt": {"type": "string"},
             "poll_interval_seconds": {"type": "number", "minimum": 1, "maximum": 60, "default": 5},
-            "timeout_seconds": {"type": "integer", "minimum": 30, "maximum": 3600, "default": 900},
+            "timeout_seconds": {
+                "type": "integer",
+                "minimum": 30,
+                "maximum": 3600,
+                "default": 3600,
+                "description": "Maximum provider polling window; silence alone is never a terminal task state.",
+            },
         },
     }
     resource_profile = ResourceProfile(
@@ -283,7 +337,7 @@ class AgnesVideo(BaseTool):
         return operation in {"text_to_video", "image_to_video", "reference_to_video"} and self.get_status() == ToolStatus.AVAILABLE
 
     def estimate_runtime(self, inputs: dict[str, Any]) -> float:
-        return float(inputs.get("timeout_seconds", 900))
+        return float(inputs.get("timeout_seconds", 3600))
 
     def execute(self, inputs: dict[str, Any]) -> ToolResult:
         started = time.time()
@@ -312,31 +366,37 @@ class AgnesVideo(BaseTool):
             return ToolResult(success=False, error="Agnes video output_path already exists; refusing to overwrite it")
 
         operation = str(inputs.get("operation", "text_to_video"))
+        if (
+            operation in {"image_to_video", "reference_to_video"}
+            and not inputs.get("aspect_mismatch_policy")
+        ):
+            return ToolResult(
+                success=False,
+                error=(
+                    f"{operation} requires aspect_mismatch_policy='center_crop' or 'pad' "
+                    "before submission because Agnes inherits reference-image dimensions."
+                ),
+                data={"provider": "agnes", "model": DEFAULT_MODEL, "fallback_used": False},
+            )
         image_urls = list(inputs.get("reference_image_urls") or [])
         single_image = inputs.get("image_url") or inputs.get("reference_image_url")
         if single_image:
             image_urls.insert(0, str(single_image))
         local_image = inputs.get("reference_image_path")
-        if (
-            operation in {"image_to_video", "reference_to_video"}
-            and local_image
-            and not image_urls
-        ):
-            try:
-                image_urls.insert(0, upload_image_litterbox(str(local_image)))
-            except Exception as exc:
+        if operation in {"image_to_video", "reference_to_video"} and not image_urls:
+            if not local_image:
                 return ToolResult(
                     success=False,
-                    error=f"Failed to upload Agnes reference image: {exc}",
+                    error=(
+                        f"{operation} requires reference_image_path, image_url, "
+                        "or reference_image_urls"
+                    ),
                 )
-        if operation in {"image_to_video", "reference_to_video"} and not image_urls:
-            return ToolResult(
-                success=False,
-                error=(
-                    f"{operation} requires reference_image_path, image_url, "
-                    "or reference_image_urls"
-                ),
-            )
+            if not Path(str(local_image)).is_file():
+                return ToolResult(
+                    success=False,
+                    error=f"Agnes reference image not found: {local_image}",
+                )
 
         frame_rate = float(inputs.get("frame_rate", DEFAULT_FRAME_RATE))
         explicit_frames = inputs.get("num_frames")
@@ -411,13 +471,86 @@ class AgnesVideo(BaseTool):
             payload["extra_body"] = {"image": image_urls}
 
         headers = {"Authorization": f"Bearer {_api_key()}", "Content-Type": "application/json"}
+        fingerprint_payload = dict(payload)
+        if local_image and not image_urls:
+            fingerprint_payload["reference_image_sha256"] = hashlib.sha256(
+                Path(str(local_image)).read_bytes()
+            ).hexdigest()
+        request_fingerprint = hashlib.sha256(
+            json.dumps(fingerprint_payload, sort_keys=True, ensure_ascii=False).encode("utf-8")
+        ).hexdigest()
+        request_fingerprint_version = 2
+        existing_receipt = _read_task_receipt(output_path)
+        resumable_receipt = (
+            existing_receipt
+            if existing_receipt
+            and (existing_receipt.get("task_id") or existing_receipt.get("video_id"))
+            and str(existing_receipt.get("status") or "").lower() not in TERMINAL_FAILURES
+            else None
+        )
+        if (
+            resumable_receipt
+            and resumable_receipt.get("request_fingerprint")
+            and resumable_receipt.get("request_fingerprint_version") == request_fingerprint_version
+            and resumable_receipt["request_fingerprint"] != request_fingerprint
+        ):
+            return ToolResult(
+                success=False,
+                error=(
+                    "A resumable Agnes task already exists for this output_path with different "
+                    "inputs. Resume it unchanged or choose a new output_path; refusing a second submit."
+                ),
+                data={
+                    "provider": "agnes",
+                    "model": DEFAULT_MODEL,
+                    "task_id": resumable_receipt.get("task_id"),
+                    "video_id": resumable_receipt.get("video_id"),
+                    "fallback_used": False,
+                },
+            )
         task_id: str | None = None
         video_id: str | None = None
         task_receipt_path: Path | None = None
+        attempt_id = str(
+            (resumable_receipt or {}).get("attempt_id")
+            or inputs.get("attempt_id")
+            or uuid.uuid4()
+        )
+        attempt_ledger_path = _attempt_ledger_path(output_path)
+        resumed_existing_task = bool(resumable_receipt)
         try:
-            created = requests.post(f"{_base_url()}/videos", headers=headers, json=payload, timeout=120)
-            created.raise_for_status()
-            created_data = created.json()
+            if resumable_receipt:
+                created_data = dict(resumable_receipt)
+                _append_attempt_event(
+                    output_path,
+                    attempt_id=attempt_id,
+                    event="resumed",
+                    payload={
+                        "task_id": created_data.get("task_id"),
+                        "video_id": created_data.get("video_id"),
+                        "request_fingerprint": request_fingerprint,
+                    },
+                )
+            else:
+                if local_image and not image_urls:
+                    try:
+                        image_urls.insert(0, upload_image_litterbox(str(local_image)))
+                    except Exception as exc:
+                        return ToolResult(
+                            success=False,
+                            error=f"Failed to upload Agnes reference image: {exc}",
+                        )
+                    payload["image"] = image_urls[0]
+                    payload["mode"] = "ti2vid"
+                submit_headers = {**headers, "Idempotency-Key": str(inputs.get("idempotency_key") or request_fingerprint)}
+                created = requests.post(
+                    f"{_base_url()}/videos",
+                    headers=submit_headers,
+                    json=payload,
+                    timeout=120,
+                )
+                created.raise_for_status()
+                created_data = created.json()
             task_id = str(created_data.get("task_id") or created_data.get("id") or "").strip() or None
             video_id = str(created_data.get("video_id") or "").strip() or None
             if not task_id and not video_id:
@@ -426,10 +559,25 @@ class AgnesVideo(BaseTool):
                 **created_data,
                 "task_id": task_id,
                 "video_id": video_id,
+                "attempt_id": attempt_id,
+                "request_fingerprint": request_fingerprint,
+                "request_fingerprint_version": request_fingerprint_version,
+                "aspect_mismatch_policy": inputs.get("aspect_mismatch_policy"),
             }
             task_receipt_path = _write_task_receipt(output_path, receipt_data)
+            if not resumable_receipt:
+                _append_attempt_event(
+                    output_path,
+                    attempt_id=attempt_id,
+                    event="submitted",
+                    payload={
+                        "task_id": task_id,
+                        "video_id": video_id,
+                        "request_fingerprint": request_fingerprint,
+                    },
+                )
 
-            deadline = time.time() + int(inputs.get("timeout_seconds", 900))
+            deadline = time.time() + int(inputs.get("timeout_seconds", 3600))
             interval = float(inputs.get("poll_interval_seconds", 5))
             result_data: dict[str, Any] = created_data
             while time.time() < deadline:
@@ -471,6 +619,28 @@ class AgnesVideo(BaseTool):
             probe = probe_output(output_path)
             if not probe.get("duration_seconds") or not probe.get("video_width") or not probe.get("video_height"):
                 raise RuntimeError("ffprobe rejected the downloaded Agnes video")
+            actual_ratio = float(probe["video_width"]) / float(probe["video_height"])
+            requested_ratio = width / height
+            aspect_ratio_matches = abs(actual_ratio - requested_ratio) / requested_ratio <= 0.01
+            receipt_data.update({
+                "status": "completed",
+                "actual_width": probe["video_width"],
+                "actual_height": probe["video_height"],
+                "aspect_ratio_matches": aspect_ratio_matches,
+            })
+            _write_task_receipt(output_path, receipt_data)
+            _append_attempt_event(
+                output_path,
+                attempt_id=attempt_id,
+                event="completed",
+                payload={
+                    "task_id": task_id,
+                    "video_id": video_id,
+                    "actual_width": probe["video_width"],
+                    "actual_height": probe["video_height"],
+                    "aspect_ratio_matches": aspect_ratio_matches,
+                },
+            )
         except requests.HTTPError as exc:
             if output_path.exists():
                 output_path.unlink()
@@ -480,6 +650,12 @@ class AgnesVideo(BaseTool):
                 detail = response.json() if response is not None else None
             except ValueError:
                 detail = (response.text[:1000] if response is not None else "")
+            _append_attempt_event(
+                output_path,
+                attempt_id=attempt_id,
+                event="interrupted",
+                payload={"task_id": task_id, "video_id": video_id, "error": f"HTTP {status_code}"},
+            )
             return ToolResult(
                 success=False,
                 error=f"Agnes API HTTP {status_code}: {detail}",
@@ -489,12 +665,20 @@ class AgnesVideo(BaseTool):
                     "task_id": task_id,
                     "video_id": video_id,
                     "task_receipt_path": str(task_receipt_path) if task_receipt_path else None,
+                    "attempt_id": attempt_id,
+                    "attempt_ledger_path": str(attempt_ledger_path),
                     "fallback_used": False,
                 },
             )
         except Exception as exc:
             if output_path.exists():
                 output_path.unlink()
+            _append_attempt_event(
+                output_path,
+                attempt_id=attempt_id,
+                event="interrupted",
+                payload={"task_id": task_id, "video_id": video_id, "error": str(exc)},
+            )
             return ToolResult(
                 success=False,
                 error=str(exc),
@@ -504,6 +688,8 @@ class AgnesVideo(BaseTool):
                     "task_id": task_id,
                     "video_id": video_id,
                     "task_receipt_path": str(task_receipt_path) if task_receipt_path else None,
+                    "attempt_id": attempt_id,
+                    "attempt_ledger_path": str(attempt_ledger_path),
                     "fallback_used": False,
                 },
             )
@@ -517,12 +703,19 @@ class AgnesVideo(BaseTool):
                 "task_id": task_id,
                 "video_id": video_id,
                 "task_receipt_path": str(task_receipt_path) if task_receipt_path else None,
+                "attempt_id": attempt_id,
+                "attempt_ledger_path": str(attempt_ledger_path),
+                "resumed_existing_task": resumed_existing_task,
                 "status": "completed",
                 "output": str(output_path),
                 "output_path": str(output_path),
                 "sha256": sha256,
                 "width_requested": width,
                 "height_requested": height,
+                "aspect_ratio_requested": ratio,
+                "aspect_ratio_matches": aspect_ratio_matches,
+                "aspect_mismatch_policy": inputs.get("aspect_mismatch_policy"),
+                "requires_aspect_normalization": not aspect_ratio_matches,
                 "num_frames_requested": num_frames,
                 "frame_rate_requested": frame_rate,
                 "effective_duration_seconds": num_frames / frame_rate,

@@ -33,7 +33,7 @@ class LLMConfig(BaseModel):
 
 
 class BudgetConfig(BaseModel):
-    mode: BudgetMode = BudgetMode.WARN
+    mode: BudgetMode = BudgetMode.OBSERVE
     total_usd: float = 10.0
     reserve_pct: float = 0.10
     single_action_approval_usd: float = 0.50

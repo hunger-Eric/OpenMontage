@@ -406,6 +406,23 @@ Would you like to:
 
 Itemize every paid operation:
 
+This section is a usage disclosure, not an automatic production limit. The
+pipeline's completion condition is an accepted video. Do not invent a default
+budget, wall-clock limit, or retry ceiling. Enforce `approved_budget_usd` only
+when the user explicitly supplied it. For Token Plan providers set
+`billing_mode: "token_plan"`; when USD or token usage cannot be known in
+advance, write `estimated_usd: null`, `estimated_tokens: null`, and
+`budget_verdict: "usage_unknown"` rather than `$0.00`.
+
+When model video is planned, persist
+`production_plan.video_generation_contract`. For Agnes it must identify the
+fixed model `agnes-video-v2.0`, `8n + 1` frames from 9 through 441, the chosen
+FPS, the resulting maximum seconds per call (18.375s at 24 FPS; 14.7s at 30;
+7.35s at 60), supported aspect presets, required delivery clip count, and the
+policy `split_into_planned_shots_then_compose`. The clip count describes the
+deliverable, not a limit on recovery attempts. Retry policy is
+`resume_existing_then_retry_terminal_failure`.
+
 ```
 COST ESTIMATE
 ├── TTS Narration: tts_selector × 1 run (~150 words)       $0.18
@@ -421,7 +438,7 @@ COST ESTIMATE
 
 **Rules:**
 - Always show per-item costs, not just the total
-- Always show the budget cap comparison
+- Show a budget cap comparison only when the user explicitly set a cap
 - If over budget, list specific savings options (e.g., "Switch to a cheaper TTS provider: saves $0.18" — check each provider's `estimate_cost` via the registry)
 - Include headroom note — some budget should remain for revisions
 
@@ -458,7 +475,7 @@ Validate the `proposal_packet` artifact against `schemas/artifacts/proposal_pack
 | Scene Director | `selected_concept.visual_approach` + `production_plan.playbook` |
 | Asset Director | `production_plan.stages[assets].tools` — knows exactly which providers to use |
 | Executive Producer | `cost_estimate` — initializes budget tracking |
-| All stages | `approval.approved_budget_usd` — hard spending cap |
+| All stages | `approval.approved_budget_usd` — optional hard cap only when explicitly supplied |
 
 The `selected_concept` in the proposal_packet effectively replaces what the old `brief` artifact used to be — but it's grounded in research and comes with an explicit production plan attached.
 

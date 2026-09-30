@@ -294,6 +294,20 @@ Run at **research** and **proposal** stages when user-supplied media files exist
 
 ## Final Self-Review Review
 
+For generated motion, audit the provider attempt ledger and the model-owned
+`semantic_review` receipt. The receipt must cover identity, required actions,
+continuity, and reference alignment from actual decoded media. File existence,
+ffprobe, motion scores, border detectors, or provider acceptance are technical
+evidence only and cannot substitute for semantic judgment. Any
+`approved_deviation` requires a matching `semantic_adaptation` decision and
+revised downstream source-of-truth artifacts. Missing receipts or unlogged
+deviations are **CRITICAL**.
+
+For Token Plan billing, unknown usage must remain `null`; `$0` means verified
+zero cost, not “unknown.” A project proceeds toward an accepted video unless an
+explicit user cap, a real external blocker, or a required user decision applies.
+Default time, retry, and revision ceilings are not acceptance criteria.
+
 Run at **compose** and **publish** stages. Ensures the agent reviewed the actual rendered output.
 
 ### At compose stage:

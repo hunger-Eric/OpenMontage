@@ -177,6 +177,37 @@
           },
           "additionalProperties": false
         },
+        "video_generation_contract": {
+          "type": "object",
+          "description": "Approved provider capability envelope for model-generated video. It plans required deliverables without imposing an arbitrary attempt limit.",
+          "required": [
+            "provider", "model", "delivery_clip_count", "completion_policy", "retry_policy",
+            "max_frames_per_call", "frame_count_rule", "frame_rate_fps",
+            "max_duration_seconds_per_call", "aspect_ratio_presets", "long_video_policy"
+          ],
+          "properties": {
+            "provider": { "type": "string", "minLength": 1 },
+            "model": { "type": "string", "minLength": 1 },
+            "delivery_clip_count": { "type": "integer", "minimum": 1 },
+            "completion_policy": { "type": "string", "enum": ["deliver_all_planned_clips"] },
+            "retry_policy": { "type": "string", "enum": ["resume_existing_then_retry_terminal_failure"] },
+            "max_frames_per_call": { "type": "integer", "minimum": 1 },
+            "frame_count_rule": { "type": "string", "minLength": 1 },
+            "frame_rate_fps": { "type": "number", "exclusiveMinimum": 0 },
+            "max_duration_seconds_per_call": { "type": "number", "exclusiveMinimum": 0 },
+            "aspect_ratio_presets": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "type": "string" },
+              "uniqueItems": true
+            },
+            "long_video_policy": {
+              "type": "string",
+              "enum": ["split_into_planned_shots_then_compose"]
+            }
+          },
+          "additionalProperties": false
+        },
         "voice_selection": {
           "type": "object",
           "description": "Selected voice/TTS provider and rationale",
@@ -282,7 +313,17 @@
       "type": "object",
       "required": ["total_estimated_usd", "line_items", "budget_verdict"],
       "properties": {
-        "total_estimated_usd": { "type": "number", "minimum": 0 },
+        "billing_mode": {
+          "type": "string",
+          "enum": ["usd", "token_plan", "unpriced"],
+          "default": "usd",
+          "description": "How provider usage is billed. token_plan/unpriced estimates may use null instead of inventing a zero-dollar cost."
+        },
+        "total_estimated_usd": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "description": "USD estimate, or null when the active token plan does not expose a reliable USD conversion."
+        },
         "line_items": {
           "type": "array",
           "items": {
@@ -292,7 +333,12 @@
               "tool": { "type": "string" },
               "operation": { "type": "string", "description": "What this tool call does" },
               "quantity": { "type": "number", "description": "How many calls, e.g., 6 images, 1 TTS run" },
-              "estimated_usd": { "type": "number", "minimum": 0 },
+              "estimated_usd": { "type": ["number", "null"], "minimum": 0 },
+              "estimated_tokens": {
+                "type": ["number", "null"],
+                "minimum": 0,
+                "description": "Known token/credit estimate, or null when the provider does not expose it before execution."
+              },
               "notes": { "type": "string" }
             },
             "additionalProperties": false
@@ -305,7 +351,7 @@
         },
         "budget_verdict": {
           "type": "string",
-          "enum": ["within_budget", "near_limit", "over_budget", "no_budget_set"],
+          "enum": ["within_budget", "near_limit", "over_budget", "no_budget_set", "usage_unknown"],
           "description": "How the estimate compares to the budget cap"
         },
         "savings_options": {

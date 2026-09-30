@@ -122,6 +122,46 @@ def test_in_progress_heartbeat_is_not_blocked_by_prerequisites(tmp_path) -> None
     assert path.exists()
 
 
+def test_project_and_checkpoint_preserve_run_and_stage_attempt_identity(tmp_path) -> None:
+    project_dir = init_project(
+        "run",
+        title="Run",
+        pipeline_type="framework-smoke",
+        pipeline_dir=tmp_path,
+        execution_binding={
+            "feishu_task_id": "B85V-HDA9",
+            "codex_thread_id": "thread-1",
+            "codex_turn_id": "turn-1",
+        },
+    )
+    marker = json.loads((project_dir / "project.json").read_text(encoding="utf-8"))
+
+    in_progress_path = write_checkpoint(
+        tmp_path,
+        "run",
+        "research",
+        "in_progress",
+        {},
+        pipeline_type="framework-smoke",
+    )
+    in_progress = json.loads(in_progress_path.read_text(encoding="utf-8"))
+    completed_path = write_checkpoint(
+        tmp_path,
+        "run",
+        "research",
+        "completed",
+        {"research_brief": sample_artifact("research_brief")},
+        pipeline_type="framework-smoke",
+        human_approved=True,
+    )
+    completed = json.loads(completed_path.read_text(encoding="utf-8"))
+
+    assert marker["run_id"]
+    assert marker["execution_binding"]["feishu_task_id"] == "B85V-HDA9"
+    assert in_progress["run_id"] == marker["run_id"] == completed["run_id"]
+    assert in_progress["stage_attempt_id"] == completed["stage_attempt_id"]
+
+
 def test_unknown_style_playbook_fails_before_project_creation(tmp_path) -> None:
     with pytest.raises(CheckpointValidationError, match="style_playbook"):
         init_project(
