@@ -41,10 +41,19 @@ Resolve the media before interpreting it:
   argument. Never print cookie names or values, copy them into logs, or create a
   second plaintext cookie file. If no verified authorized state exists, ask the user
   to provide a video file or refresh the existing uploader login state.
-- A metadata-endpoint `Fresh cookies` warning is not a final cookie verdict. Continue
-  the same background media acquisition with the authorized state and accept verified
-  downloaded bytes plus local `ffprobe` metadata as success. The downloader may retry
-  that read-only request within its bounded policy; do not open a browser.
+- A metadata-endpoint `Fresh cookies` warning is not a final cookie verdict.
+  The user-approved repair provides `reference_acquisition: "auto"` as the normal
+  downloader/analyzer path: a generic `Fresh cookies` or unexpected-webpage extractor
+  failure resolves the normalized source once in an isolated headless browser,
+  then downloads its media address with yt-dlp. `extractor` explicitly disables
+  recovery; `browser` selects normal browser acquisition directly. This is local
+  OpenMontage transport, not an invocation of Kedou or another external parser.
+  Generic failures are not replayed through the same page extractor before recovery.
+  Existing authorized uploader cookies are scoped to the source host, read in memory,
+  and never persisted or sent to a third-party parsing service.
+  `Fresh cookies` alone is `EXTRACTOR_BLOCKED`, not evidence of an expired login.
+  HTTP 403 is `ACCESS_DENIED`; verification challenges are `CHALLENGE_REQUIRED`.
+  Stop on these blocks without retrying or asking for a cookie refresh as a cure.
 - Do not treat the outer `ToolResult.success` flag as proof that analysis succeeded.
   Require a downloaded media file, positive duration, representative keyframes, and
   relevant entries in `_analysis_meta.steps_completed`. Empty default fields, zero
@@ -59,9 +68,34 @@ Resolve the media before interpreting it:
   extractor and is unsupported only when the extractor returns `UNSUPPORTED_URL`.
   Never report `UNSUPPORTED_URL` as expired cookies.
 - Never open a headed browser, auto-play the page, inspect browser network traffic,
-  or trigger QR login as an automatic download fallback. Only `AUTH_REQUIRED` after
-  the normalized URL was attempted with the authorized storage state is a login-state
-  problem; preserve the current task and ask the user to refresh that existing state.
+  or trigger QR login as an automatic download fallback. Explicit login rejection
+  after the normalized URL was attempted with the authorized storage state is
+  `AUTH_REQUIRED`; preserve the task and request refresh of that existing state.
+  Retain `storage_state_source` and the classified failure in the analysis brief;
+  a generic parser cookie warning must never be described as an account failure.
+- Apply failure classification across platforms. YouTube's `not a bot` rejection
+  is `CHALLENGE_REQUIRED`, not proof of an expired session. A message listing
+  unavailable content, rate limits, **or** login is `EXTRACTOR_BLOCKED` until
+  another observation establishes the cause. TLS fingerprint rejection and HTTP
+  412 are `ACCESS_DENIED`; HTTP 429 is `RATE_LIMITED`. Do not replay these failures
+  as another media or caption request. Do not downgrade HTTPS or bypass challenges.
+- `REFERENCE_UNAVAILABLE`, `MEDIA_PROTECTED`, and `GEO_RESTRICTED` need an
+  accessible reference or authorized local original, not a cookie-refresh loop.
+  `NETWORK_UNAVAILABLE` requires checking the actual failed host/network route.
+- A browser playback result, preview, or `blob:` player is not a downloaded video.
+  Require a nonempty local file with valid video streams and positive duration.
+  A missing file is `REFERENCE_MEDIA_UNAVAILABLE`; invalid bytes are
+  `INVALID_REFERENCE_MEDIA`. Label transcript-only work unsuccessful when no
+  transcript text was obtained. A file materially shorter than known source
+  duration is `INCOMPLETE_REFERENCE_MEDIA`, not a complete-reference acquisition.
+  The isolated recovery requires a single playable video, finite duration, and a
+  direct HTTP(S) media address or a single observed HLS/DASH manifest. Ambiguous
+  segmented sources stop as `SEGMENTED_MEDIA_UNRESOLVED`; do not guess among streams.
+  Downloads go into fresh acquisition directories, must match the observed duration,
+  and must pass full decoding. Record safe acquisition stages and receipts; never
+  emit signed media URLs or session headers. No headed login, QR interaction,
+  CAPTCHA solving, software installation, provider swap or fee is authorized by
+  this path. Explicit access/auth/challenge/limit failures stop.
 
 Run VideoAnalyzer with `analysis_depth: "standard"`:
 
@@ -466,6 +500,7 @@ When the user provides multiple reference URLs:
 | Known page-shaped URL | Resolve it to the canonical media URL and retry the same background acquisition |
 | Extractor returns `UNSUPPORTED_URL` | Report an extractor/input-shape issue, never expired cookies |
 | Authenticated background download returns `AUTH_REQUIRED` | Preserve the task and request refresh of the existing authorized state; never open a visible browser automatically |
+| `EXTRACTOR_BLOCKED`, `ACCESS_DENIED`, or `CHALLENGE_REQUIRED` | Preserve the task and report the parser/access/challenge block with credential provenance; do not retry, bypass the block, or claim the uploader login expired |
 | Other URL download failure | Report the classified error, suggest another URL or local file, and do not pretend the reference was analyzed |
 | Music-only soundtrack | Skip STT; record `music_only` and treat `has_transcript: false` as expected |
 | Speech present but no captions/transcript | Download video and use a configured local transcriber; report the boundary if unavailable |

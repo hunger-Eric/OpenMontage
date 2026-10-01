@@ -106,6 +106,10 @@ class VideoAnalyzer(BaseTool):
                     "for authenticated reference downloads."
                 ),
             },
+            "reference_acquisition": {
+                "type": "string", "enum": ["auto", "extractor", "browser"], "default": "auto",
+                "description": "Auto recovers generic extractor failures with a normal isolated browser; explicit restrictions stop.",
+            },
         },
     }
 
@@ -119,7 +123,7 @@ class VideoAnalyzer(BaseTool):
         network_required=False,  # Only needed for URL sources
     )
     idempotency_key_fields = [
-        "source", "analysis_depth", "playwright_storage_state_path",
+        "source", "analysis_depth", "playwright_storage_state_path", "reference_acquisition",
     ]
     side_effects = [
         "downloads video to output_dir (if URL)",
@@ -219,6 +223,7 @@ class VideoAnalyzer(BaseTool):
                         "output_dir": str(output_dir),
                         "format": "metadata_only",
                         "playwright_storage_state_path": storage_state_path,
+                        "reference_acquisition": inputs.get("reference_acquisition", "auto"),
                     })
                 else:
                     dl_result = downloader.execute({
@@ -227,8 +232,15 @@ class VideoAnalyzer(BaseTool):
                         "format": "video",
                         "max_resolution": "720p",
                         "playwright_storage_state_path": storage_state_path,
+                        "reference_acquisition": inputs.get("reference_acquisition", "auto"),
                     })
 
+                state_source = dl_result.data.get("storage_state_source")
+                if dl_result.data.get("acquisition_method"):
+                    brief["source"]["acquisition_method"] = dl_result.data["acquisition_method"]
+                    brief["source"]["acquisition_stages"] = dl_result.data.get("acquisition_stages", [])
+                if state_source in {"input", "environment", "uploader_default", "none"}:
+                    brief["source"]["storage_state_source"] = state_source
                 if dl_result.success:
                     metadata = dl_result.data.get("metadata", {})
                     resolved_url = dl_result.data.get("resolved_url")
@@ -273,6 +285,21 @@ class VideoAnalyzer(BaseTool):
                 steps_completed.append("metadata")
             except Exception as e:
                 steps_failed.append(f"metadata: {e}")
+
+        # A failed media request must not trigger unrelated caption requests.
+        if is_url and video_path is None and depth != "transcript_only":
+            brief["_analysis_meta"] = {
+                "depth": depth, "steps_completed": steps_completed,
+                "steps_failed": steps_failed,
+                "duration_seconds": round(time.time() - start, 2),
+            }
+            self._save_brief(brief, output_dir)
+            error_kind = brief["source"].get("download_error_kind", "REFERENCE_MEDIA_UNAVAILABLE")
+            return ToolResult(
+                success=False, error=f"Reference media unavailable ({error_kind})",
+                data=brief, artifacts=[str(output_dir / "video_analysis_brief.json")],
+                duration_seconds=round(time.time() - start, 2),
+            )
 
         # ─── STEP 2: Get transcript ───
         transcript_data = None
@@ -320,7 +347,11 @@ class VideoAnalyzer(BaseTool):
 
         # Fallback: If transcript failed and we don't have audio yet,
         # download the video to get audio for Whisper transcription
-        if transcript_data is None and audio_path is None and video_path is None and is_url:
+        if (
+            transcript_data is None and audio_path is None and video_path is None and is_url
+            and "metadata" in steps_completed
+            and "download_error_kind" not in brief["source"]
+        ):
             try:
                 from tools.analysis.video_downloader import VideoDownloader
                 downloader = VideoDownloader()
@@ -330,6 +361,7 @@ class VideoAnalyzer(BaseTool):
                     "format": "video",
                     "max_resolution": "720p",
                     "playwright_storage_state_path": storage_state_path,
+                    "reference_acquisition": inputs.get("reference_acquisition", "auto"),
                 })
                 if dl_result.success:
                     resolved_url = dl_result.data.get("resolved_url")
@@ -393,6 +425,7 @@ class VideoAnalyzer(BaseTool):
 
         # For transcript_only depth, we're done
         if depth == "transcript_only":
+            has_transcript = bool(brief.get("narration_transcript", {}).get("full_text", "").strip())
             brief["_analysis_meta"] = {
                 "depth": depth,
                 "steps_completed": steps_completed,
@@ -401,26 +434,8 @@ class VideoAnalyzer(BaseTool):
             }
             self._save_brief(brief, output_dir)
             return ToolResult(
-                success=True,
-                data=brief,
-                artifacts=[str(output_dir / "video_analysis_brief.json")],
-                duration_seconds=round(time.time() - start, 2),
-            )
-
-        if is_url and video_path is None:
-            brief["_analysis_meta"] = {
-                "depth": depth,
-                "steps_completed": steps_completed,
-                "steps_failed": steps_failed,
-                "duration_seconds": round(time.time() - start, 2),
-            }
-            self._save_brief(brief, output_dir)
-            error_kind = brief["source"].get(
-                "download_error_kind", "REFERENCE_MEDIA_UNAVAILABLE"
-            )
-            return ToolResult(
-                success=False,
-                error=f"Reference media unavailable ({error_kind})",
+                success=has_transcript,
+                error=None if has_transcript else "Transcript unavailable",
                 data=brief,
                 artifacts=[str(output_dir / "video_analysis_brief.json")],
                 duration_seconds=round(time.time() - start, 2),

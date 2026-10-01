@@ -32,7 +32,7 @@ from tools.base_tool import (
 
 class VideoDownloader(BaseTool):
     name = "video_downloader"
-    version = "0.1.0"
+    version = "0.2.0"
     tier = ToolTier.SOURCE
     capability = "source_ingest"
     provider = "yt-dlp"
@@ -46,7 +46,9 @@ class VideoDownloader(BaseTool):
         "Install yt-dlp: pip install yt-dlp\n"
         "For YouTube support, also install Deno (JS runtime): "
         "https://deno.land/#installation\n"
-        "Without Deno, YouTube downloads may fail but other platforms still work."
+        "Without Deno, YouTube downloads may fail but other platforms still work.\n"
+        "Normal-browser recovery requires Playwright and an existing Chromium/Edge runtime; "
+        "reference tasks do not install software."
     )
     agent_skills = ["video-download"]
 
@@ -99,6 +101,10 @@ class VideoDownloader(BaseTool):
                     "Cookies are loaded read-only into yt-dlp memory and are never emitted."
                 ),
             },
+            "reference_acquisition": {
+                "type": "string", "enum": ["auto", "extractor", "browser"], "default": "auto",
+                "description": "Auto uses normal headless browser recovery for a generic extractor failure; explicit auth/access/challenge blocks stop. Extractor disables recovery; browser selects it directly.",
+            },
         },
     }
 
@@ -129,7 +135,7 @@ class VideoDownloader(BaseTool):
         network_required=True,
     )
     idempotency_key_fields = [
-        "url", "format", "max_resolution", "playwright_storage_state_path",
+        "url", "format", "max_resolution", "playwright_storage_state_path", "reference_acquisition",
     ]
     side_effects = [
         "downloads media files to output_dir",
@@ -189,8 +195,26 @@ class VideoDownloader(BaseTool):
         lowered = message.lower()
         if "unsupported url" in lowered:
             return "UNSUPPORTED_URL"
+        if any(marker in lowered for marker in ("captcha", "verification challenge", "verifycenter", "not a bot")):
+            return "CHALLENGE_REQUIRED"
+        if any(marker in lowered for marker in ("http error 403", "403: forbidden", "http error 412", "tls fingerprint")):
+            return "ACCESS_DENIED"
+        if "http error 429" in lowered or "too many requests" in lowered:
+            return "RATE_LIMITED"
+        if "drm protected" in lowered or "drm-protected" in lowered:
+            return "MEDIA_PROTECTED"
+        if "not available in your country" in lowered or "geo-restricted" in lowered:
+            return "GEO_RESTRICTED"
+        if any(marker in lowered for marker in ("http error 404", "video has been removed", "video unavailable", "video does not exist")):
+            return "REFERENCE_UNAVAILABLE"
+        if any(marker in lowered for marker in ("domain not found", "name resolution", "getaddrinfo failed")):
+            return "NETWORK_UNAVAILABLE"
+        # Douyin's extractor uses this generic message when detail extraction
+        # fails; it does not establish that the uploader session has expired.
+        if any(marker in lowered for marker in ("fresh cookies", "rate-limit reached or login required", "unexpected response from webpage")):
+            return "EXTRACTOR_BLOCKED"
         if any(marker in lowered for marker in (
-            "fresh cookies", "sign in", "login required", "log in", "cookie",
+            "sign in", "login required", "log in", "authentication required", "session expired",
         )):
             return "AUTH_REQUIRED"
         if any(marker in lowered for marker in ("timed out", "timeout", "temporary", "http error 5")):
@@ -213,7 +237,7 @@ class VideoDownloader(BaseTool):
                 retry_index = attempts - 1
                 can_retry = (
                     storage_state_path is not None
-                    and kind in {"AUTH_REQUIRED", "TRANSIENT_NETWORK"}
+                    and kind == "TRANSIENT_NETWORK"
                     and retry_index < len(self._BACKGROUND_RETRY_DELAYS)
                 )
                 if not can_retry:
@@ -284,6 +308,8 @@ class VideoDownloader(BaseTool):
     ) -> tuple[str | None, str]:
         """Resolve one authorized state source without copying cookie contents."""
         if platform != "douyin":
+            if explicit_path:
+                self._load_playwright_cookies(explicit_path)
             return explicit_path, "input" if explicit_path else "none"
 
         environment = os.environ if env is None else env
@@ -394,8 +420,47 @@ class VideoDownloader(BaseTool):
         output_dir.mkdir(parents=True, exist_ok=True)
         start = time.time()
 
+        acquisition = inputs.get("reference_acquisition", "auto")
+        if acquisition not in {"auto", "extractor", "browser"}:
+            return ToolResult(success=False, error="Unknown reference acquisition mode",
+                              data={"error_kind": "INVALID_ACQUISITION_MODE"})
+        if acquisition == "browser":
+            if dl_format != "video":
+                return ToolResult(success=False, error="Browser acquisition currently requires video format",
+                                  data={"error_kind": "UNSUPPORTED_ACQUISITION_FORMAT"})
+            return self._acquire_browser_video(
+                requested_url, url, output_dir, max_res, max_duration,
+                storage_state_path, storage_state_source, start,
+            )
+
         # Step 1: Always get metadata first
         metadata = self._extract_metadata(url, storage_state_path)
+        metadata_error_kind = self._classify_download_error(metadata["error"]) if metadata.get("error") else None
+        if (acquisition == "auto" and dl_format == "video"
+                and metadata_error_kind == "EXTRACTOR_BLOCKED"
+                and any(marker in metadata["error"].lower() for marker in ("fresh cookies", "unexpected response from webpage"))):
+            recovered = self._acquire_browser_video(
+                requested_url, url, output_dir, max_res, max_duration,
+                storage_state_path, storage_state_source, start,
+            )
+            recovered.data["remote_metadata_warning_kind"] = metadata_error_kind
+            return recovered
+        terminal_metadata_failure = metadata_error_kind in {
+            "AUTH_REQUIRED", "CHALLENGE_REQUIRED", "ACCESS_DENIED", "RATE_LIMITED",
+            "MEDIA_PROTECTED", "GEO_RESTRICTED", "REFERENCE_UNAVAILABLE",
+            "NETWORK_UNAVAILABLE", "UNSUPPORTED_URL",
+        } or (metadata_error_kind == "EXTRACTOR_BLOCKED" and "fresh cookies" not in metadata["error"].lower())
+        if metadata.get("error") and (dl_format == "metadata_only" or terminal_metadata_failure):
+            return ToolResult(
+                success=False,
+                error=f"Metadata extraction failed: {metadata['error']}",
+                data={"metadata": metadata, "platform": platform,
+                      "requested_url": requested_url, "resolved_url": url,
+                      "url_resolution_kind": url_resolution_kind,
+                      "error_kind": metadata_error_kind,
+                      "storage_state_source": storage_state_source},
+                duration_seconds=round(time.time() - start, 2),
+            )
 
         # Check duration limit
         duration = metadata.get("duration", 0)
@@ -410,21 +475,6 @@ class VideoDownloader(BaseTool):
             )
 
         if dl_format == "metadata_only":
-            if metadata.get("error"):
-                return ToolResult(
-                    success=False,
-                    error=f"Metadata extraction failed: {metadata['error']}",
-                    data={
-                        "metadata": metadata,
-                        "platform": platform,
-                        "requested_url": requested_url,
-                        "resolved_url": url,
-                        "url_resolution_kind": url_resolution_kind,
-                        "error_kind": self._classify_download_error(metadata["error"]),
-                        "storage_state_source": storage_state_source,
-                    },
-                    duration_seconds=round(time.time() - start, 2),
-                )
             return ToolResult(
                 success=True,
                 data={
@@ -473,12 +523,36 @@ class VideoDownloader(BaseTool):
             )
 
         elapsed = time.time() - start
+        required_path = {"video": video_path, "audio_only": audio_path, "subtitles_only": subtitle_path}.get(dl_format)
+        media_error_kind = None
+        local_metadata = None
+        if not required_path or not Path(required_path).is_file() or Path(required_path).stat().st_size == 0:
+            media_error_kind = "REFERENCE_MEDIA_UNAVAILABLE"
+        elif dl_format == "video":
+            try:
+                local_metadata = self._probe_local_media(video_path)
+                local_duration = local_metadata.get("duration", 0)
+                expected_duration = metadata.get("duration") or 0
+                if not math.isfinite(local_duration) or local_duration <= 0 or not local_metadata.get("resolution"):
+                    media_error_kind = "INVALID_REFERENCE_MEDIA"
+                elif expected_duration > 0 and local_duration + max(2, expected_duration * 0.03) < expected_duration:
+                    media_error_kind = "INCOMPLETE_REFERENCE_MEDIA"
+            except Exception:
+                media_error_kind = "INVALID_REFERENCE_MEDIA"
+        if media_error_kind:
+            return ToolResult(
+                success=False, error=f"Requested media unavailable ({media_error_kind})",
+                data={"metadata": metadata, "platform": platform,
+                      "requested_url": requested_url, "resolved_url": url,
+                      "url_resolution_kind": url_resolution_kind,
+                      "error_kind": media_error_kind, "storage_state_source": storage_state_source},
+                duration_seconds=round(time.time() - start, 2),
+            )
         artifacts = [p for p in [video_path, audio_path, subtitle_path] if p]
         metadata_status = "complete"
         remote_metadata_error = metadata.pop("error", None)
         if video_path and (remote_metadata_error or not metadata.get("duration")):
             try:
-                local_metadata = self._probe_local_media(video_path)
                 for key, value in local_metadata.items():
                     if value:
                         metadata[key] = value
@@ -510,9 +584,79 @@ class VideoDownloader(BaseTool):
             duration_seconds=round(elapsed, 2),
         )
 
+    def _acquire_browser_video(
+        self, requested_url, url, output_dir, max_res, max_duration,
+        storage_state_path, storage_state_source, start,
+    ) -> ToolResult:
+        from tools.analysis.reference_media_resolver import AcquisitionError, BrowserMediaResolver
+        import uuid
+        stages = ["resolve"]
+        data = {"requested_url": requested_url, "resolved_url": url,
+                "platform": self._detect_platform(url), "storage_state_source": storage_state_source,
+                "acquisition_method": "normal_browser", "acquisition_stages": stages}
+        try:
+            media = BrowserMediaResolver().resolve(url, storage_state_path)
+            if media.duration > max_duration:
+                raise AcquisitionError("DURATION_LIMIT_EXCEEDED", "Reference exceeds the configured duration limit")
+            # Fresh staging prevents a failed attempt from accepting an old file.
+            staging = output_dir / ("acquisition_" + uuid.uuid4().hex)
+            staging.mkdir()
+            stages.append("download")
+            video_path, audio_path = self._download_video(
+                media.media_url, staging, max_res, storage_state_path,
+                transport_headers=media.headers,
+            )
+            stages.append("validate")
+            local = self._validate_browser_media(video_path, media.duration, max_duration)
+            duration = local["duration"]
+            stages.append("complete")
+            data.update(video_path=video_path, audio_path=audio_path, subtitle_path=None,
+                        metadata={**local, "title": media.title}, metadata_status="local_media_recovered")
+            receipt = staging / "acquisition_receipt.json"
+            receipt.write_text(json.dumps({"source_url": url, "executor": "code",
+                "handler": "normal_browser", "handler_version": self.version,
+                "stages": stages, "duration_seconds": duration,
+                "resolution": local["resolution"], "full_decode": "passed"}, indent=2), encoding="utf-8")
+            return ToolResult(success=True, data=data,
+                              artifacts=[p for p in [video_path, audio_path, str(receipt)] if p],
+                              duration_seconds=round(time.time() - start, 2))
+        except AcquisitionError as exc:
+            data["error_kind"] = exc.kind
+            if exc.diagnostics:
+                data["acquisition_diagnostics"] = exc.diagnostics
+            return ToolResult(success=False, error=str(exc), data=data,
+                              duration_seconds=round(time.time() - start, 2))
+        except Exception:
+            data["error_kind"] = "MEDIA_TRANSPORT_FAILED"
+            return ToolResult(success=False, error="Resolved media transport failed; no complete reference was accepted",
+                              data=data, duration_seconds=round(time.time() - start, 2))
+
+    def _validate_browser_media(self, video_path, expected_duration, max_duration):
+        from tools.analysis.reference_media_resolver import AcquisitionError
+        if not video_path or not Path(video_path).is_file() or not Path(video_path).stat().st_size:
+            raise AcquisitionError("REFERENCE_MEDIA_UNAVAILABLE", "Media transport returned no file")
+        try:
+            local = self._probe_local_media(video_path)
+        except Exception:
+            raise AcquisitionError("INVALID_REFERENCE_MEDIA", "Downloaded media could not be probed") from None
+        duration = local.get("duration", 0)
+        if not math.isfinite(duration) or duration <= 0 or not local.get("resolution"):
+            raise AcquisitionError("INVALID_REFERENCE_MEDIA", "Downloaded media has no valid video stream")
+        if duration > max_duration:
+            raise AcquisitionError("DURATION_LIMIT_EXCEEDED", "Downloaded media exceeds the configured duration limit")
+        if abs(duration - expected_duration) > max(2, expected_duration * .03):
+            raise AcquisitionError("INCOMPLETE_REFERENCE_MEDIA", "Downloaded media does not match the player duration")
+        try:
+            self.run_command(["ffmpeg", "-v", "error", "-xerror", "-i", video_path,
+                              "-map", "0:v:0", "-map", "0:a?", "-f", "null", "-"], timeout=120)
+        except Exception:
+            raise AcquisitionError("INVALID_REFERENCE_MEDIA", "Complete media decoding failed") from None
+        return local
+
     def _download_video(
         self, url: str, output_dir: Path, max_res: str,
         storage_state_path: str | None = None,
+        *, transport_headers: dict | None = None,
     ) -> tuple[str | None, str | None]:
         """Download video + extract audio track."""
         height = self._RES_MAP.get(max_res, 720)
@@ -526,6 +670,15 @@ class VideoDownloader(BaseTool):
             "quiet": True,
             "no_warnings": True,
         }
+        if transport_headers:
+            # Never log transient signed media addresses or authentication data.
+            class QuietTransportLogger:
+                def debug(self, *_args): pass
+                def warning(self, *_args): pass
+                def error(self, *_args): pass
+            ydl_opts.update(http_headers=transport_headers, logger=QuietTransportLogger(),
+                            retries=0, fragment_retries=0, extractor_retries=0, socket_timeout=15,
+                            max_filesize=2 * 1024 * 1024 * 1024)
         self._download_with_background_retry(url, ydl_opts, storage_state_path)
 
         # Find the downloaded video file
@@ -589,10 +742,7 @@ class VideoDownloader(BaseTool):
             "quiet": True,
             "no_warnings": True,
         }
-        try:
-            self._download_with_background_retry(url, ydl_opts, storage_state_path)
-        except Exception:
-            pass
+        self._download_with_background_retry(url, ydl_opts, storage_state_path)
         return self._find_downloaded(output_dir, "reference_subs", ["srt", "vtt", "ass"])
 
     def _find_downloaded(

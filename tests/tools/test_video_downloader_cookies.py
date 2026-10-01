@@ -102,7 +102,8 @@ def test_execute_forwards_storage_state_to_metadata_and_video_download(tmp_path,
         "playwright_storage_state_path": str(state_path.resolve()),
     })
 
-    assert result.success is True
+    assert result.success is False
+    assert result.data["error_kind"] == "REFERENCE_MEDIA_UNAVAILABLE"
     assert seen == [
         ("metadata", str(state_path.resolve())),
         ("video", str(state_path.resolve())),
@@ -138,7 +139,8 @@ def test_normalizes_douyin_jingxuan_modal_url_before_cookie_backed_download(tmp_
         "playwright_storage_state_path": str(state_path.resolve()),
     })
 
-    assert result.success is True
+    assert result.success is False
+    assert result.data["error_kind"] == "REFERENCE_MEDIA_UNAVAILABLE"
     assert result.data["platform"] == "douyin"
     assert result.data["requested_url"] == original
     assert result.data["resolved_url"] == canonical
@@ -195,6 +197,48 @@ def test_passes_unknown_url_to_extractor_without_auth_assumption():
     assert VideoDownloader()._resolve_url(original) == (original, "passthrough")
 
 
+@pytest.mark.parametrize("message, expected", [
+    ("Fresh cookies (not necessarily logged in) are needed", "EXTRACTOR_BLOCKED"),
+    ("HTTP Error 403: Forbidden", "ACCESS_DENIED"),
+    ("Cookie database is unavailable", "DOWNLOAD_FAILED"),
+    ("Please sign in to watch this video", "AUTH_REQUIRED"),
+    ("Login required", "AUTH_REQUIRED"),
+    ("Request timed out", "TRANSIENT_NETWORK"),
+    ("Verification challenge required", "CHALLENGE_REQUIRED"),
+])
+def test_only_explicit_login_rejection_is_reported_as_auth_required(message, expected):
+    assert VideoDownloader()._classify_download_error(message) == expected
+
+
+@pytest.mark.parametrize("message", [
+    "Fresh cookies (not necessarily logged in) are needed",
+    "HTTP Error 403: Forbidden", "Login required", "Verification challenge required",
+])
+def test_denial_or_unconfirmed_extractor_failure_is_not_retried(monkeypatch, message):
+    attempts = []
+
+    class FakeYoutubeDL:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def download(self, _urls):
+            attempts.append(True)
+            raise RuntimeError(message)
+
+    downloader = VideoDownloader()
+    monkeypatch.setattr(downloader, "_youtube_dl", lambda _opts, _state: FakeYoutubeDL())
+    monkeypatch.setattr("tools.analysis.video_downloader.time.sleep", lambda _delay: None)
+    with pytest.raises(RuntimeError):
+        downloader._download_with_background_retry(
+            "https://www.douyin.com/video/7681624043124162469",
+            {"quiet": True}, "/authorized/storage-state.json",
+        )
+    assert len(attempts) == 1
+
+
 def test_successful_media_download_overrides_remote_metadata_auth_warning(tmp_path, monkeypatch):
     downloader = VideoDownloader()
     state_path = tmp_path / "storage-state.json"
@@ -224,12 +268,13 @@ def test_successful_media_download_overrides_remote_metadata_auth_warning(tmp_pa
         "url": "https://www.douyin.com/video/7681624043124162469",
         "output_dir": str(tmp_path),
         "format": "video",
+        "reference_acquisition": "extractor",
         "playwright_storage_state_path": str(state_path.resolve()),
     })
 
     assert result.success is True
     assert result.data["metadata_status"] == "local_media_recovered"
-    assert result.data["remote_metadata_warning_kind"] == "AUTH_REQUIRED"
+    assert result.data["remote_metadata_warning_kind"] == "EXTRACTOR_BLOCKED"
     assert result.data["metadata"]["duration"] == 133.0
     assert result.data["metadata"]["resolution"] == "720x1280"
     assert "error" not in result.data["metadata"]
@@ -258,7 +303,7 @@ def test_non_douyin_url_does_not_inherit_douyin_uploader_state(tmp_path):
     assert source == "none"
 
 
-def test_cookie_backed_download_retries_ambiguous_fresh_cookie_signal(monkeypatch):
+def test_cookie_backed_download_retries_transient_network_failure(monkeypatch):
     attempts = []
 
     class FakeYoutubeDL:
@@ -271,7 +316,7 @@ def test_cookie_backed_download_retries_ambiguous_fresh_cookie_signal(monkeypatc
         def download(self, urls):
             attempts.append(urls)
             if len(attempts) < 3:
-                raise RuntimeError("Fresh cookies (not necessarily logged in) are needed")
+                raise RuntimeError("Request timed out")
 
     downloader = VideoDownloader()
     monkeypatch.setattr(downloader, "_youtube_dl", lambda _opts, _state: FakeYoutubeDL())
