@@ -51,7 +51,7 @@ Official Remotion skills, framework source and API documentation come from the c
 - **Pipeline manifests:** Declarative YAML defining stages, skills, tools, review focus, approval gates
 - **Capability-first tool design:** Each major family should expose a selector tool plus explicit provider tools
   - Example: `tts_selector` + `elevenlabs_tts` / `google_tts` / `openai_tts` / `piper_tts`
-  - Example: `video_selector` + `heygen_video` / `wan_video` / `hunyuan_video` / `ltx_video_local` / `ltx_video_modal` / `cogvideo_video`
+  - Example: `video_selector` + `agnes_video` / `wan_video` / `hunyuan_video` / `ltx_video_local` / `ltx_video_modal` / `cogvideo_video`
 - **Style playbooks:** YAML defining visual language, typography, motion, audio, asset generation constraints
 - **Artifacts are canonical:** `brief`, `script`, `scene_plan`, `asset_manifest`, `edit_decisions`, `render_report`, `publish_log`
 - **Every tool inherits from `tools/base_tool.py`** (ToolContract)
@@ -127,3 +127,13 @@ Official Remotion skills, framework source and API documentation come from the c
 6. Let discovery happen through `tools/tool_registry.py`; do not depend on ad hoc imports
 7. Add a JSON schema in `schemas/tools/` if the tool has complex I/O
 8. Add tests only after the runtime path is correct
+
+
+## Production defaults
+
+`AGENT_GUIDE.md > Project-owned generation route` owns the current defaults:
+Codex native images, Agnes video and Google Gemini TTS narration, with
+OpenMontage composition and acceptance. Native images execute in the Codex
+session, not through a Python substitute. Provider adapters own transport and
+transient recovery; creative choices, voice and acceptance remain task-owned.
+The global `ai-video-gen` skill only points to this project.

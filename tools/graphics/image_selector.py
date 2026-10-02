@@ -13,6 +13,7 @@ from tools.base_tool import BaseTool, ToolResult, ToolRuntime, ToolStability, To
 
 
 class ImageSelector(BaseTool):
+    DEFAULT_PROVIDER = "codex_native"
     name = "image_selector"
     version = "0.2.0"
     tier = ToolTier.GENERATE
@@ -20,7 +21,7 @@ class ImageSelector(BaseTool):
     provider = "selector"
     stability = ToolStability.BETA
     runtime = ToolRuntime.HYBRID
-    agent_skills = ["flux-best-practices", "bfl-api", "atlas-cloud"]
+    agent_skills = ["visual-style"]
 
     capabilities = [
         "generate_image", "search_image", "download_image",
@@ -34,13 +35,14 @@ class ImageSelector(BaseTool):
     best_for = [
         "preflight routing — pick the best image provider for the task",
         "switching between generated and stock images",
-        "automatic fallback when preferred provider is unavailable",
+        "Codex native image generation by default; explicit alternatives remain available",
     ]
 
     input_schema = {
         "type": "object",
         "required": ["prompt"],
         "properties": {
+            "max_attempts": {"type": "integer", "minimum": 1, "description": "Optional same-provider attempt count for adapters supporting recovery; Agnes images and Gemini narration default to 3. Set 1 for an explicit one-call instruction."},
             "prompt": {
                 "type": "string",
                 "description": "Image description (used as prompt for generation or query for stock)",
@@ -133,6 +135,7 @@ class ImageSelector(BaseTool):
             },
             "preferred_provider": {
                 "type": "string",
+                "default": "agnes",
                 "description": "Provider name or 'auto'. Valid values are discovered at runtime from the registry.",
                 "default": "auto",
             },
@@ -219,6 +222,20 @@ class ImageSelector(BaseTool):
         import logging
         from lib.scoring import rank_providers
 
+        default_route = "auto" if inputs.get("model") or inputs.get("model_name") or self._has_custom_workflow(inputs) else self.DEFAULT_PROVIDER
+        if inputs.get("preferred_provider", default_route) in {"codex", "codex_native"}:
+            # Native generation runs in the agent session, not this Python
+            # process. Never silently turn an explicit Codex choice into Agnes.
+            rank_only = inputs.get("operation") == "rank"
+            return ToolResult(
+                success=rank_only,
+                error=None if rank_only else "native_tool_required: invoke the current session's image_gen and register its project artifact",
+                data={"error_code": None if rank_only else "native_tool_required", "selected_provider": "codex_native",
+                      "required_tool": "image_gen", "availability": "check_current_session_tool_inventory",
+                      "agent_native": True, "fallback_used": False,
+                      **({"rankings": [{"provider": "codex_native", "tool_name": "image_gen", "availability": "check_current_session_tool_inventory", "agent_native": True}]} if rank_only else {})},
+            )
+
         logger = logging.getLogger(__name__)
         task_context = self._prepare_task_context(inputs)
         candidates = self._filter_candidates(inputs, self._providers())
@@ -238,7 +255,7 @@ class ImageSelector(BaseTool):
         # Normal generation — use scored selection
         tool, score = self._select_best_tool(inputs, candidates, task_context)
         if tool is None:
-            return ToolResult(success=False, error="No image provider available.")
+            return ToolResult(success=False, error="No image provider available for the requested route; default Codex native route never silently falls back.", data={"default_provider": self.DEFAULT_PROVIDER, "fallback_used": False})
 
         # Adapt input keys: stock tools use 'query' while generators use 'prompt'
         adapted = dict(inputs)
@@ -340,7 +357,9 @@ class ImageSelector(BaseTool):
         """Select the best provider using scored ranking."""
         from lib.scoring import rank_providers
 
-        preferred = inputs.get("preferred_provider", "auto")
+        # An exact model or custom workflow is an explicit alternative route.
+        default = "auto" if inputs.get("model") or inputs.get("model_name") or self._has_custom_workflow(inputs) else self.DEFAULT_PROVIDER
+        preferred = inputs.get("preferred_provider", default)
         allowed = set(inputs.get("allowed_providers") or [])
         if allowed:
             candidates = [tool for tool in candidates if tool.provider in allowed]
@@ -357,6 +376,8 @@ class ImageSelector(BaseTool):
             for score_item in rankings:
                 if score_item.provider == preferred and score_item.provider in tool_by_provider:
                     return tool_by_provider[score_item.provider], score_item
+            if preferred == self.DEFAULT_PROVIDER:
+                return tool_by_provider.get(preferred), None
 
         for score_item in rankings:
             if score_item.provider in tool_by_provider:

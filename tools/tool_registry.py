@@ -331,7 +331,7 @@ class ToolRegistry:
           },
           "capabilities": [
             {"capability": "video_generation", "configured": 10, "total": 16,
-             "available_providers": ["fal", "heygen", ...],
+             "available_providers": ["fal", "agnes", ...],
              "unavailable_providers": ["openai", ...]},
             ...
           ],
@@ -458,6 +458,17 @@ class ToolRegistry:
 
         result = {
             "composition_runtimes": comp_runtimes,
+            "production_defaults": {
+                "image_provider": getattr(self._tools.get("image_selector"), "DEFAULT_PROVIDER", None),
+                "video_provider": getattr(self._tools.get("video_selector"), "DEFAULT_PROVIDER", None),
+                "tts_provider": getattr(self._tools.get("tts_selector"), "DEFAULT_PROVIDER", None),
+            },
+            "agent_native_capabilities": [{
+                "capability": "image_generation", "provider": "codex_native",
+                "tool": "image_gen", "availability": "check_current_session_tool_inventory",
+                "invocation": "agent_native_tool", "python_registry_tool": False,
+                "instructions": "Explicit native image choice; save output and provenance in the project asset manifest, then optionally feed Agnes video.",
+            }],
             "capabilities": capabilities,
             "setup_offers": setup_offers,
             "runtime_warnings": runtime_warnings,

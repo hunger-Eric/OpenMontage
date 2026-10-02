@@ -1,20 +1,19 @@
 ---
 name: seedance-2-0
 description: |
-  Generate cinematic clips with ByteDance Seedance 2.0 — the preferred premium video model in OpenMontage when a paid gateway is configured. Use when: (1) producing trailers, teasers, hype edits, or premium cinematic clips, (2) needing native synchronized audio (speech, SFX, ambience) in a single pass, (3) needing multi-shot cuts inside one generation, (4) needing director-level camera control, (5) needing lip-sync from quoted dialogue in the prompt, (6) needing reference-conditioned generation with up to 9 images + 3 video clips + 3 audio clips, (7) wanting consistent character identity across shots. Accessible via fal.ai (`seedance_video` tool), HeyGen (Video Agent / Avatar Shots), Replicate, Runway (Enterprise, non-US), Freepik, BytePlus ModelArk, Higgsfield, Pollo, and other aggregators.
+  Generate cinematic clips with ByteDance Seedance 2.0 — the preferred premium video model in OpenMontage when a paid gateway is configured. Use when: (1) producing trailers, teasers, hype edits, or premium cinematic clips, (2) needing native synchronized audio (speech, SFX, ambience) in a single pass, (3) needing multi-shot cuts inside one generation, (4) needing director-level camera control, (5) needing lip-sync from quoted dialogue in the prompt, (6) needing reference-conditioned generation with up to 9 images + 3 video clips + 3 audio clips, (7) wanting consistent character identity across shots. Accessible via fal.ai (`seedance_video` tool), Replicate, Runway (Enterprise, non-US), Freepik, BytePlus ModelArk, Higgsfield, Pollo, and other aggregators.
 allowed-tools: Bash, Read, Write
 metadata:
   openclaw:
     requires:
       env_any:
         - FAL_KEY
-        - HEYGEN_API_KEY
         - REPLICATE_API_TOKEN
 ---
 
 # Seedance 2.0 (ByteDance)
 
-Seedance 2.0 is the ByteDance Seed team's unified multimodal video+audio model (released Feb 2026, globally available via partner APIs April 2026). It is the **preferred premium default** for cinematic, trailer, teaser, and motion-led work inside OpenMontage whenever any supporting gateway is configured. OpenMontage wraps four gateways directly (`seedance_video` → fal.ai, `seedance_replicate` → Replicate, `runway_video` with `model="seedance_2.0"` → Runway, `higgsfield_video` with `model="seedance_2.0"` → Higgsfield); BytePlus / Freepik / HeyGen-Video-Agent wrappers are on the roadmap. The scoring engine deduplicates by `provider="seedance"` so whichever gateway the user has configured wins automatically — agents should pass `preferred_provider="seedance"` to `video_selector` (or let the scorer pick) rather than routing to a specific gateway by name.
+Seedance 2.0 is the ByteDance Seed team's unified multimodal video+audio model (released Feb 2026, globally available via partner APIs April 2026). It is the **preferred premium default** for cinematic, trailer, teaser, and motion-led work inside OpenMontage whenever any supporting gateway is configured. OpenMontage wraps four gateways directly (`seedance_video` → fal.ai, `seedance_replicate` → Replicate, `runway_video` with `model="seedance_2.0"` → Runway, `higgsfield_video` with `model="seedance_2.0"` → Higgsfield); BytePlus / Freepik wrappers are on the roadmap. The scoring engine deduplicates by `provider="seedance"` so whichever gateway the user has configured wins automatically — agents should pass `preferred_provider="seedance"` to `video_selector` (or let the scorer pick) rather than routing to a specific gateway by name.
 
 ## Why it is the OpenMontage premium default
 
@@ -40,7 +39,6 @@ Switch away only for a specific reason: strict budget (use the `fast` variant or
 | **Replicate** | `REPLICATE_API_TOKEN` | `seedance_replicate` | ✅ wrapped | `bytedance/seedance-2.0` + `bytedance/seedance-2.0-fast`. Standard Replicate prediction API. |
 | **Runway** | `RUNWAY_API_KEY` | `runway_video` (model: `seedance_2.0`) | ✅ wrapped | Third-party Seedance 2.0 model inside Runway. **Unlimited/Enterprise plans, non-US only**. Selected via `model` param. |
 | **Higgsfield** | `HIGGSFIELD_API_KEY` + `_SECRET` | `higgsfield_video` (model: `seedance_2.0`) | ✅ wrapped | Seedance 2.0 is the default model on this tool. Emphasis on character identity + long-form chaining. |
-| **HeyGen** | `HEYGEN_API_KEY` | `heygen_video` (1.x only) + TODO | ⚠️ 1.x only | The `seedance_pro` / `seedance_lite` workflow provider strings on HeyGen map to Seedance 1.x. 2.0 access flows through Video Agent / Avatar Shots endpoints — a separate `seedance_heygen` tool is on the roadmap. |
 | **BytePlus ModelArk / Volcengine** | BytePlus token | not wrapped | 🔜 roadmap | Direct from ByteDance. Pro ~$0.15 / 5 s, Lite ~$0.010/s. Token-based. |
 | **Freepik** | Freepik token | not wrapped | 🔜 roadmap | `POST /v1/ai/image-to-video/seedance-pro-1080p` for 1080p I2V |
 | **Pollo / PiAPI / Atlas Cloud / AIMLAPI** | various | not wrapped | 🔜 roadmap | Aggregators resell fal.ai or ByteDance endpoints |
@@ -283,7 +281,6 @@ Shot 3 (extreme close-up, rack focus): hero's eyes open, wind whipping.
 - fal.ai Seedance 2.0: https://fal.ai/seedance-2.0
 - fal.ai how-to-use: https://fal.ai/learn/tools/how-to-use-seedance-2-0
 - Replicate bytedance collection: https://replicate.com/bytedance
-- HeyGen Seedance 2.0: https://www.heygen.com/blog/introducing-seedance-2-and-heygen
 - Runway Seedance: https://runwayml.com/product/seedance
 - BytePlus Dreamina Seedance 2.0: https://www.byteplus.com/en/product/seedance
 - Freepik Seedance 2.0: https://www.freepik.com/seedance-2

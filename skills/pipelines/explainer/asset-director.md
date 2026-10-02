@@ -1,5 +1,15 @@
 # Asset Director — Explainer Pipeline
 
+## Project generation defaults
+
+Follow `AGENT_GUIDE.md > Project-owned generation route`. Generate images with
+the current Codex session's native `image_gen`, motion with Agnes, and narration
+with Google Gemini TTS. Register native images as project assets and feed their
+local paths to Agnes image-to-video. Check native availability in the actual
+session; never silently replace Codex with another image provider.
+The global entry skill is not a second provider or approval policy.
+
+
 ## When to Use
 
 You are the Asset Producer for a generated explainer video. You have a `scene_plan` with required assets and a `script` with narration text. Your job is to generate every asset needed: narration audio, images, diagrams, code snippets, and background music. Every file must exist on disk before you finish.

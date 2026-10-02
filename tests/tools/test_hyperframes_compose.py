@@ -318,7 +318,7 @@ def test_provider_menu_summary_returns_expected_shape():
     registry.discover()
     s = registry.provider_menu_summary()
 
-    assert set(s.keys()) == {
+    assert set(s.keys()) >= {
         "composition_runtimes",
         "capabilities",
         "setup_offers",

@@ -1,6 +1,57 @@
 # OpenMontage Current Project State
 
-Updated: 2026-09-28
+Updated: 2026-10-02
+
+## 2026-10-02 simplified production defaults
+
+- Current user-selected route: Codex native `image_gen` images -> Agnes video
+  with Google Gemini TTS narration -> OpenMontage composition and acceptance.
+- `image_selector` defaults to native delegation; it never silently submits an
+  Agnes image request. Python registry discovery cannot prove native tool access.
+- Native image generation has been verified in the desktop session; access in
+  the actual Feishu Worker remains unverified. If absent, report that boundary
+  rather than replacing the requested image provider.
+- Gemini TTS transport uses the video project's official endpoint, shared key
+  source, environment proxy route and a 600-second connection/read timeout.
+  Voice remains task-selected; no global speed/pitch/post-processing preset.
+- HeyGen provider and dedicated skill copies are removed. Common narration and
+  talking-head skills now refer to OpenMontage tools, preserving explicit Kling
+  talking-head/lip-sync routes without an implicit HeyGen entry.
+- Related adapter/selector checks: 123 passed, including a real local CONNECT
+  proxy simulation. Three optional Google image-backend checks remain blocked
+  by the local missing `google.genai` dependency; no full-suite pass is claimed.
+- Existing Agnes image adapter/receipts remain available for explicit alternatives.
+  No new live generation or deployment was performed for this default change.
+
+## 2026-10-02 image and narration transient recovery
+
+- Agnes image and Gemini narration adapters automatically retry known transient
+  failures on the same provider/model; default three attempts with backoff and
+  Retry-After. No separate retry-budget approval is required.
+- Empty Gemini audio retries unless the response explicitly blocks content.
+  Authentication/invalid-input failures and unknown generation submission outcomes
+  do not automatically resubmit. Agnes image download resumes its original URL.
+- Selector-entry simulations cover recovery, exhaustion, explicit one-call
+  instructions, permanent failures and preserving original image receipts.
+  No new live provider generation, Bridge deployment or Feishu delivery was run.
+
+## 2026-10-02 project-owned Agnes image-to-video acceptance route
+
+- Historical route sample: `agnes_image` was registered and both selectors
+  defaulted to Agnes before the simplified route above replaced the image default.
+  Unavailable default generation stops without a provider switch. Explicit
+  alternate providers and auto selection remain supported.
+- Codex native `image_gen` is retained as an explicit agent-native image route;
+  availability must be checked in the actual session/Worker tool inventory.
+- `ai-video-gen` is now only a project entrypoint. The globally installed entry
+  is a junction to this project's `.agents/skills/ai-video-gen` directory.
+- Local route acceptance evidence lives in
+  `projects/agnes-route-acceptance-20261002/artifacts/`. One live image and one live video completed. Composition decoded successfully,
+  but semantic acceptance failed (framing and background continuity); final
+  review is `revise`. Agnes Video v2.0 is marked retired in current official docs.
+  No model switch or extra generation was performed.
+- No Bridge changes, deployment or Feishu delivery have been performed.
+
 
 ## 2026-09-28 Agnes local image-to-video bridge repair
 

@@ -32,6 +32,14 @@ from tools.base_tool import (
 )
 
 
+class RetryableTTSError(ValueError):
+    """A completed request failed transiently; no pending task to duplicate."""
+
+    def __init__(self, reason: str, delay: float | None = None):
+        super().__init__(reason)
+        self.delay = delay
+
+
 class GeminiTTS(BaseTool):
     name = "gemini_tts"
     version = "0.1.0"
@@ -47,6 +55,7 @@ class GeminiTTS(BaseTool):
     BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
     KEY_ENVS = ("GEMINI_API_KEY", "GOOGLE_API_KEY")
     SAMPLE_RATE = 24_000
+    REQUEST_TIMEOUT_SECONDS = 600
 
     dependencies = ["env:GEMINI_API_KEY|GOOGLE_API_KEY|~/.ai-daily-automation/.env"]
     install_instructions = (
@@ -74,6 +83,7 @@ class GeminiTTS(BaseTool):
         "type": "object",
         "required": ["text", "voice", "output_path"],
         "properties": {
+            "max_attempts": {"type": "integer", "minimum": 1, "default": 3},
             "text": {"type": "string", "description": "Verbatim narration text"},
             "voice": {
                 "type": "string",
@@ -104,7 +114,7 @@ class GeminiTTS(BaseTool):
     )
     idempotency_key_fields = ["text", "voice", "language_code", "model"]
     side_effects = [
-        "calls the Gemini generateContent API once",
+        "calls Gemini generateContent with automatic transient-failure retries",
         "writes a 24 kHz mono WAV file to output_path",
     ]
     user_visible_verification = ["Listen to the generated narration and verify the selected voice"]
@@ -139,7 +149,7 @@ class GeminiTTS(BaseTool):
         return ""
 
     def estimate_runtime(self, inputs: dict[str, Any]) -> float:
-        return 120.0
+        return float(self.REQUEST_TIMEOUT_SECONDS)
 
     def execute(self, inputs: dict[str, Any]) -> ToolResult:
         credential = self._resolve_credential()
@@ -181,14 +191,26 @@ class GeminiTTS(BaseTool):
             )
 
         started = time.time()
+        attempts = 0
+        retry_history = []
+        max_attempts = inputs.get("max_attempts", 3)
+        if not isinstance(max_attempts, int) or isinstance(max_attempts, bool) or max_attempts < 1:
+            return ToolResult(success=False, error="invalid_max_attempts")
         try:
-            pcm, response_meta = self._request(
-                text=str(inputs["text"]),
-                voice=voice,
-                language_code=str(inputs.get("language_code") or "cmn-CN"),
-                credential=credential,
-                model=model,
-            )
+            while True:
+                attempts += 1
+                try:
+                    pcm, response_meta = self._request(
+                        text=str(inputs["text"]), voice=voice,
+                        language_code=str(inputs.get("language_code") or "cmn-CN"),
+                        credential=credential, model=model,
+                    )
+                    break
+                except RetryableTTSError as exc:
+                    retry_history.append({"attempt": attempts, "reason": str(exc)})
+                    if attempts >= max_attempts:
+                        raise
+                    time.sleep(exc.delay if exc.delay is not None else 2 ** attempts)
             output.parent.mkdir(parents=True, exist_ok=True)
             partial = output.with_name(f"{output.name}.partial")
             try:
@@ -206,7 +228,7 @@ class GeminiTTS(BaseTool):
             return ToolResult(
                 success=False,
                 error=f"Gemini TTS failed: {safe_error}",
-                data={"error_code": "provider_failed", "fallback_used": False},
+                data={"error_code": "provider_failed", "fallback_used": False, "provider_request_count": attempts, "retry_dispatched": attempts > 1, "retry_history": retry_history},
             )
 
         return ToolResult(
@@ -225,8 +247,9 @@ class GeminiTTS(BaseTool):
                     "channels": 1,
                     "bytes": len(pcm),
                 },
-                "provider_request_count": 1,
-                "retry_dispatched": False,
+                "provider_request_count": attempts,
+                "retry_dispatched": attempts > 1,
+                "retry_history": retry_history,
                 "fallback_used": False,
                 **response_meta,
             },
@@ -261,8 +284,13 @@ class GeminiTTS(BaseTool):
                     },
                 },
             },
-            timeout=120,
+            # requests follows HTTPS_PROXY/HTTP_PROXY and NO_PROXY by default,
+            # matching the video project's environment-governed transport.
+            timeout=self.REQUEST_TIMEOUT_SECONDS,
         )
+        if response.status_code in {429, 500, 502, 503, 504}:
+            from tools.generation_retry import retry_delay
+            raise RetryableTTSError(f"provider_http_{response.status_code}", retry_delay(response))
         response.raise_for_status()
         payload = response.json()
         candidates = payload.get("candidates") if isinstance(payload, dict) else None
@@ -295,7 +323,52 @@ class GeminiTTS(BaseTool):
 
         pcm = b"".join(audio_parts)
         if not pcm or len(pcm) % 2:
-            raise ValueError("Gemini returned no valid 24 kHz PCM audio")
+            candidate_summaries = []
+            for candidate in candidates if isinstance(candidates, list) else []:
+                if not isinstance(candidate, dict):
+                    continue
+                candidate_summaries.append(
+                    {
+                        "finish_reason": candidate.get("finishReason")
+                        or candidate.get("finish_reason"),
+                        "content_keys": sorted(
+                            (candidate.get("content") or {}).keys()
+                        )
+                        if isinstance(candidate.get("content"), dict)
+                        else [],
+                    }
+                )
+            part_summaries = []
+            for part in parts:
+                inline = part.get("inlineData") or part.get("inline_data")
+                part_summaries.append(
+                    {
+                        "part_keys": sorted(part.keys()),
+                        "inline_keys": sorted(inline.keys())
+                        if isinstance(inline, dict)
+                        else [],
+                        "mime_type": (
+                            inline.get("mimeType") or inline.get("mime_type")
+                        )
+                        if isinstance(inline, dict)
+                        else None,
+                        "data_present": bool(inline.get("data"))
+                        if isinstance(inline, dict)
+                        else False,
+                    }
+                )
+            feedback = (payload.get("promptFeedback") or {}) if isinstance(payload, dict) else {}
+            blocked = feedback.get("blockReason") not in {None, "", "BLOCK_REASON_UNSPECIFIED"} or any(
+                item.get("finish_reason") in {"SAFETY", "RECITATION", "BLOCKLIST", "PROHIBITED_CONTENT", "SPII", "IMAGE_SAFETY"}
+                for item in candidate_summaries
+            )
+            error_type = ValueError if blocked else RetryableTTSError
+            raise error_type(
+                "Gemini returned no valid 24 kHz PCM audio; "
+                f"candidate_summaries={candidate_summaries}; "
+                f"part_summaries={part_summaries}; "
+                f"prompt_feedback_present={bool(payload.get('promptFeedback')) if isinstance(payload, dict) else False}"
+            )
         return pcm, {
             "model_version": payload.get("modelVersion") if isinstance(payload, dict) else None,
             "response": {

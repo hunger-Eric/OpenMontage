@@ -21,7 +21,6 @@ Everything you need to know about every provider in OpenMontage — setup instru
 | 9 | **pay-as-you-go** | Volcengine Ark | Official direct Seedance 2.0 Standard/Fast/Mini API |
 | 10 | **$12/month** | Runway | Gen-4 video — highest quality AI video |
 | 11 | **pay-as-you-go** | Hunyuan cloud video | Chinese-friendly T2V + I2V |
-| 12 | **pay-as-you-go** | HeyGen | Avatar videos, multi-model video gateway |
 | 13 | **pay-as-you-go** | Suno | Full song generation with vocals and lyrics |
 | 14 | **$0 + GPU** | Local video gen | WAN 2.1, Hunyuan, CogVideo, LTX — free, offline |
 | 15 | **$0 + GPU** | Local Diffusion | Stable Diffusion images — free, offline |
@@ -64,7 +63,6 @@ KLING_API_BASE_URL=          # Optional; default https://api-singapore.klingai.c
 ARK_API_KEY=                 # API key body only; do not include the "Bearer " prefix
 
 # VIDEO
-HEYGEN_API_KEY=              # HeyGen avatar video gateway
 RUNWAY_API_KEY=              # Runway native + Seedance 2.5, Gemini Omni, MiniMax H3
 SUNO_API_KEY=                # Suno music generation
 
@@ -98,13 +96,32 @@ ComfyUI Partner Nodes run inside the ComfyUI graph but call hosted services;
 they require network access, a logged-in Comfy account, and prepaid credits.
 Only the MiniMax H3 open-weight workflow in this table is a local model path.
 
-Replicate, HeyGen, and Higgsfield were not updated for these exact model
+Replicate and Higgsfield were not updated for these exact model
 versions because their public API documentation did not expose a current,
 stable contract for them at the time of this update.
 
 ---
 
 ## Cloud Providers
+
+### Agnes AI — Explicit Alternative Image Provider
+
+**Tool:** `agnes_image`; **model:** `agnes-image-2.1-flash`.
+Uses the same Agnes credential aliases and base URL as `agnes_video`.
+Text-to-image and HTTPS reference editing use `/v1/images/generations`.
+One output per invocation; PNG pixels are validated and a sanitized durable
+receipt prevents resubmission after unknown results. Known rate-limit/server
+rejections retry automatically on the same model; default is three attempts,
+without an extra retry-budget approval. Existing image URLs retry/resume download
+without regenerating. `max_attempts=1` honors an explicit one-call instruction. Subscription cost remains
+unknown unless current account evidence establishes it. The provider may return
+dimensions different from the requested size; actual dimensions are recorded.
+
+`image_selector` defaults to Codex native `image_gen`, an agent tool rather
+than a Python API provider. Default production uses Codex images, Agnes video
+and Google Gemini TTS, followed by OpenMontage composition and acceptance.
+Agnes image generation is retained only as an explicit alternative; see
+`AGENT_GUIDE.md > Project-owned generation route`.
 
 ### Agnes AI — Default Video Provider
 
@@ -1002,43 +1019,6 @@ Gen-3 Alpha Turbo and Gen-4 Aleph were removed from the Runway API on
 
 ---
 
-### HeyGen — Avatar Video Gateway
-
-> **Multi-model video gateway.** Access VEO, Sora, Runway, Kling, and Seedance through a single API.
-
-**Tools unlocked:** `heygen_video`
-**Env var:** `HEYGEN_API_KEY`
-
-#### Setup
-
-1. Go to [app.heygen.com/register](https://app.heygen.com/register) and create an account
-2. Navigate to the API section in settings
-3. Generate your API key
-4. Add API balance (prepaid, separate from web plan credits)
-5. Add to `.env`: `HEYGEN_API_KEY=your-key-here`
-
-#### Pricing
-
-| Service | Price |
-|---------|-------|
-| Avatar video (Engine III) | $0.017/sec |
-| Avatar video (Engine IV) | $0.10/sec |
-| Prompt to Video | $0.033/sec |
-| Video Translation (Speed) | $0.05/sec |
-| Video Translation (Precision) | $0.10/sec |
-
-**Web plans:**
-
-| Plan | Price | Notes |
-|------|-------|-------|
-| Free | $0 | 1 credit (demo) |
-| Creator | $24/mo | Limited credits |
-| Business | $72/mo | API access, more credits |
-
-**Free tier:** 1 credit on web platform. API is pay-as-you-go with prepaid balance.
-
----
-
 ### Suno — AI Music Generation
 
 > **Full songs with vocals and lyrics.** Any genre, up to 8 minutes. Instrumentals or vocal tracks.
@@ -1387,7 +1367,6 @@ These tools require only FFmpeg or Python packages — no GPU, no API key.
 | **Agnes AI** | `AGNES_API_KEY` | `agnes_video` | Token plan |
 | **Runway** | `RUNWAY_API_KEY` | `runway_video` | Free trial + paid |
 | **Higgsfield** | `HIGGSFIELD_API_KEY` + `HIGGSFIELD_API_SECRET` | `higgsfield_video` | Subscription ($15-84/mo) |
-| **HeyGen** | `HEYGEN_API_KEY` | `heygen_video` | Pay-as-you-go |
 | **Suno** | `SUNO_API_KEY` | `suno_music` | Pay-as-you-go |
 | **Tencent Hunyuan** | `TENCENT_TOKENHUB_API_KEY` | `hunyuan_cloud_video` | Pay-as-you-go (~$0.25–0.83/gen) |
 | **Local GPU** | `VIDEO_GEN_LOCAL_ENABLED` | `wan_video`, `hunyuan_video`, `cogvideo_video`, `ltx_video_local` | Free (GPU required) |
@@ -1404,7 +1383,7 @@ How many providers cover each capability:
 | Capability | Cloud Providers | Local Providers | Free Options |
 |-----------|----------------|-----------------|--------------|
 | **Image Generation** | FLUX, Kling Official, Google Imagen, GPT Image 2, Recraft | Local Diffusion | Pexels, Pixabay (stock) |
-| **Video Generation** | Agnes AI, Kling Official, fal.ai, Seedance via Volcengine Ark, Runway, Veo, Gemini Omni, Higgsfield, MiniMax, HeyGen, Tencent Hunyuan, ComfyUI Partner Nodes | WAN, Hunyuan, CogVideo, LTX, ComfyUI WAN, ComfyUI MiniMax H3 | Pexels, Pixabay (stock) |
+| **Video Generation** | Agnes AI, Kling Official, fal.ai, Seedance via Volcengine Ark, Runway, Veo, Gemini Omni, Higgsfield, MiniMax, Tencent Hunyuan, ComfyUI Partner Nodes | WAN, Hunyuan, CogVideo, LTX, ComfyUI WAN, ComfyUI MiniMax H3 | Pexels, Pixabay (stock) |
 | **Text-to-Speech** | Azure AI Speech, ElevenLabs, fish.audio, Google TTS, Kling Official, OpenAI | Piper | Piper, Google free tier, ElevenLabs free tier, Azure free tier, fish.audio s2.1-pro-free |
 | **Music Generation** | ElevenLabs, Suno, Google Lyria | — | ElevenLabs free tier |
 | **Post-Production** | — | FFmpeg (compose, stitch, trim, mix, enhance, grade) | All free |

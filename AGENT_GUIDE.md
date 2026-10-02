@@ -1,5 +1,65 @@
 # OpenMontage - Agent Guide
 
+## Project-owned generation route
+
+OpenMontage owns provider discovery, project state, generation, budgets and
+acceptance, regardless of whether the request arrives from Feishu or a local
+Codex session. The global `ai-video-gen` entrypoint only points here; it must
+not duplicate these rules. Feishu Bridge owns task intake and result delivery,
+not video production or provider configuration.
+
+For generated images, use the current Codex session's native `image_gen`.
+`image_selector` defaults to `codex_native` and delegates to that agent tool;
+it does not submit an image request through a Python provider.
+For generated motion, `video_selector` defaults to Agnes Video v2.0.
+For narration, `tts_selector` defaults to Google Gemini TTS. Its call route
+matches the video project: official `v1beta/models/...:generateContent`,
+`x-goog-api-key`, shared `GEMINI_API_KEY` credentials, environment proxy routing
+(`HTTPS_PROXY`/`HTTP_PROXY` with `NO_PROXY`) and a 600-second request timeout.
+Python requests applies this timeout to connection/read inactivity; it is not
+an absolute whole-production deadline. Preserve verbatim narration, extract
+returned audio and validate a local 24 kHz mono WAV before composition.
+This alignment concerns transport only: choose voice per production, with no
+global default voice, speed, pitch or copied post-processing preset. Composition
+engines consume the registered narration artifact; their bundled media helpers
+must not start another TTS/provider call or override this production route.
+The default acceptance route is Codex native image -> Agnes image-to-video +
+Google Gemini TTS narration -> OpenMontage composition -> decoded-pixel and
+semantic review. Use supported same-provider recovery for transient image/
+narration failures; no implicit provider switch is allowed. Other
+explicit provider choices and `preferred_provider="auto"` remain available.
+An exact image model or custom workflow remains an explicit alternative.
+
+Codex native `image_gen` is the default agent-native image route.
+At preflight, check the current session's actual tool inventory separately
+from the Python registry. Invoke that native tool by default,
+save its output inside the project, and register its source, prompt, actual
+tool/model identity when exposed, path, dimensions and integrity hash in the
+asset manifest. That image can feed Agnes image-to-video. Do not replace it
+with the similarly named Python OpenAI API adapter or silently switch to Agnes.
+If the current Worker/session does not expose the native tool, report that
+specific capability boundary; desktop availability does not prove Worker access.
+
+Ordinary image and narration requests include automatic recovery; do not demand
+an extra retry budget or approval before executing them. Agnes images and Gemini
+narration default to three attempts (initial call plus two retries), with
+backoff and Retry-After for rate limits, known transient server errors and empty
+completed results. This is transport resilience, not a production budget gate.
+This is a per-tool recovery batch, not a whole-project retry ceiling. After
+exhaustion, preserve the failure evidence for diagnosis/recovery; do not declare
+the entire production irrecoverable just because this batch ended.
+An explicit user call limit still applies: pass `max_attempts=1` for a one-call
+instruction. Never silently switch model/provider or change the narration/prompt
+for a retry. Authentication, invalid input and explicit safety blocks stop.
+If submission outcome is unknown, preserve the receipt/task identity for
+inspection or recovery instead of creating a duplicate. An existing image URL
+is resumed/downloaded without regenerating. Unknown subscription cost is unknown,
+not zero. Retry count and reasons belong in the tool result and project receipts.
+A provider-route sample is evidence for that route, not delivery of the
+original full production. Keep its plan, receipts, semantic review and render
+report distinct from the original run's canonical artifacts.
+
+
 Start here. This is the complete operating guide and agent contract for OpenMontage.
 
 For architecture, key files, and conventions see [`PROJECT_CONTEXT.md`](PROJECT_CONTEXT.md).
@@ -682,7 +742,7 @@ Reading order:
 
 **Layer 3 is not optional.** Every generation tool (video, image, TTS, music) has an `agent_skills` field listing its Layer 3 skills. These skills contain provider-specific prompt engineering, parameter tuning, and quality techniques. Read them before writing prompts. The difference between a generic prompt and a skill-informed prompt is the difference between "usable" and "cinematic."
 
-Example: Before calling `kling_video`, read its `agent_skills` → `ai-video-gen` → get Kling-specific prompt structure, camera direction syntax, and quality keywords that the model responds to best.
+Example: Before calling `kling_video`, follow the project entry, then read `skills/creative/video-gen-prompting.md` and the selected provider-specific skill for prompt structure, camera direction and parameters. The `ai-video-gen` skill only locates this project; it is not a prompting or approval policy.
 
 ### Layer 3 skills, by category
 
@@ -697,7 +757,7 @@ The `.agents/skills/` directory is large. When you're not coming in through a to
 | **Video generation** | `seedance-2-0` (preferred premium default — cinematic, trailer, multi-shot, synced audio, lip-sync), `gemini-omni` (conversational video editing, reference tags, timecoded beats), `ai-video-gen`, `ltx2` |
 | **Audio** | `elevenlabs`, `music`, `sound-effects`, `acestep`, `text-to-speech`, `azure-text-to-speech` (optional cloud TTS — tool `azure_tts`, same Speech key as `azure_stt`), `setup-api-key` |
 | **Speech-to-text** | `speech-to-text` (whisper `transcriber` — default, offline), `azure-speech-to-text` (optional cloud STT — tool `azure_stt`, preferred when `AZURE_SPEECH_KEY` is set) |
-| **Avatar / lip-sync** | `avatar-video`, `heygen`, `create-video`, `faceswap`, `video-translate`, `agents` |
+| **Avatar / lip-sync** | `kling-official` |
 | **Capture** | `playwright-recording` (browser flows), `ffmpeg` (post) |
 | **Visualization** | `beautiful-mermaid`, `d3-viz`, `manim-composer`, `manimce-best-practices`, `manimgl-best-practices` |
 | **Media editing** | `video-edit`, `video-download`, `video-understand`, `video-toolkit`, `visual-style` |

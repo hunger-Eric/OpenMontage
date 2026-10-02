@@ -21,7 +21,7 @@ class TTSSelector(BaseTool):
     DEFAULT_PROVIDER = "gemini"
     stability = ToolStability.BETA
     runtime = ToolRuntime.HYBRID
-    agent_skills = ["text-to-speech", "elevenlabs", "openai-docs"]
+    agent_skills = ["text-to-speech"]
 
     capabilities = [
         "text_to_speech",
@@ -41,6 +41,7 @@ class TTSSelector(BaseTool):
         "type": "object",
         "required": ["text"],
         "properties": {
+            "max_attempts": {"type": "integer", "minimum": 1, "description": "Optional same-provider attempt count for adapters supporting recovery; Agnes images and Gemini narration default to 3. Set 1 for an explicit one-call instruction."},
             "text": {"type": "string"},
             "voice_id": {
                 "type": "string",
@@ -100,7 +101,7 @@ class TTSSelector(BaseTool):
                 "type": "number",
                 "minimum": -50,
                 "maximum": 50,
-                "description": "Provider-specific pitch control. Google TTS accepts -20..20; HeyGen-style providers may accept wider ranges.",
+                "description": "Provider-specific pitch control. Google TTS accepts -20..20; other providers may accept wider ranges.",
             },
             "input_type": {
                 "type": "string",
