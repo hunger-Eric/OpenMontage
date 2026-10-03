@@ -31,6 +31,20 @@ deviation lacks a matching `semantic_adaptation` decision, approved music is
 missing, or sampled frames contain pillar/letterbox borders. A valid container
 or successful provider response does not override these failures.
 
+### Official composition entry and single-render rule
+
+Validate the complete `edit_decisions`, `asset_manifest`, transcript, music,
+and referenced files before invoking a renderer. Production composition enters
+only through `video_compose(operation="render")`. Let that tool stage the
+approved atelier/runtime inputs. Direct `npx remotion`, internal composition
+listing, `_remotion_render`, `hyperframes_compose`, or hand-built staging may be
+used only for explicit debugging and must not become the delivery route.
+
+Once inputs pass validation, produce one official final render and run the full
+post-render review once. A concrete failed gate may trigger the smallest repair
+and another official render; do not create exploratory draft renders merely to
+test cwd, dependencies, composition discovery, or input schema.
+
 ## Prerequisites
 
 | Layer | Resource | Purpose |
@@ -186,10 +200,11 @@ Call the `video_compose` tool with:
 }
 ```
 
-If using Remotion for animated segments:
-1. Generate Remotion composition data from edit decisions
-2. Call `video_compose` with `operation: "remotion_render"` for animated segments
-3. Assemble Remotion outputs with remaining segments via FFmpeg
+If using Remotion for animated segments, keep the Remotion composition data in
+the run-owned edit/atelier inputs and still call
+`video_compose(operation="render")`. The tool owns staging, runtime dispatch,
+and any required final assembly; do not invoke a low-level Remotion operation
+as the production entry point.
 
 **Zero-key Remotion render (component-only videos):**
 When all scenes are Remotion component types (hero_title, stat_card, bar_chart, line_chart,

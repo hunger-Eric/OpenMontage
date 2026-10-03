@@ -104,6 +104,13 @@ frames with `8n + 1`; at 24 FPS the maximum is 18.375 seconds (30 FPS: 14.7;
 60 FPS: 7.35). Image/reference modes must declare `aspect_mismatch_policy`
 (`center_crop` or `pad`) before submission.
 
+Before the first submission, validate every reference transport once. A local
+file must be readable and hashable; a remote URL must return success, the
+expected image content type, and a non-empty body. Prefer an already proven
+direct URL from the same run over another upload. Record the validated URL/file
+identity in the request receipt so later shots reuse evidence rather than
+retesting or changing hosts.
+
 Each output path owns a stable `attempt_id`, request fingerprint, provider task
 ID, and append-only attempt ledger. On interruption or ambiguous status, resume
 or poll that provider task; do not submit a duplicate. Create a new attempt only
@@ -117,6 +124,19 @@ required action, continuity, and reference alignment and persist the receipt in
 approved deviation must be written to `decision_log` as
 `category: "semantic_adaptation"` and propagated into the script/scene plan
 before downstream work continues.
+
+When that first-shot gate passes, freeze the accepted provider request shape,
+the observed source dimensions, and one declared normalization rule. Generate
+the remaining independent shots as a bounded batch (maximum 2-3 concurrent
+provider tasks when supported; otherwise serial), keeping a unique stable
+`attempt_id` per output. Poll each task to terminal status. Normalize/decode the
+accepted outputs together and build one aggregate review surface. Do not repeat
+per-shot environment discovery, URL upload, or normalization experiments.
+
+Build the asset manifest from the persisted request/result receipts, hashes,
+media probes, and semantic-review records. Before checkpointing, validate the
+complete manifest against its schema. Repair only a failed leaf with a changed
+request; do not regenerate accepted siblings.
 
 ### Step 3: Generate Narration
 

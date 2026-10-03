@@ -1,6 +1,27 @@
 # OpenMontage Current Project State
 
-Updated: 2026-10-02
+Updated: 2026-10-03
+
+## 2026-10-03 bounded multi-shot execution guidance
+
+- `AGENT_GUIDE.md` now owns one mandatory fast path for long multi-shot
+  generation: run-owned contract freeze, reference transport preflight, one
+  first-shot route gate, receipt-first recovery, bounded continuation, batch
+  normalization/review, receipt-derived manifests, and one official final
+  `video_compose` render plus final review.
+- The explainer asset director now freezes the working request/geometry after
+  the first accepted shot, permits at most 2-3 concurrent independent provider
+  tasks when the provider/account supports them, and preserves accepted sibling
+  shots during leaf repair.
+- The compose director no longer instructs production agents to enter through
+  a low-level Remotion operation. Raw renderer commands remain explicit
+  debugging surfaces only; production staging and runtime dispatch belong to
+  `video_compose(operation="render")`.
+- Checkpoint guidance now requires schema validation before write and preserves
+  unknown cost/token facts as schema-valid unknowns rather than zero.
+- This documentation correction changes no provider/model/adapter, schema,
+  Bridge configuration, or runtime default. No live generation, render,
+  deployment, delivery, or push was performed for this change.
 
 ## 2026-10-02 simplified production defaults
 

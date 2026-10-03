@@ -191,6 +191,13 @@ external status is not terminal failure and must not create a second paid
 submission. Retry only after terminal failure, while keeping the failed attempt
 in the ledger.
 
+Before every checkpoint write, validate the canonical artifact and checkpoint
+payload against their owning schemas. Project cost and usage facts from
+persisted provider receipts rather than hand-copying them. If a value is
+unknown, write `null` only where the schema permits it; otherwise omit the
+optional field. Never coerce unknown cost/token usage to zero, and never invent
+a placeholder playbook, provider, or model merely to satisfy validation.
+
 At the START of any pipeline run (not just after a stage), always check for existing progress:
 
 ```python

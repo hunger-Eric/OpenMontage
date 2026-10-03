@@ -59,6 +59,57 @@ A provider-route sample is evidence for that route, not delivery of the
 original full production. Keep its plan, receipts, semantic review and render
 report distinct from the original run's canonical artifacts.
 
+### Bounded multi-shot execution path (HARD RULE)
+
+For a production with several paid or long-running generated shots, use one
+run-owned execution contract from asset preflight through final review. Freeze
+the project ID, approved provider/model, provider input schema, render runtime,
+cost policy, reuse set, and forbidden substitutions before the first external
+submission. Account-observed capability and the user's stated subscription
+are authoritative for that run; public pricing or retirement notices must not
+silently replace them. Unknown plan cost or token usage stays unknown (`null`
+where the owning schema permits it, otherwise omit the optional field), never
+`0` or "free".
+
+Execute the run in this order:
+
+1. Inventory, hash, and register reusable assets once. Audit the current run's
+   projections for stale provider/model/pricing claims; keep historical source
+   artifacts immutable and correct only the new run-owned projection.
+2. Preflight every local reference and remote reference URL before submission.
+   Require a readable local file or an HTTP success with the expected media
+   type and non-empty body. Reuse a proven direct URL; do not discover an image
+   host failure inside a paid video call.
+3. When the approved plan calls for a first-shot route check, submit exactly one
+   representative shot. Decode and semantically review the actual result, then
+   freeze the working provider request shape, observed output geometry, and one
+   normalization policy for the remaining shots.
+4. Before every submit or resubmit, inspect the persisted receipt, provider
+   task ID, output path, and append-only attempt ledger. Poll or recover a
+   non-terminal/unknown task with the same identity. Never create a duplicate
+   merely because a process, tool cell, or conversation context disappeared.
+5. After the first-shot gate passes, dispatch independent shots in a bounded
+   batch only when the provider/account supports it. Use stable unique attempt
+   IDs and at most 2-3 concurrent jobs; otherwise run serially. Poll every long
+   job to a terminal state.
+6. Normalize and decode accepted clips as one batch, then create one aggregate
+   review surface (contact sheet plus representative motion samples). Perform
+   identity/action/continuity review for every shot. Regenerate only failed
+   leaves with a changed request; accepted siblings remain immutable.
+7. Derive manifests, cost records, and checkpoints from persisted receipts,
+   hashes, media probes, and review records. Validate each artifact against its
+   owning schema before checkpoint write; do not hand-copy provider facts when
+   they can be projected from receipts.
+8. Validate the complete edit and asset inputs before composition. Enter the
+   selected runtime only through `video_compose`; raw `npx remotion`, renderer
+   internals, and ad-hoc staging are debugging tools, not production entry
+   points. Produce one official final render, then run one complete final
+   technical/audio/semantic review. Re-render only for a concrete failed gate.
+
+Within the same task, reuse already-read unchanged director skills and current
+run evidence. Re-reading large guides, repeating one-off probes, or rendering
+drafts solely to discover schema/entrypoint mistakes is not progress.
+
 
 Start here. This is the complete operating guide and agent contract for OpenMontage.
 
