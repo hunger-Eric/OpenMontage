@@ -2,6 +2,29 @@
 
 Updated: 2026-10-03
 
+## 2026-10-03 same-engine composition acceptance
+
+- New explainer productions author one project-local source tree during asset
+  preparation and edit against final-audio transcript timing. The default
+  composition route is `video_compose`: `preflight` -> `preview` -> owner visual
+  acceptance -> `finalize`; instructions live in the edit/compose directors.
+- Governed renders validate schemas, file references, runtime agreement and
+  narration/subtitle provenance before invoking the renderer. `script_path`
+  is loaded consistently for both render and review.
+- Preview runs the existing delivery gate and full decode. Finalization binds
+  source, engine, parameters, media and video hashes plus actual owner visual
+  acceptance, then copies the accepted bytes without another render. Changes
+  require a new preview; historical output paths cannot be overwritten.
+- Thirty focused checks passed. The same-input full thirty-second comparison
+  measured 101.012 seconds for the prior render/repeated-review path versus
+  85.136 seconds for the new automatic path (15.7% observed reduction). Both
+  MP4 bytes and all 900 decoded frames match; accepted-preview finalization
+  took 0.379 seconds with no second render. The twelve frame sheets were
+  inspected and changed-timeline reuse was refused. Evidence and limits:
+  [composition comparison](run-reports/2026-10-03-composition-preview-comparison.md).
+  Model authoring time and end-to-end Feishu improvement remain unverified.
+  No provider generation, historical run mutation or external delivery occurred.
+
 ## 2026-10-03 bounded multi-shot execution guidance
 
 - `AGENT_GUIDE.md` now owns one mandatory fast path for long multi-shot

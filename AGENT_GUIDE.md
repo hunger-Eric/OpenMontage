@@ -92,6 +92,10 @@ Execute the run in this order:
    batch only when the provider/account supports it. Use stable unique attempt
    IDs and at most 2-3 concurrent jobs; otherwise run serially. Poll every long
    job to a terminal state.
+   While assets are preparing, scaffold the project-local composition once and
+   build its edit against the actual final narration transcript. Keep one
+   source tree for rough assembly, fine editing and accepted preview. Pending
+   media may be explicit placeholders during authoring, never at acceptance.
 6. Normalize and decode accepted clips as one batch, then create one aggregate
    review surface (contact sheet plus representative motion samples). Perform
    identity/action/continuity review for every shot. Regenerate only failed
@@ -100,11 +104,15 @@ Execute the run in this order:
    hashes, media probes, and review records. Validate each artifact against its
    owning schema before checkpoint write; do not hand-copy provider facts when
    they can be projected from receipts.
-8. Validate the complete edit and asset inputs before composition. Enter the
-   selected runtime only through `video_compose`; raw `npx remotion`, renderer
-   internals, and ad-hoc staging are debugging tools, not production entry
-   points. Produce one official final render, then run one complete final
-   technical/audio/semantic review. Re-render only for a concrete failed gate.
+8. Use the same-engine acceptance path in
+   `skills/pipelines/explainer/compose-director.md`: `video_compose(preflight)`
+   checks final inputs before rendering; `video_compose(preview)` renders,
+   reviews and fully decodes once. The owner inspects the actual continuous
+   result or its full frame sequence and records acceptance for that exact SHA.
+   `video_compose(finalize)` verifies unchanged inputs and copies the accepted
+   bytes into the final artifact without another render or duplicate review.
+   An actual failed gate requires the smallest repair and a new preview revision.
+   Raw renderer commands remain debugging surfaces, not production entries.
 
 Within the same task, reuse already-read unchanged director skills and current
 run evidence. Re-reading large guides, repeating one-off probes, or rendering

@@ -18,6 +18,16 @@ This is where raw assets become a coherent video. Good editing makes average ass
 
 ### Step 1: Map Assets to Timeline
 
+Start the single project-local composition while assets are preparing, using
+the existing scaffold once. Use actual final-audio transcript timestamps for
+scene ranges, narration, captions and information-card reveals; storyboard
+durations are creative estimates, not the final clock. Preserve the approved
+natural narration. The model chooses meaningful scene boundaries and action
+holds from the real narration and media; code does not infer semantic cuts.
+Pending media may be clearly marked authoring placeholders, but cannot enter
+the accepted preview. Replace them in the same source tree and fine-edit using
+the actual action windows. Do not restart composition authoring at compose.
+
 For each scene in the scene plan:
 1. Find the matching assets from the asset manifest (by `scene_id`)
 2. Find the matching narration audio (by script section)

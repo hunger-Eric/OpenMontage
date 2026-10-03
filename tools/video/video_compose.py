@@ -82,8 +82,11 @@ class VideoCompose(BaseTool):
         "properties": {
             "operation": {
                 "type": "string",
-                "enum": ["compose", "render", "review", "remotion_render", "burn_subtitles", "overlay", "encode"],
+                "enum": ["preflight", "preview", "finalize", "compose", "render", "review", "remotion_render", "burn_subtitles", "overlay", "encode"],
                 "description": (
+                    "preflight: validate final inputs without rendering. "
+                    "preview: render once, review and fully decode for owner inspection. "
+                    "finalize: copy the unchanged accepted preview without another render. "
                     "compose: low-level concat cuts + audio + subtitles. "
                     "render: high-level — resolves asset IDs, auto-routes to Remotion "
                     "for images/animations or FFmpeg for video-only. Preferred for compose-director. "
@@ -96,6 +99,8 @@ class VideoCompose(BaseTool):
             },
             "input_path": {"type": "string"},
             "output_path": {"type": "string"},
+            "preview_receipt_path": {"type": "string"},
+            "visual_review_path": {"type": "string"},
             "edit_decisions": {
                 "type": "object",
                 "description": "Full edit_decisions artifact (required for compose/render)",
@@ -346,7 +351,18 @@ class VideoCompose(BaseTool):
         start = time.time()
 
         try:
-            if operation == "compose":
+            inputs = dict(inputs)
+            if inputs.get("script_path") and not inputs.get("script_text"):
+                inputs["script_text"] = self._read_text_file(inputs["script_path"])
+            if operation in {"preflight", "preview", "finalize"}:
+                from tools.video.composition_session import preflight, preview, finalize
+                if operation == "preflight":
+                    result = ToolResult(success=True, data={"operation": operation, **preflight(self, inputs)})
+                elif operation == "preview":
+                    result = preview(self, inputs)
+                else:
+                    result = finalize(self, inputs)
+            elif operation == "compose":
                 result = self._compose(inputs)
             elif operation == "render":
                 result = self._render(inputs)
@@ -1534,6 +1550,12 @@ class VideoCompose(BaseTool):
         asset_manifest = inputs.get("asset_manifest")
         if not edit_decisions:
             return ToolResult(success=False, error="edit_decisions required for render")
+
+        # Governed production checks deterministic inputs before spending render
+        # time. Legacy low-level callers retain their existing minimal contracts.
+        if all(inputs.get(key) for key in ("asset_manifest", "proposal_packet", "decision_log")):
+            from tools.video.composition_session import preflight
+            preflight(self, inputs)
 
         # --- Runtime routing: honor render_runtime locked at proposal ---
         # Silent swaps are forbidden by governance. Resolve this before any

@@ -33,17 +33,38 @@ or successful provider response does not override these failures.
 
 ### Official composition entry and single-render rule
 
-Validate the complete `edit_decisions`, `asset_manifest`, transcript, music,
-and referenced files before invoking a renderer. Production composition enters
-only through `video_compose(operation="render")`. Let that tool stage the
-approved atelier/runtime inputs. Direct `npx remotion`, internal composition
-listing, `_remotion_render`, `hyperframes_compose`, or hand-built staging may be
-used only for explicit debugging and must not become the delivery route.
+The default new-production path is `preflight → preview → owner acceptance →
+finalize` through `video_compose`, using the single source tree already authored
+during asset preparation/edit. Each call carries the same `edit_decisions`,
+`asset_manifest`, `proposal_packet`, `decision_log`, final-audio transcript,
+script and render parameters. Do not rebuild the composition in this stage.
 
-Once inputs pass validation, produce one official final render and run the full
-post-render review once. A concrete failed gate may trigger the smallest repair
-and another official render; do not create exploratory draft renders merely to
-test cwd, dependencies, composition discovery, or input schema.
+1. `operation="preflight"` validates schemas, references, runtime agreement,
+   transcript/script comparison and subtitle provenance without rendering.
+2. `operation="preview"`, with a fresh revision `output_path`, runs the selected
+   renderer, existing complete final-review gate and full decode once. Keep the
+   returned `preview_receipt_path` and `video_sha256`. This preview must use real
+   accepted media and final output settings, not placeholders or a draft scale.
+3. The current owner inspects the whole frame sequence or continuously watches
+   the actual video, enlarging action/timing boundaries as needed. Write a
+   UTF-8 JSON `visual_review_path` with `owner="current_codex_main_agent"`,
+   `method="full_frame_sequence"` or `"continuous_watch"`, `verdict="accept"`,
+   the returned `video_sha256`, and non-empty `observations` describing actual
+   findings. Tool success alone is not visual acceptance.
+4. `operation="finalize"`, with both receipt/review paths and a new final
+   `output_path`, verifies the source/input/video identities and copies the
+   exact accepted bytes. Use its `final_review` and output for checkpoint and
+   Worker delivery. It does not re-render, transcribe or repeat stem probes.
+
+Changed source, media, captions, parameters or timeline require a new preview
+and acceptance. Existing outputs are never overwritten. For repaired legacy
+renders, the existing `render`/`review` entry remains available. Direct renderer
+commands and staging remain explicit debugging surfaces only.
+
+For this path, the tool already performs the automated checks described below.
+Reuse those results; do not run a second transcription, audio analysis or
+render merely to recreate evidence. Perform the owner visual/audio inspection
+required by this project's contract, and repair only concrete failed gates.
 
 ## Prerequisites
 
