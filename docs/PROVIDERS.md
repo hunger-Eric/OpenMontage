@@ -2,6 +2,32 @@
 
 Everything you need to know about every provider in OpenMontage — setup instructions, pricing, free tiers, and what each unlocks.
 
+## October 2026 provider refresh
+
+See [implementation status and verified model map](provider-update-plan-2026-10-03.md)
+and [adapter usage](../.agents/skills/provider-model-refresh/SKILL.md).
+
+New routes cover HeyGen Avatar V, Eleven v4/Turbo, Wan 3.0 on fal/Atlas/Replicate,
+GPT Image 2.5 Flare/Sunburst, Gemini 3 Pro Image (Nano Banana Pro), Ideogram 4.5
+and Precise Edit, H3 Max, Gemini 3.8 TTS, Lyria 3.5, LTX-2.5, Sonic 3.6,
+Inworld TTS-2/Flash and local Qwen Image 2.1. Each model uses the exact API host's
+contract; an API key does not establish account entitlement.
+
+For image/video selectors use `model`, `hosting_provider`, and optionally
+`preferred_tool`. Speech uses `model_id`. Explicit tool, host and model constraints
+never silently fall back. Legacy `preferred_provider` remains a ranking preference.
+Several tools may share a host; ranking selects the actual tool name.
+
+New asynchronous video/image tools return `resume_job` and optionally save
+`job_path`. Resume the same job after a polling timeout instead of submitting
+another paid request. Unpriced calls return `cost_usd: null` with `cost_status`,
+not zero. Ideogram direct supports an unbilled `dry_run` price quote.
+
+Kling 4/Flash stays gated pending verified public schemas and account access.
+LTX-2.5 local execution requires a supplied ComfyUI API workflow and installed
+weights; the direct LTX API is implemented separately. GPU and paid API output
+quality require live validation in the intended environment.
+
 ---
 
 ## Quick Start: What Should I Set Up?
@@ -41,7 +67,7 @@ GOOGLE_API_KEY=              # Google TTS + Imagen + Lyria music + Gemini Omni/V
 ELEVENLABS_API_KEY=          # TTS, music, sound effects (10K chars/month free)
 FISH_AUDIO_API_KEY=          # fish.audio TTS (voice cloning via reference_id, inline emotion tags)
 OPENAI_API_KEY=              # OpenAI TTS + GPT Image 2 images
-AGNES_API_KEY=               # Agnes Video v2.0 (project default video provider)
+AGNES_API_KEY=               # Agnes video (discover and select models per production)
 DOUBAO_SPEECH_API_KEY=       # Volcengine Doubao Speech TTS (strong Mandarin narration)
 DOUBAO_SPEECH_VOICE_TYPE=    # Default Doubao speaker/voice type
 DASHSCOPE_API_KEY=           # Alibaba DashScope (Qwen image gen, TTS, ASR with word timestamps)
@@ -71,7 +97,7 @@ TENCENT_TOKENHUB_API_KEY=    # Tencent Hunyuan cloud video via TokenHub API
 
 # LOCAL (no keys needed — just GPU + install)
 VIDEO_GEN_LOCAL_ENABLED=     # Set to "true" for local video gen
-VIDEO_GEN_LOCAL_MODEL=       # wan2.1-1.3b, wan2.1-14b, hunyuan-1.5, ltx2-local, cogvideo-5b
+VIDEO_GEN_LOCAL_MODEL=       # wan2.2-ti2v-5b, wan2.1-1.3b, wan2.1-14b, hunyuan-1.5, ltx2-local, cogvideo-5b
 
 # COMFYUI (optional overrides; localhost:8188 is the default)
 COMFYUI_SERVER_URL=          # Local ComfyUI server for shared workflows
@@ -117,21 +143,42 @@ without regenerating. `max_attempts=1` honors an explicit one-call instruction. 
 unknown unless current account evidence establishes it. The provider may return
 dimensions different from the requested size; actual dimensions are recorded.
 
-`image_selector` defaults to Codex native `image_gen`, an agent tool rather
-than a Python API provider. Default production uses Codex images, Agnes video
-and Google Gemini TTS, followed by OpenMontage composition and acceptance.
-Agnes image generation is retained only as an explicit alternative; see
-`AGENT_GUIDE.md > Project-owned generation route`.
+Shared selectors default to `auto` and can run with any supported agent client.
+Codex native `image_gen` is an optional explicit session route, not a required
+Python dependency. Put personal choices in ignored `config.local.yaml`:
 
-### Agnes AI — Default Video Provider
+```yaml
+providers:
+  image_provider: codex_native
+  video_provider: agnes
+  tts_provider: gemini
+  tts_tool: gemini_generate_content_tts
+  restrict_to_preferences: true
+  disabled_providers: [grok, heygen]
+```
 
-> **OpenMontage's locked default for text-to-video and image-conditioned video.** If Agnes is unavailable, the selector stops and asks for an explicit provider choice instead of silently spending through another backend.
+These settings preserve this workstation's preferred authorized routes while
+keeping optional integrations available in the shared project. Explicit request
+routes override preferences; execution failures never trigger a provider switch.
+`gemini_tts` uses the upstream Interactions API; `gemini_generate_content_tts`
+retains the project's generateContent interface. Their model contracts differ.
+
+Optional original integrations remain available: `grok_image` / `grok_video`
+use `XAI_API_KEY`; `heygen_video` and `heygen_avatar` use `HEYGEN_API_KEY`.
+They require account entitlement and an authorized production plan. Restored
+source and mocked tests do not prove current endpoint or subscription access.
+
+### Agnes AI — Optional Video Provider
 
 **Tool unlocked:** `agnes_video`
 
 **Env var:** `AGNES_API_KEY`
 
-**Default model:** `agnes-video-v2.0`
+**Model selection:** no fixed version. Call `video_selector` with
+`operation="discover_models", preferred_provider="agnes"`, then the executing agent chooses an eligible
+model from current catalog, plan/access evidence and task requirements and
+passes `model` explicitly. Listing is not proof of access. Do not ask again
+for a version choice inside the authorized provider/plan/spending scope.
 
 #### Setup
 
@@ -145,11 +192,27 @@ Agnes image generation is retained only as an explicit alternative; see
 - Image-conditioned product and short-form video
 - Asynchronous generation with task receipts and explicit polling
 
-#### Agnes Video v2.0 usage conditions
+#### Current video contracts
 
-`agnes_video` is deliberately fixed to `agnes-video-v2.0`. It does not switch
-to Agnes 2.5, Agnes 2.5 Flash, or another provider when a request is outside
-the v2.0 contract.
+`agnes_video` supports `agnes-video-2.5-flash`, `agnes-video-2.5`, and explicit
+legacy `agnes-video-v2.0` requests/recovery. It never changes the selected model
+or provider on failure. A new version listed by the service is exposed as a
+candidate with `adapter_supported=false` until its API contract is implemented.
+
+- 2.5/Flash: integer 4–12 seconds, `size`, `aspect_ratio`, and `mode` (`text`,
+  `keyframe`, `reference`); no legacy frame count, FPS or pixel-size fields.
+- Flash: 720P only, at most 5 reference images / 3 audio references, no video
+  reference. The current Token Plan key completed a real Flash task on 2026-10-10.
+- Ordinary 2.5: 720P/1080P/1K/2K, at most 8 images / 3 audio / 1 video reference.
+  New submissions require `allow_paid_model=true` after user spending approval.
+  The current Token Plan key's real submission was rejected with `model_not_found`.
+- New tasks check the current key's catalog before submission; failed discovery
+  stops. The agent uses entitlement/task evidence to select; code does not pick
+  a semantic fallback. Query listing and successful generation remain distinct.
+- Existing receipts retain their original model and recover without requiring
+  that model to remain listed. Unknown submission outcomes stop duplicate calls.
+
+#### Legacy v2.0 contract (not a default)
 
 | Constraint | Agnes Video v2.0 contract |
 |------------|---------------------------|
@@ -1263,8 +1326,9 @@ pip install diffusers transformers accelerate torch pillow requests
 VIDEO_GEN_LOCAL_ENABLED=true
 
 # 3. Choose a model based on your GPU VRAM
-VIDEO_GEN_LOCAL_MODEL=wan2.1-1.3b      # 6GB+ VRAM (entry-level)
-VIDEO_GEN_LOCAL_MODEL=wan2.1-14b       # 24GB+ VRAM (best local quality)
+VIDEO_GEN_LOCAL_MODEL=wan2.2-ti2v-5b   # 12GB+ VRAM (default; 720p @ 24fps, T2V+I2V+V2V)
+VIDEO_GEN_LOCAL_MODEL=wan2.1-1.3b      # 6GB+ VRAM (entry-level, text-to-video only)
+VIDEO_GEN_LOCAL_MODEL=wan2.1-14b       # 24GB+ VRAM (best Wan 2.1 quality)
 VIDEO_GEN_LOCAL_MODEL=hunyuan-1.5      # 12GB+ VRAM
 VIDEO_GEN_LOCAL_MODEL=ltx2-local       # 8GB+ VRAM (fastest)
 VIDEO_GEN_LOCAL_MODEL=cogvideo-5b      # 10GB+ VRAM
@@ -1275,14 +1339,76 @@ VIDEO_GEN_LOCAL_MODEL=cogvideo-2b      # 6GB+ VRAM (lightest)
 
 | Model | VRAM | Quality | Speed | Best for |
 |-------|------|---------|-------|----------|
-| **WAN 2.1 (1.3B)** | 6GB | Good | Fast | Entry-level GPU, quick iteration |
-| **WAN 2.1 (14B)** | 24GB | Excellent | Slow | Best quality-to-VRAM ratio |
+| **WAN 2.2 TI2V (5B)** | 12GB | Excellent | Medium | Default. 720p @ 24fps, one checkpoint for T2V/I2V/V2V |
+| **WAN 2.1 (1.3B)** | 6GB | Good | Fast | Entry-level GPU, quick iteration (text-to-video only) |
+| **WAN 2.1 (14B)** | 24GB | Excellent | Slow | Best Wan 2.1 quality |
 | **Hunyuan 1.5** | 12GB | Very good | Medium | Mid-range GPUs |
 | **LTX-2** | 8GB | Good | Fastest | Quick drafts, lowest latency |
 | **CogVideo (5B)** | 10GB | Good | Medium | Balanced option |
 | **CogVideo (2B)** | 6GB | Fair | Fast | Low-VRAM experimentation |
 
-**All local models support:** Image-to-video, text-to-video, offline generation, seeded reproducibility.
+**All local models support:** text-to-video, offline generation, seeded reproducibility.
+
+#### WAN 2.2 — the full operation matrix
+
+`wan_video` drives one checkpoint across every Wan task. The `operation` input selects
+the diffusers pipeline; the tool refuses an operation the chosen variant has no weights for.
+
+| `operation` | What it does | Extra inputs |
+|-------------|--------------|--------------|
+| `text_to_video` | Prompt to clip | — |
+| `image_to_video` | Animate a still | `reference_image_path` / `reference_image_url` |
+| `video_to_video` | Restyle an existing clip | `source_video_path`, `strength` |
+| `first_last_frame` | Interpolate between two stills | `reference_image_*` + `last_image_*` |
+| `text_to_image` | Single frame, saved as PNG | — |
+
+Geometry is snapped to what the VAE can encode, so you can ask for any size: frame counts
+land on `4k + 1`, and width/height land on a multiple of 32 for the TI2V line (its 16x VAE
+plus 2x patching is why 720p is **1280x704**, not 1280x720) or 16 elsewhere.
+
+#### Clips longer than five seconds
+
+Wan is trained for roughly a five-second pass. Ask for more with `duration_seconds` and the
+tool chains segments: each continuation is seeded with the previous segment's last frame,
+regenerates it as its own frame 0, and that duplicate is dropped at the seam.
+
+```python
+wan_video.execute({
+    "prompt": "A red convertible on a coastal road at golden hour",
+    "duration_seconds": 30,          # -> 720 frames @ 24fps -> 6 chained segments
+    "width": 704, "height": 480,
+    "num_inference_steps": 20,
+    "offload_mode": "sequential",
+    "segment_prompts": [...],        # optional shot list, one entry per segment
+})
+```
+
+Chaining drifts: every hop conditions on already-generated pixels, so contrast and colour
+creep. `correct_drift` (on by default) re-grades each segment to the opening segment's
+channel statistics. Pass `segment_prompts` to steer the clip through a shot list instead of
+repeating one prompt six times.
+
+#### Fitting a 12GB card
+
+`precision` (`auto`/`bf16`/`int8`/`int4`) and `offload_mode` (`auto`/`model`/`sequential`)
+both default to `auto` and are picked from visible VRAM.
+
+A bf16 5B transformer is ~10GB resident. With `offload_mode="model"` that leaves almost
+nothing for activations on a 12GB card — measured peak was 10.85GB at just 512x320.
+`offload_mode="sequential"` streams one submodule at a time: the same card then peaks at
+**1.97GB** and renders 704x480 comfortably, at the cost of ~4s per denoising step of PCIe
+traffic. On a 12GB GPU `auto` selects it for you.
+
+> **NVIDIA driver note.** If the loaded kernel module and the installed userspace libraries
+> are different versions, `nvmlInit` fails. CUDA compute still runs, but PyTorch calls NVML
+> while composing an out-of-memory report — so real OOMs surface as an internal assert, and
+> bitsandbytes (`int8`/`int4`) cannot load at all. Compare `cat /proc/driver/nvidia/version`
+> with `nvidia-smi`; if they disagree, reboot. `wan_video` detects this and says so.
+
+
+Image-to-video is *not* universal — Wan 2.1 never shipped 1.3B I2V weights and CogVideo is
+text-only. Each variant's real capability list is `operations` in `tools/video/_shared.py`,
+and `wan_video` refuses an operation the selected checkpoint cannot do.
 
 ---
 

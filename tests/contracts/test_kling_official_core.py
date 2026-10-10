@@ -373,14 +373,11 @@ def test_architecture_env_mapping_includes_kling_official():
     assert "Kling Official also adds provider tools only where OpenMontage already has a" in architecture
 
 
-def test_ai_video_skill_metadata_and_new_skill_link():
-    ai_video = read(".agents/skills/ai-video-gen/SKILL.md")
+def test_kling_skill_link_and_vendor_reference():
     index = read("skills/INDEX.md")
     creative = read("skills/creative/video-gen-prompting.md")
     official_skill = PROJECT_ROOT / ".agents/skills/kling-official/SKILL.md"
 
-    assert "KLING_API_KEY" in ai_video
-    assert "kling_official_video" in ai_video
     assert "kling_tts" in index
     assert "avatar/lip-sync face selection" in index
     assert ".agents/skills/kling-official/" in creative

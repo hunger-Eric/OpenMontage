@@ -40,9 +40,18 @@ Layer 3: .agents/skills/            → "How the technology works" (generic API 
 
 Each tool's `agent_skills[]` field bridges Layer 1 → Layer 3. See `skills/INDEX.md` for the full mapping.
 
-### Local Remotion source authority
+### Portable references and personal configuration
 
-Official Remotion skills, framework source and API documentation come from the checkout registered in `C:/Users/fengc/.codex/remotion-source.json`. Read it through `python C:/Users/fengc/.codex/tools/remotion-source.py status` and `read --skill remotion-best-practices`; follow repository-relative references with the same reader. Project-local official skill entries delegate there; custom toolkit design and pipeline instructions remain local. Match API use to each composition project's lockfile using `read <path> --revision v<locked-version>`; a source update does not change render dependencies or authorize a pipeline run.
+The repository ships generic technology skills under `.agents/skills/`.
+A user's installed source reader or global instructions may override the
+reference source on their own machine; shared project documents do not require
+a specific user directory. Match API use to the composition's locked runtime.
+
+Shared selectors default to `auto`. Provider preferences and disabled optional
+integrations are loaded from ignored `config.local.yaml` over `config.yaml`.
+Request-level tool/host/model constraints remain explicit and never fall back
+to another contract after execution failure. Audio-style indicators are advisory
+unless the project declares an enforced `audio_review_policy`.
 
 ## Key Patterns
 

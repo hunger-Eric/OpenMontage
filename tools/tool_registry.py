@@ -456,13 +456,16 @@ class ToolRegistry:
                         f"{entry.get('name')}: {entry.get('resource_profile_note')}"
                     )
 
+        from lib.config_model import OpenMontageConfig
+        preferences = OpenMontageConfig.load().providers
         result = {
             "composition_runtimes": comp_runtimes,
             "production_defaults": {
-                "image_provider": getattr(self._tools.get("image_selector"), "DEFAULT_PROVIDER", None),
-                "video_provider": getattr(self._tools.get("video_selector"), "DEFAULT_PROVIDER", None),
-                "tts_provider": getattr(self._tools.get("tts_selector"), "DEFAULT_PROVIDER", None),
+                "image_provider": preferences.image_provider,
+                "video_provider": preferences.video_provider,
+                "tts_provider": preferences.tts_provider,
             },
+            "provider_preferences": preferences.model_dump(),
             "agent_native_capabilities": [{
                 "capability": "image_generation", "provider": "codex_native",
                 "tool": "image_gen", "availability": "check_current_session_tool_inventory",

@@ -31,3 +31,12 @@ paths:
   styles_dir: styles
   skills_dir: skills
   output_dir: output
+
+# User/machine preferences can override these in ignored config.local.yaml.
+providers:
+  image_provider: auto
+  video_provider: auto
+  tts_provider: auto
+  tts_tool: null
+  restrict_to_preferences: false
+  disabled_providers: []

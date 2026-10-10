@@ -410,12 +410,10 @@ result = Transcriber().execute({
 - Is the full narration captured? (compare last transcribed word to last scripted word)
 - Any words cut off at the end? (narration exceeding video duration)
 - Timing alignment — do narration segments roughly match their intended scenes?
-- Inspect `final_review.checks.audio_spotcheck`: `mix_balance_verified` must be true,
-  `music_audible` must not be false, and `music_to_narration_lu` must be ≤20.
-  `ffprobe` proves only that a combined audio stream exists; it cannot prove that
-  the music bed is audible.
-- `narration_pace_acceptable` must be true. A declared `narration_tempo_ratio`
-  below `0.90` is a revision blocker, not a way to make narration fill the edit.
+- Inspect `final_review.checks.audio_spotcheck`: levels and tempo are measured
+  indicators, not universal creative gates. Review the intended mix by listening;
+  only explicitly declared `audio_review_policy.mode: enforce` thresholds block.
+  A combined audio stream alone does not prove the requested mix is audible.
 - Listen to the rendered mix. Objective levels catch gross failures but do not
   replace a perceptual check of speech naturalness, music presence, and ducking.
 

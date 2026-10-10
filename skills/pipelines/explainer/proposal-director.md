@@ -408,18 +408,25 @@ Itemize every paid operation:
 
 This section is a usage disclosure, not an automatic production limit. The
 pipeline's completion condition is an accepted video. Do not invent a default
-budget, wall-clock limit, or retry ceiling. Enforce `approved_budget_usd` only
+monetary budget or whole-production deadline. Configured revision limits stop
+unchanged repair loops without declaring success. Enforce `approved_budget_usd` only
 when the user explicitly supplied it. For Token Plan providers set
 `billing_mode: "token_plan"`; when USD or token usage cannot be known in
 advance, write `estimated_usd: null`, `estimated_tokens: null`, and
 `budget_verdict: "usage_unknown"` rather than `$0.00`.
 
 When model video is planned, persist
-`production_plan.video_generation_contract`. For Agnes it must identify the
-fixed model `agnes-video-v2.0`, `8n + 1` frames from 9 through 441, the chosen
-FPS, the resulting maximum seconds per call (18.375s at 24 FPS; 14.7s at 30;
-7.35s at 60), supported aspect presets, required delivery clip count, and the
-policy `split_into_planned_shots_then_compose`. The clip count describes the
+`production_plan.video_generation_contract`. For Agnes, first query
+`video_selector(operation="discover_models", preferred_provider="agnes")`. The executing agent selects a
+suitable eligible model from current catalog, plan and account-specific evidence
+and records its exact ID, discovery/access evidence and per-call conditions.
+Do not permanently fix a version or treat listing as successful access.
+For 2.5/Flash record integer 4–12 seconds, resolution/aspect and reference
+limits; for a legacy v2.0 selection record the frame/FPS contract. Persist
+required delivery clip count and the policy
+`split_into_planned_shots_then_compose`. Selection inside the approved plan
+needs no separate version approval; a paid route outside it remains gated.
+The clip count describes the
 deliverable, not a limit on recovery attempts. Retry policy is
 `resume_existing_then_retry_terminal_failure`.
 

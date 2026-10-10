@@ -6,6 +6,31 @@
   "type": "object",
   "required": ["version", "cuts", "render_runtime"],
   "properties": {
+    "audio_review_policy": {
+        "type": "object",
+        "description": "Project audio-style thresholds. Advisory by default; enforce only when agreed in the production plan.",
+        "properties": {
+            "mode": {
+                "type": "string",
+                "enum": [
+                    "advisory",
+                    "enforce"
+                ],
+                "default": "advisory"
+            },
+            "min_narration_tempo": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "default": 0.9
+            },
+            "max_music_gap_lu": {
+                "type": "number",
+                "minimum": 0,
+                "default": 20
+            }
+        },
+        "additionalProperties": false
+    },
     "version": { "type": "string", "const": "1.0" },
     "cuts": {
       "type": "array",

@@ -8,7 +8,7 @@ import wave
 from pathlib import Path
 from typing import Any
 
-from tools.audio.gemini_tts import GeminiTTS
+from tools.audio.gemini_generate_content_tts import GeminiGenerateContentTTS as GeminiTTS
 from tools.audio.tts_selector import TTSSelector
 from tools.base_tool import ToolResult, ToolStatus
 
@@ -370,27 +370,27 @@ def test_gemini_tts_sniffs_wav_before_assuming_missing_mime_is_pcm(
         assert audio.readframes(audio.getnframes()) == pcm
 
 
-def test_tts_selector_defaults_to_gemini_without_fallback(monkeypatch) -> None:
+def test_tts_selector_honors_explicit_provider_scope(monkeypatch) -> None:
     gemini = _StubTTS("gemini_tts", "gemini", ToolStatus.AVAILABLE)
     elevenlabs = _StubTTS("elevenlabs_tts", "elevenlabs", ToolStatus.AVAILABLE)
     selector = TTSSelector()
     selector._providers = lambda: [elevenlabs, gemini]  # type: ignore[method-assign]
     monkeypatch.setattr(
         "lib.scoring.rank_providers",
-        lambda candidates, context: [],
+        lambda candidates, context: [__import__("lib.scoring", fromlist=["ProviderScore"]).ProviderScore(t.name, t.provider) for t in candidates],
     )
 
     result = selector.execute(
-        {"text": "测试旁白", "voice": "runtime-selected-voice", "output_path": "x.wav"}
+        {"text": "测试旁白", "voice": "runtime-selected-voice", "output_path": "x.wav", "allowed_providers": ["gemini"]}
     )
 
     assert result.success is True
     assert gemini.last_inputs is not None
     assert elevenlabs.last_inputs is None
-    assert TTSSelector.input_schema["properties"]["preferred_provider"]["default"] == "gemini"
+    assert TTSSelector.input_schema["properties"]["preferred_provider"]["default"] == "auto"
 
 
-def test_tts_selector_stops_when_default_gemini_is_unavailable(monkeypatch) -> None:
+def test_tts_selector_stops_when_authorized_gemini_is_unavailable(monkeypatch) -> None:
     gemini = _StubTTS("gemini_tts", "gemini", ToolStatus.UNAVAILABLE)
     elevenlabs = _StubTTS("elevenlabs_tts", "elevenlabs", ToolStatus.AVAILABLE)
     selector = TTSSelector()
@@ -398,7 +398,7 @@ def test_tts_selector_stops_when_default_gemini_is_unavailable(monkeypatch) -> N
     monkeypatch.setattr("lib.scoring.rank_providers", lambda candidates, context: [])
 
     result = selector.execute(
-        {"text": "测试旁白", "voice": "runtime-selected-voice", "output_path": "x.wav"}
+        {"text": "测试旁白", "voice": "runtime-selected-voice", "output_path": "x.wav", "allowed_providers": ["gemini"]}
     )
 
     assert result.success is False

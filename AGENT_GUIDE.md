@@ -8,56 +8,55 @@ Codex session. The global `ai-video-gen` entrypoint only points here; it must
 not duplicate these rules. Feishu Bridge owns task intake and result delivery,
 not video production or provider configuration.
 
-For generated images, use the current Codex session's native `image_gen`.
-`image_selector` defaults to `codex_native` and delegates to that agent tool;
-it does not submit an image request through a Python provider.
-For generated motion, `video_selector` defaults to Agnes Video v2.0.
-For narration, `tts_selector` defaults to Google Gemini TTS. Its call route
-matches the video project: official `v1beta/models/...:generateContent`,
-`x-goog-api-key`, shared `GEMINI_API_KEY` credentials, environment proxy routing
-(`HTTPS_PROXY`/`HTTP_PROXY` with `NO_PROXY`) and a 600-second request timeout.
-Python requests applies this timeout to connection/read inactivity; it is not
-an absolute whole-production deadline. Preserve verbatim narration, extract
-returned audio and validate a local 24 kHz mono WAV before composition.
-This alignment concerns transport only: choose voice per production, with no
-global default voice, speed, pitch or copied post-processing preset. Composition
-engines consume the registered narration artifact; their bundled media helpers
-must not start another TTS/provider call or override this production route.
-The default acceptance route is Codex native image -> Agnes image-to-video +
-Google Gemini TTS narration -> OpenMontage composition -> decoded-pixel and
-semantic review. Use supported same-provider recovery for transient image/
-narration failures; no implicit provider switch is allowed. Other
-explicit provider choices and `preferred_provider="auto"` remain available.
-An exact image model or custom workflow remains an explicit alternative.
+Shared selectors default to `auto`: inspect available providers, exact model
+contracts and session-native capabilities before choosing a production route.
+Personal preferences belong in ignored `config.local.yaml`; shared `config.yaml`
+contains portable defaults. Request-level tool, host, model and allowed-provider
+constraints take precedence; `preferred_provider` is a ranking hint, not a
+spending authorization or hard provider constraint. A configured preference is a selection hint;
+`restrict_to_preferences: true` limits omitted-route requests to that personal
+provider. Disabled providers remain optional installed integrations and are
+excluded from selection. Do not change providers after a failed submission.
 
-Codex native `image_gen` is the default agent-native image route.
-At preflight, check the current session's actual tool inventory separately
-from the Python registry. Invoke that native tool by default,
-save its output inside the project, and register its source, prompt, actual
-tool/model identity when exposed, path, dimensions and integrity hash in the
-asset manifest. That image can feed Agnes image-to-video. Do not replace it
-with the similarly named Python OpenAI API adapter or silently switch to Agnes.
-If the current Worker/session does not expose the native tool, report that
-specific capability boundary; desktop availability does not prove Worker access.
+The executing agent owns suitability, model selection, voice performance and
+creative acceptance. Code owns capability discovery, parameter validation,
+transport, media integrity and receipts. Provider scoring is advisory evidence,
+not a substitute for the agent's production plan. Freeze the selected tool,
+host, model and authorized spending scope before generation.
 
-Ordinary image and narration requests include automatic recovery; do not demand
-an extra retry budget or approval before executing them. Agnes images and Gemini
-narration default to three attempts (initial call plus two retries), with
-backoff and Retry-After for rate limits, known transient server errors and empty
-completed results. This is transport resilience, not a production budget gate.
-This is a per-tool recovery batch, not a whole-project retry ceiling. After
-exhaustion, preserve the failure evidence for diagnosis/recovery; do not declare
-the entire production irrecoverable just because this batch ended.
-An explicit user call limit still applies: pass `max_attempts=1` for a one-call
-instruction. Never silently switch model/provider or change the narration/prompt
-for a retry. Authentication, invalid input and explicit safety blocks stop.
-If submission outcome is unknown, preserve the receipt/task identity for
-inspection or recovery instead of creating a duplicate. An existing image URL
-is resumed/downloaded without regenerating. Unknown subscription cost is unknown,
-not zero. Retry count and reasons belong in the tool result and project receipts.
-A provider-route sample is evidence for that route, not delivery of the
-original full production. Keep its plan, receipts, semantic review and render
-report distinct from the original run's canonical artifacts.
+Codex native `image_gen` is an optional explicit route. Check its availability
+in the actual session, then register the image and provenance in the project.
+Its desktop availability does not imply Worker access. Python API providers
+remain usable without a Codex-native tool.
+
+For Agnes, query `video_selector(operation="discover_models",
+preferred_provider="agnes")` using the configured account before a new
+production. Listing is a candidate, not proof of access; inspect applicable
+plan evidence and task receipts. The agent passes the exact selected `model`.
+Use the current model's contract, reuse applicable access evidence, and use the
+first authorized production shot to confirm the route rather than submitting
+extra test generations. Recovery retains the original task/model identity.
+Selection within an already-authorized plan needs no repeated model-version
+approval; another provider or spending outside that authorization still does.
+
+Gemini has two distinct optional transports: `gemini_tts` uses the upstream
+Interactions contract; `gemini_generate_content_tts` preserves the verified
+project generateContent route, audio normalization and bounded recovery.
+Select the exact tool/model rather than treating these interfaces as equivalent.
+Do not silently upgrade a production's API or voice, or call TTS again through a
+composition engine's media helper.
+
+Known transient provider failures may use the adapter's bounded same-request
+recovery. Respect explicit user call limits. Authentication, invalid input and
+safety blocks stop. Unknown submission outcomes retain their receipt/task
+identity for reconciliation; never create a duplicate because a session ended.
+Unknown plan cost stays unknown, never zero. Record actual provider/model,
+attempts, media hashes and result evidence without exposing credentials.
+
+Audio tempo and music-level thresholds are advisory by default. The model/owner
+reviews the actual mix against the agreed style. `edit_decisions.audio_review_policy`
+can declare project thresholds with `mode: enforce` when agreed; missing media,
+corrupt output and required transcript/provenance failures remain hard checks.
 
 ### Bounded multi-shot execution path (HARD RULE)
 
@@ -634,8 +633,9 @@ Selectors route based on: user preference > availability > discovery order. They
 
 Production is completion-driven. Cost and usage reporting exists to make paid
 operations visible and prevent duplicate submissions; it is not a default stop
-condition. Do not invent a budget cap, wall-clock timeout, or retry ceiling. A
-cap is binding only when the user explicitly sets one. For Token Plan providers,
+condition. Do not invent a monetary budget or whole-production deadline. Respect user caps
+and configured revision/send-back limits; at those limits preserve unresolved
+artifacts and report the blocker, never auto-pass an unmet delivery requirement. For Token Plan providers,
 record unknown USD/tokens as `null`, never as zero.
 
 Provider capability limits are per-call planning constraints, not whole-video
@@ -709,7 +709,7 @@ The reviewer is a meta skill (`skills/meta/reviewer.md`) — advisory, never dir
 
 - Self-review after every stage execution, before checkpointing.
 - Load `review_focus` items from the pipeline manifest for the current stage.
-- Maximum two review rounds. After that, pass with warnings and move on.
+- Use the pipeline's configured revision/send-back limits (default three). At the limit, preserve the current artifacts and report unresolved issues; do not auto-pass an unmet delivery requirement. Resume only with a changed repair plan or user direction.
 - Findings categorized: critical (must fix), suggestion (should fix), nitpick (nice-to-have).
 - Critical findings -> fix and re-review. Suggestions -> note and proceed.
 - Check playbook `quality_rules` as constraints, not suggestions.

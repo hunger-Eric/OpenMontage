@@ -5,6 +5,7 @@ Loads config.yaml, merges with env overrides, and provides typed access.
 
 from __future__ import annotations
 
+import os
 from enum import Enum
 from pathlib import Path
 from typing import Optional
@@ -62,9 +63,21 @@ class PathsConfig(BaseModel):
     output_dir: str = "output"
 
 
+class ProviderConfig(BaseModel):
+    """Portable defaults; personal preferences belong in config.local.yaml."""
+
+    image_provider: str = "auto"
+    video_provider: str = "auto"
+    tts_provider: str = "auto"
+    tts_tool: Optional[str] = None
+    restrict_to_preferences: bool = False
+    disabled_providers: list[str] = Field(default_factory=list)
+
+
 class OpenMontageConfig(BaseModel):
     """Top-level runtime configuration."""
 
+    providers: ProviderConfig = Field(default_factory=ProviderConfig)
     llm: LLMConfig = Field(default_factory=LLMConfig)
     budget: BudgetConfig = Field(default_factory=BudgetConfig)
     checkpoint: CheckpointConfig = Field(default_factory=CheckpointConfig)
@@ -76,13 +89,22 @@ class OpenMontageConfig(BaseModel):
         """Load config from YAML file. Falls back to defaults if file missing."""
         if config_path is None:
             config_path = Path(__file__).resolve().parent.parent / "config.yaml"
+        config_path = Path(config_path)
+        local_path = Path(os.environ.get("OPENMONTAGE_LOCAL_CONFIG", str(config_path.with_name("config.local.yaml"))))
 
-        if config_path.exists():
-            with open(config_path) as f:
-                raw = yaml.safe_load(f) or {}
-            return cls.model_validate(raw)
+        def read(path: Path) -> dict:
+            if not path.exists():
+                return {}
+            with path.open(encoding="utf-8") as f:
+                return yaml.safe_load(f) or {}
 
-        return cls()
+        def merge(base: dict, override: dict) -> dict:
+            result = dict(base)
+            for key, value in override.items():
+                result[key] = merge(result.get(key, {}), value) if isinstance(value, dict) else value
+            return result
+
+        return cls.model_validate(merge(read(config_path), read(local_path)))
 
     def resolve_path(self, key: str, project_root: Optional[Path] = None) -> Path:
         """Resolve a relative path from PathsConfig against project root."""

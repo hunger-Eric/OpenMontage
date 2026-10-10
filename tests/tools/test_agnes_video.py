@@ -2,9 +2,18 @@ from __future__ import annotations
 
 import json
 
-from tools.base_tool import ToolStatus
+import pytest
+
+from tools.base_tool import ToolStatus, ToolResult
 from tools.video import agnes_video as module
 from tools.video.agnes_video import AgnesVideo
+from tools.video.video_selector import VideoSelector
+
+
+@pytest.fixture(autouse=True)
+def legacy_catalog(monkeypatch):
+    # Existing cases exercise explicit legacy requests, not implicit defaults.
+    monkeypatch.setattr(AgnesVideo, "discover_models", lambda self: ToolResult(success=True, data={"models": [{"id": m} for m in module.SUPPORTED_MODELS]}))
 
 
 class _Response:
@@ -25,7 +34,8 @@ class _UploadResponse(_Response):
         self.text = text
 
 
-def test_agnes_video_creates_polls_downloads_and_preserves_receipt(monkeypatch, tmp_path):
+@pytest.mark.parametrize("through_selector", [False, True])
+def test_agnes_video_creates_polls_downloads_and_preserves_receipt(monkeypatch, tmp_path, through_selector):
     calls = []
     states = iter([
         {"id": "task-1", "status": "in_progress"},
@@ -47,7 +57,13 @@ def test_agnes_video_creates_polls_downloads_and_preserves_receipt(monkeypatch, 
     monkeypatch.setattr(module, "probe_output", lambda _path: {"duration_seconds": 5.0, "video_width": 648, "video_height": 1152})
 
     output = tmp_path / "agnes.mp4"
-    result = AgnesVideo().execute({
+    tool = AgnesVideo()
+    if through_selector:
+        selector = VideoSelector()
+        monkeypatch.setattr(selector, "_providers", lambda provider=tool: [provider])
+        tool = selector
+    result = tool.execute({
+        "model": "agnes-video-v2.0",
         "prompt": "A mint hair clip on cream tissue paper",
         "output_path": str(output),
         "aspect_ratio": "9:16",
@@ -74,6 +90,8 @@ def test_agnes_video_creates_polls_downloads_and_preserves_receipt(monkeypatch, 
     receipt = json.loads(output.with_suffix(".agnes-task.json").read_text(encoding="utf-8"))
     assert receipt["task_id"] == "task-1"
     assert receipt["status"] == "completed"
+    assert receipt["model"] == "agnes-video-v2.0"
+    assert result.data["model"] == "agnes-video-v2.0"
 
 
 def test_agnes_video_image_mode_uses_selector_compatible_url(monkeypatch, tmp_path):
@@ -85,6 +103,7 @@ def test_agnes_video_image_mode_uses_selector_compatible_url(monkeypatch, tmp_pa
     monkeypatch.setattr(module, "probe_output", lambda _path: {"duration_seconds": 5.0, "video_width": 1152, "video_height": 648})
 
     result = AgnesVideo().execute({
+        "model": "agnes-video-v2.0",
         "prompt": "Subtle camera movement",
         "output_path": str(tmp_path / "image.mp4"),
         "operation": "image_to_video",
@@ -118,6 +137,7 @@ def test_agnes_video_image_mode_uploads_local_reference_without_fal(monkeypatch,
     monkeypatch.setattr(module, "probe_output", lambda _path: {"duration_seconds": 5.0, "video_width": 648, "video_height": 1152})
 
     result = AgnesVideo().execute({
+        "model": "agnes-video-v2.0",
         "prompt": "Subtle product movement",
         "output_path": str(tmp_path / "local-image.mp4"),
         "operation": "image_to_video",
@@ -162,6 +182,7 @@ def test_agnes_video_preserves_81_frame_request(monkeypatch, tmp_path):
     monkeypatch.setattr(module, "probe_output", lambda _path: {"duration_seconds": 4.0, "video_width": 1280, "video_height": 704})
 
     result = AgnesVideo().execute({
+        "model": "agnes-video-v2.0",
         "prompt": "Product motion",
         "output_path": str(tmp_path / "frames.mp4"),
         "num_frames": 81,
@@ -178,7 +199,9 @@ def test_agnes_video_v20_schema_exposes_the_frame_duration_contract():
     schema = AgnesVideo.input_schema["properties"]
     conditions = AgnesVideo().get_info()["supports"]["usage_conditions"]
 
-    assert schema["model"]["enum"] == ["agnes-video-v2.0"]
+    assert "default" not in schema["model"]
+    assert "enum" not in schema["model"]
+    conditions = conditions["model_contracts"][module.LEGACY_MODEL]
     assert schema["duration"]["default"] == 5
     assert schema["duration"]["maximum"] == 441
     assert "18.375 seconds" in schema["duration"]["description"]
@@ -187,7 +210,7 @@ def test_agnes_video_v20_schema_exposes_the_frame_duration_contract():
     assert "num_frames / frame_rate" in schema["frame_rate"]["description"]
     assert schema["poll_interval_seconds"]["default"] == 5
     assert schema["timeout_seconds"]["default"] == 3600
-    assert conditions["fixed_model"] == "agnes-video-v2.0"
+    assert "fixed_model" not in conditions
     assert conditions["num_frames"] == {
         "minimum": 9,
         "maximum": 441,
@@ -199,7 +222,9 @@ def test_agnes_video_v20_schema_exposes_the_frame_duration_contract():
     assert "Split productions" in conditions["long_video_policy"]
 
 
-def test_agnes_video_rejects_other_models_before_any_external_request(monkeypatch, tmp_path):
+@pytest.mark.parametrize("field", ["model", "model_name", "model_variant"])
+@pytest.mark.parametrize("through_selector", [False, True])
+def test_agnes_video_rejects_other_models_before_any_external_request(monkeypatch, tmp_path, field, through_selector):
     monkeypatch.setenv("AGNES_API_KEY", "test-key")
     monkeypatch.setattr(module.shutil, "which", lambda _name: "ffprobe")
     external_calls = []
@@ -214,17 +239,22 @@ def test_agnes_video_rejects_other_models_before_any_external_request(monkeypatc
         lambda *_args, **_kwargs: external_calls.append("post"),
     )
 
-    result = AgnesVideo().execute({
+    tool = AgnesVideo()
+    if through_selector:
+        selector = VideoSelector()
+        monkeypatch.setattr(selector, "_providers", lambda provider=tool: [provider])
+        tool = selector
+    result = tool.execute({
         "prompt": "Do not submit this task",
         "output_path": str(tmp_path / "rejected.mp4"),
         "operation": "image_to_video",
         "reference_image_path": str(tmp_path / "reference.jpg"),
-        "model": "agnes-video-2.5",
+        field: "agnes-video-unsupported",
     })
 
     assert result.success is False
-    assert "fixed to agnes-video-v2.0" in result.error
-    assert result.data["model"] == "agnes-video-v2.0"
+    assert ("No video generation provider available" if through_selector and field != "model_variant" else "Unsupported Agnes model contract") in result.error
+    assert result.data["model"] == "agnes-video-unsupported"
     assert result.data["fallback_used"] is False
     assert external_calls == []
 
@@ -253,6 +283,7 @@ def test_agnes_video_maps_18_seconds_to_the_nearest_valid_frame_count(monkeypatc
     )
 
     result = AgnesVideo().execute({
+        "model": "agnes-video-v2.0",
         "prompt": "Long landscape shot",
         "output_path": str(tmp_path / "eighteen.mp4"),
         "duration": 18,
@@ -275,6 +306,7 @@ def test_agnes_video_rejects_duration_beyond_the_frame_budget(monkeypatch, tmp_p
     monkeypatch.setattr(module.requests, "post", lambda *_args, **_kwargs: calls.append(True))
 
     result = AgnesVideo().execute({
+        "model": "agnes-video-v2.0",
         "prompt": "Too long",
         "output_path": str(tmp_path / "too-long.mp4"),
         "duration": 18.376,
@@ -289,7 +321,8 @@ def test_agnes_video_rejects_duration_beyond_the_frame_budget(monkeypatch, tmp_p
     assert calls == []
 
 
-def test_agnes_video_polls_with_video_id_and_preserves_both_ids(monkeypatch, tmp_path):
+@pytest.mark.parametrize("through_selector", [False, True])
+def test_agnes_video_polls_with_video_id_and_preserves_both_ids(monkeypatch, tmp_path, through_selector):
     monkeypatch.setenv("AGNES_API_KEY", "test-key")
     monkeypatch.setenv("AGNES_API_BASE_URL", "https://apihub.agnes-ai.com/v1")
     monkeypatch.setattr(module.shutil, "which", lambda _name: "ffprobe")
@@ -313,7 +346,13 @@ def test_agnes_video_polls_with_video_id_and_preserves_both_ids(monkeypatch, tmp
         lambda _path: {"duration_seconds": 5.0, "video_width": 1280, "video_height": 720},
     )
 
-    result = AgnesVideo().execute({
+    tool = AgnesVideo()
+    if through_selector:
+        selector = VideoSelector()
+        monkeypatch.setattr(selector, "_providers", lambda provider=tool: [provider])
+        tool = selector
+    result = tool.execute({
+        "model": "agnes-video-v2.0",
         "prompt": "Landscape shot",
         "output_path": str(tmp_path / "video-id.mp4"),
         "duration": 5,
@@ -353,6 +392,7 @@ def test_agnes_video_persists_recovery_receipt_before_polling(monkeypatch, tmp_p
     output = tmp_path / "recover.mp4"
 
     result = AgnesVideo().execute({
+        "model": "agnes-video-v2.0",
         "prompt": "Recoverable shot",
         "output_path": str(output),
         "duration": 5,
@@ -403,6 +443,7 @@ def test_agnes_video_poll_receipt_preserves_create_only_recovery_fields(monkeypa
     output = tmp_path / "preserve.mp4"
 
     result = AgnesVideo().execute({
+        "model": "agnes-video-v2.0",
         "prompt": "Preserve receipt",
         "output_path": str(output),
     })
@@ -457,6 +498,7 @@ def test_agnes_video_resumes_persisted_task_without_resubmitting(monkeypatch, tm
     )
 
     result = AgnesVideo().execute({
+        "model": "agnes-video-v2.0",
         "prompt": "Recover the same shot",
         "output_path": str(output),
         "duration": 5,
@@ -523,6 +565,7 @@ def test_agnes_image_resume_does_not_reupload_reference_or_resubmit(monkeypatch,
     )
 
     result = AgnesVideo().execute({
+        "model": "agnes-video-v2.0",
         "prompt": "Recover the same image-conditioned shot",
         "output_path": str(output),
         "operation": "image_to_video",
@@ -557,6 +600,7 @@ def test_agnes_refuses_changed_inputs_for_versioned_resumable_receipt(monkeypatc
     )
 
     result = AgnesVideo().execute({
+        "model": "agnes-video-v2.0",
         "prompt": "Changed prompt must not attach to the old task",
         "output_path": str(output),
     })
@@ -579,6 +623,7 @@ def test_agnes_image_mode_requires_explicit_aspect_mismatch_policy_before_submit
     )
 
     result = AgnesVideo().execute({
+        "model": "agnes-video-v2.0",
         "prompt": "Image-driven shot",
         "output_path": str(tmp_path / "image.mp4"),
         "operation": "image_to_video",
@@ -617,6 +662,7 @@ def test_agnes_records_actual_aspect_and_declared_center_crop(monkeypatch, tmp_p
     )
 
     result = AgnesVideo().execute({
+        "model": "agnes-video-v2.0",
         "prompt": "Image-driven shot",
         "output_path": str(tmp_path / "aspect.mp4"),
         "operation": "image_to_video",
@@ -635,3 +681,23 @@ def test_agnes_video_is_unavailable_without_key(monkeypatch):
     for name in ("AGNES_API_KEY", "AGNES_API_TOKEN", "APIHUB_AGNES_API_KEY"):
         monkeypatch.delenv(name, raising=False)
     assert AgnesVideo().get_status() == ToolStatus.UNAVAILABLE
+
+
+def test_agnes_receipt_from_other_model_is_preserved_without_network(monkeypatch, tmp_path):
+    monkeypatch.setenv("AGNES_API_KEY", "test-key")
+    monkeypatch.setattr(module.shutil, "which", lambda _name: "ffprobe")
+    output = tmp_path / "other-model.mp4"
+    receipt = output.with_suffix(".agnes-task.json")
+    original = json.dumps({"model": "agnes-video-2.5-flash", "task_id": "old-task", "status": "in_progress"})
+    receipt.write_text(original, encoding="utf-8")
+
+    def forbid_network(*args, **kwargs):
+        pytest.fail("A different-model receipt must not be polled or resubmitted")
+
+    monkeypatch.setattr(module.requests, "post", forbid_network)
+    monkeypatch.setattr(module.requests, "get", forbid_network)
+    result = AgnesVideo().execute({"model": "agnes-video-v2.0", "prompt": "Resume", "output_path": str(output)})
+    assert not result.success
+    assert "refusing to resume" in result.error
+    assert receipt.read_text(encoding="utf-8") == original
+    assert not output.exists()

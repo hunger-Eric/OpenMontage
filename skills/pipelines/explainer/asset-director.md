@@ -2,13 +2,11 @@
 
 ## Project generation defaults
 
-Follow `AGENT_GUIDE.md > Project-owned generation route`. Generate images with
-the current Codex session's native `image_gen`, motion with Agnes, and narration
-with Google Gemini TTS. Register native images as project assets and feed their
-local paths to Agnes image-to-video. Check native availability in the actual
-session; never silently replace Codex with another image provider.
-The global entry skill is not a second provider or approval policy.
-
+Follow `AGENT_GUIDE.md > Project-owned generation route`. Inspect portable
+selectors, configured personal preferences and actual session capabilities.
+Use the approved tool/provider/model; native images are optional and their
+availability must be checked in the actual session. Register all outputs and
+provenance. Never switch route after a provider failure without authorization.
 
 ## When to Use
 
@@ -99,10 +97,21 @@ The provider's per-call frame/duration/aspect envelope is a shot-planning input,
 not a reason to stop the whole production. Split long productions into planned
 shots and keep generating until every delivery clip is accepted.
 
-For Agnes, use only `agnes-video-v2.0`. The hard per-call contract is 9–441
-frames with `8n + 1`; at 24 FPS the maximum is 18.375 seconds (30 FPS: 14.7;
-60 FPS: 7.35). Image/reference modes must declare `aspect_mismatch_policy`
-(`center_crop` or `pad`) before submission.
+For Agnes, call `video_selector(operation="discover_models", preferred_provider="agnes")` before each new
+production. The executing agent chooses an eligible model using the live
+catalog, plan entitlement, relevant task receipts and creative requirements;
+listing alone does not prove access. Pass its exact `model` explicitly and
+freeze that choice in `video_generation_contract`. No user version-choice
+question is needed within the authorized provider/plan/spending scope.
+For 2.5/Flash use integer 4–12-second clips and `size`/`aspect_ratio`; Flash is
+720P with up to 5 images, 3 audio references and no video reference. Use
+`keyframe` for first/last frames and `reference` for image/audio references;
+do not pass legacy frame/width/FPS fields. Ordinary 2.5 requires explicit
+paid-route authorization (`allow_paid_model=true`) before a new submission.
+Legacy v2.0 retains its 9–441 (`8n + 1`) frame contract only for an explicit
+eligible selection or recovery, with `aspect_mismatch_policy` for image modes.
+Unknown model contracts stop before upload or generation. On an access failure,
+preserve evidence; never silently change models/providers or escalate billing.
 
 Before the first submission, validate every reference transport once. A local
 file must be readable and hashable; a remote URL must return success, the
@@ -166,9 +175,9 @@ For each script section:
 **Narration timing is not a license to stretch speech.** If the generated read
 misses the planned duration by more than 15%, revise the script/scene timing or
 regenerate with a provider-supported speaking-rate control. Do not use global
-post-generation `atempo` merely to fill the visual timeline. Any slowdown below
-`0.90` requires explicit user approval plus an actual listening review; without
-both, the asset must remain unapproved. A provider that receives only verbatim
+post-generation `atempo` merely to fill the visual timeline. Tempo ratios are advisory indicators; judge the intended performance by
+listening. Enforce a numerical minimum only when the production declares it
+in `audio_review_policy`, rather than asking for a separate generic approval. A provider that receives only verbatim
 text and a voice name has not applied section-level delivery cues — record
 `delivery_cues_applied: false` instead of inferring approval from decode success.
 

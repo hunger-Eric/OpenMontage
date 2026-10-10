@@ -129,3 +129,8 @@ def pytest_collection_modifyitems(config, items):
     for item in items:
         if "live_api" in item.keywords:
             item.add_marker(skip)
+
+
+@pytest.fixture(autouse=True)
+def _isolate_machine_provider_config(monkeypatch, tmp_path):
+    monkeypatch.setenv("OPENMONTAGE_LOCAL_CONFIG", str(tmp_path / "absent-local-config.yaml"))

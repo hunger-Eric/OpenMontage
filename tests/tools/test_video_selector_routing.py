@@ -240,8 +240,8 @@ def test_preferred_provider_not_in_rankings_falls_through(rankings):
     assert tool.name == "veo_video"
 
 
-def test_agnes_is_the_locked_default_provider(rankings):
-    """An omitted provider selects Agnes even when another provider scores higher."""
+def test_portable_default_selects_highest_ranked_available_provider(rankings):
+    """An omitted provider ranks all eligible tools without a personal provider lock."""
     agnes = _StubTool("agnes_video", "agnes")
     runway = _StubTool("runway_video", "runway")
     rankings.extend([
@@ -251,8 +251,8 @@ def test_agnes_is_the_locked_default_provider(rankings):
 
     tool, _ = VideoSelector()._select_best_tool({}, [runway, agnes], {})
 
-    assert tool is agnes
-    assert VideoSelector.input_schema["properties"]["preferred_provider"]["default"] == "agnes"
+    assert tool is runway
+    assert VideoSelector.input_schema["properties"]["preferred_provider"]["default"] == "auto"
 
 
 def test_agnes_ranking_exposes_single_clip_usage_conditions():
@@ -262,13 +262,14 @@ def test_agnes_ranking_exposes_single_clip_usage_conditions():
     )
 
     conditions = rankings[0]["supports"]["usage_conditions"]
-    assert conditions["fixed_model"] == "agnes-video-v2.0"
+    assert "fixed_model" not in conditions
+    conditions = conditions["model_contracts"]["agnes-video-v2.0"]
     assert conditions["num_frames"]["maximum"] == 441
     assert conditions["duration_seconds"]["maximum_at_default_24_fps"] == 18.375
     assert "Split productions" in conditions["long_video_policy"]
 
 
-def test_agnes_default_does_not_fall_back_to_another_provider(rankings):
+def test_explicit_allowed_provider_never_falls_back(rankings):
     """Unavailable Agnes must stop instead of spending through another provider."""
     agnes = _StubTool(
         "agnes_video", "agnes", status=ToolStatus.UNAVAILABLE
@@ -279,7 +280,7 @@ def test_agnes_default_does_not_fall_back_to_another_provider(rankings):
         _ScoreStub("agnes_video", "agnes", 0.50),
     ])
 
-    tool, score = VideoSelector()._select_best_tool({}, [runway, agnes], {})
+    tool, score = VideoSelector()._select_best_tool({"allowed_providers": ["agnes"]}, [runway, agnes], {})
 
     assert tool is None
     assert score is None
@@ -351,7 +352,7 @@ def test_estimate_cost_uses_selected_provider(rankings):
 
     sel = VideoSelector()
     sel._providers = lambda: [veo, kling]  # type: ignore[assignment]
-    assert sel.estimate_cost({"prompt": "x"}) == pytest.approx(0.42)
+    assert sel.estimate_cost({"prompt": "x", "preferred_provider": "auto"}) == pytest.approx(0.42)
 
 
 def test_estimate_runtime_uses_selected_provider(rankings):
@@ -360,7 +361,7 @@ def test_estimate_runtime_uses_selected_provider(rankings):
 
     sel = VideoSelector()
     sel._providers = lambda: [veo]  # type: ignore[assignment]
-    assert sel.estimate_runtime({"prompt": "x"}) == pytest.approx(123.0)
+    assert sel.estimate_runtime({"prompt": "x", "preferred_provider": "auto"}) == pytest.approx(123.0)
 
 
 def test_estimate_cost_zero_when_no_providers():
@@ -435,3 +436,22 @@ def test_agnes_local_reference_routes_to_provider_without_fal_upload(rankings, m
     assert "image_url" not in agnes.last_execute_inputs
     assert result.data["selected_tool"] == "agnes_video"
     assert result.data["selected_provider"] == "agnes"
+
+
+def test_preflight_estimates_rank_and_execution_use_same_auto_route(rankings, monkeypatch):
+    agnes = _StubTool("agnes_video", "agnes", cost=0.21, runtime=42)
+    agnes.supports = AgnesVideo.supports
+    other = _StubTool("other_video", "other", cost=0.99, runtime=999)
+    rankings.extend([_ScoreStub(other.name, other.provider, 0.99), _ScoreStub(agnes.name, agnes.provider, 0.5)])
+    selector = VideoSelector()
+    monkeypatch.setattr(selector, "_providers", lambda: [other, agnes])
+    assert selector.estimate_cost({"prompt": "x"}) == pytest.approx(0.99)
+    assert selector.estimate_runtime({"prompt": "x"}) == pytest.approx(999)
+    ranked = selector.execute({"operation": "rank", "prompt": "x"})
+    assert ranked.data["selected_provider"] == "other"
+    assert ranked.data["selected_model"] is None
+    assert agnes.last_execute_inputs is None
+    result = selector.execute({"prompt": "x"})
+    assert result.success
+    assert "model" not in other.last_execute_inputs
+    assert agnes.last_execute_inputs is None

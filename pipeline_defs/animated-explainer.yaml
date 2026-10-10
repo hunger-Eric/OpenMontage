@@ -43,6 +43,8 @@ required_skills:
   - meta/voice-performance-director
 
 orchestration:
+  max_revisions_per_stage: 3
+  max_send_backs: 3
   mode: executive-producer
   skill: pipelines/explainer/executive-producer
 
@@ -244,7 +246,7 @@ stages:
       - Output video exists and is playable
       - "Duration within +/-5% of target"
       - Audio is clear with proper narration/music balance
-      - final_review audio_spotcheck confirms mix_balance_verified and narration_pace_acceptable
+      - final_review records audio measurements and model/owner mix review; only declared enforced style thresholds block
       - final_review transcript_comparison confirms the final spoken audio matches the approved script
       - final_review semantic_alignment confirms generated motion realizes identity/action/continuity requirements
       - Approved semantic deviations have matching decision_log entries and revised source artifacts

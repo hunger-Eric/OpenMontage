@@ -62,7 +62,8 @@ EP_STATE:
   total_narration_seconds: 0
   total_visual_seconds: 0
   style_anchors: {}          # consistency tokens carried forward
-  revision_counts: {}        # observability only; never an automatic stop condition
+  revision_counts: {}        # bounded by pipeline orchestration limits
+  send_back_count: 0
   issues_log: []             # all issues found, with resolution status
 ```
 
@@ -119,7 +120,8 @@ EXECUTE_STAGE(stage_name):
      If REVISE:
        - Increment revision_counts[stage_name]
        - Compose specific feedback for the director
-       - Re-run SPAWN DIRECTOR with feedback injected
+       - At max_revisions_per_stage (default 3), stop revisions, preserve artifacts and report unresolved issues
+       - Otherwise re-run SPAWN DIRECTOR with changed feedback injected
        - Re-run REVIEW
        - Do not convert an unresolved delivery failure into PASS because a retry count was reached
 
@@ -128,9 +130,11 @@ EXECUTE_STAGE(stage_name):
        - Only used when a downstream discovery invalidates upstream work
        - Example: TTS returns 16s audio for a scene planned at 10s
          → Send back to script director: "Rewrite section 3. Max 25 words."
-       - Re-execute from target_stage forward (artifacts after target are invalidated)
+       - Increment send_back_count; at max_send_backs (default 3), stop and report the unresolved dependency
+       - Otherwise re-execute from target_stage forward (artifacts after target are invalidated)
        - Continue until the invalidated downstream artifacts are rebuilt and pass
-       - Stop only for a real external blocker, an explicit user cap, or a user decision that changes the plan
+       - Stop on an external blocker, explicit user cap, configured revision limit, or repeated unchanged failure
+       - A stop is unresolved, never an automatic PASS; resume with a changed repair plan or user direction
 ```
 
 ### Phase 2: Final Quality Assurance

@@ -62,13 +62,13 @@ def test_generated_video_manifest_preserves_provider_attempt_and_billing_identit
     assert validate_artifact("asset_manifest", manifest) is None
 
 
-def test_animated_explainer_is_completion_driven_not_stopped_by_default_limits():
+def test_animated_explainer_bounds_revision_loops_without_inventing_spending_cap():
     pipeline = load_pipeline("animated-explainer")
     orchestration = pipeline["orchestration"]
 
     assert "budget_default_usd" not in orchestration
-    assert "max_revisions_per_stage" not in orchestration
-    assert "max_send_backs" not in orchestration
+    assert orchestration["max_revisions_per_stage"] == 3
+    assert orchestration["max_send_backs"] == 3
     assert "max_wall_time_minutes" not in orchestration
     assert OpenMontageConfig.load().budget.mode == BudgetMode.OBSERVE
     assert CostTracker().mode == BudgetMode.OBSERVE

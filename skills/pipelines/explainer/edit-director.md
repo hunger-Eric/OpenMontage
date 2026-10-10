@@ -127,12 +127,12 @@ Use the playbook's typography for font choices.
 
 **Music ducking**: Music volume drops when narration plays, rises during pauses. Use playbook's `audio.ducking_threshold_db`.
 
-The numeric volume is only a starting point, not acceptance evidence. Measure
-the narration and music stems independently after configured gain. The estimated
-music bed must remain no more than 20 LU below narration before optional ducking;
-otherwise it is effectively inaudible and the edit cannot advance. Do not claim
-ducking is configured unless the selected composition/mixing path actually
-executes it.
+The numeric volume is a starting point. Measure stems and listen to the rendered
+mix against the agreed style; the default 20 LU music-gap and 0.90 tempo
+indicators are advisory. If the production explicitly requires numeric limits,
+record `audio_review_policy` in edit_decisions with `mode: enforce` and the
+agreed `max_music_gap_lu` / `min_narration_tempo`. Do not claim ducking executes
+unless the selected mixing path actually implements it.
 
 ### Step 5: Apply Pacing Rules
 
@@ -161,8 +161,8 @@ Adjust cut timing if any violates these rules.
 - [ ] Narration segments are ordered and non-overlapping
 - [ ] Narration timing aligns with corresponding visual cuts
 - [ ] Music ducking is configured
-- [ ] Narration/music stems were measured independently and the pre-ducking gap is ≤20 LU
-- [ ] Narration was not globally slowed below `atempo=0.90` to fill the timeline
+- [ ] Narration/music stems were measured and the intended mix was reviewed
+- [ ] Narration tempo was reviewed against the agreed performance and any declared limits
 
 **Subtitles:**
 - [ ] Subtitles enabled

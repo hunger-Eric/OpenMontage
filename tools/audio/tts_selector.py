@@ -9,7 +9,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from tools.base_tool import BaseTool, ToolResult, ToolRuntime, ToolStability, ToolTier, ToolStatus
+from tools.base_tool import (
+    BaseTool,
+    ToolResult,
+    ToolRuntime,
+    ToolStability,
+    ToolTier,
+    ToolStatus,
+)
 
 
 class TTSSelector(BaseTool):
@@ -18,10 +25,10 @@ class TTSSelector(BaseTool):
     tier = ToolTier.VOICE
     capability = "tts"
     provider = "selector"
-    DEFAULT_PROVIDER = "gemini"
+    DEFAULT_PROVIDER = "auto"
     stability = ToolStability.BETA
     runtime = ToolRuntime.HYBRID
-    agent_skills = ["text-to-speech"]
+    agent_skills = ["text-to-speech", "elevenlabs"]
 
     capabilities = [
         "text_to_speech",
@@ -42,6 +49,14 @@ class TTSSelector(BaseTool):
         "required": ["text"],
         "properties": {
             "max_attempts": {"type": "integer", "minimum": 1, "description": "Optional same-provider attempt count for adapters supporting recovery; Agnes images and Gemini narration default to 3. Set 1 for an explicit one-call instruction."},
+            "preferred_tool": {
+                "type": "string",
+                "description": "Exact tool name; never falls back.",
+            },
+            "hosting_provider": {
+                "type": "string",
+                "description": "Required API host, e.g. fal.ai, atlascloud, replicate.",
+            },
             "text": {"type": "string"},
             "voice_id": {
                 "type": "string",
@@ -70,15 +85,19 @@ class TTSSelector(BaseTool):
                 "description": "TTS model to use (e.g. eleven-v3 or eleven_multilingual_v2). Passed through to provider.",
             },
             "stability": {
-                "type": "number", "minimum": 0, "maximum": 1,
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1,
                 "description": "Voice stability (ElevenLabs). Lower = more expressive.",
             },
             "similarity_boost": {
-                "type": "number", "minimum": 0, "maximum": 1,
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1,
                 "description": "Voice similarity boost (ElevenLabs).",
             },
             "style": {
-                "type": "number", "minimum": 0, "maximum": 1,
+                "type": ["number", "string"],
                 "description": "Style exaggeration (ElevenLabs). Higher = more expressive.",
             },
             "instructions": {
@@ -162,9 +181,9 @@ class TTSSelector(BaseTool):
     def _providers(self) -> list[BaseTool]:
         """Auto-discover TTS providers from the registry."""
         from tools.tool_registry import registry
+
         registry.ensure_discovered()
-        return [t for t in registry.get_by_capability("tts")
-                if t.name != self.name]
+        return [t for t in registry.get_by_capability("tts") if t.name != self.name]
 
     @property
     def fallback_tools(self) -> list[str]:
@@ -186,17 +205,29 @@ class TTSSelector(BaseTool):
         return ToolStatus.UNAVAILABLE
 
     def estimate_cost(self, inputs: dict[str, Any]) -> float:
-        candidates = self._providers()
+        from tools.provider_routing import apply_provider_preferences, enabled_candidates
+        inputs = apply_provider_preferences(inputs, "tts")
+        from tools.provider_routing import filter_explicit_route
+        candidates = enabled_candidates(filter_explicit_route(inputs, self._providers()))
+        allowed = set(inputs.get("allowed_providers") or [])
+        if allowed:
+            candidates = [tool for tool in candidates if tool.provider in allowed]
         if not candidates:
             return 0.0
-        tool, _ = self._select_best_tool(inputs, candidates, self._prepare_task_context(inputs))
+        tool, _ = self._select_best_tool(
+            inputs, candidates, self._prepare_task_context(inputs)
+        )
         return tool.estimate_cost(inputs) if tool else 0.0
 
     def execute(self, inputs: dict[str, Any]) -> ToolResult:
+        from tools.provider_routing import apply_provider_preferences, enabled_candidates
+        inputs = apply_provider_preferences(inputs, "tts")
         from lib.scoring import rank_providers
 
         task_context = self._prepare_task_context(inputs)
-        candidates = self._providers()
+        from tools.provider_routing import filter_explicit_route
+
+        candidates = filter_explicit_route(inputs, self._providers())
 
         # Rank mode — return scored provider rankings without generating
         if inputs.get("operation") == "rank":
@@ -213,26 +244,21 @@ class TTSSelector(BaseTool):
         # Normal generation — use scored selection
         tool, score = self._select_best_tool(inputs, candidates, task_context)
         if tool is None:
-            if inputs.get("preferred_provider", self.DEFAULT_PROVIDER) == self.DEFAULT_PROVIDER:
-                return ToolResult(
-                    success=False,
-                    error=(
-                        "Default TTS provider gemini is unavailable; select another provider "
-                        "explicitly instead of using an automatic fallback."
-                    ),
-                )
-            return ToolResult(success=False, error="No TTS provider available.")
+            return ToolResult(success=False, error="No TTS provider available for the requested route.")
 
         result = tool.execute(self._adapt_inputs(tool, inputs))
         if result.success:
             result.data.setdefault("selected_tool", tool.name)
             result.data["selected_provider"] = tool.provider
-            result.data["selection_reason"] = score.explain() if score else f"Selected {tool.provider} ({tool.name})"
+            result.data["selection_reason"] = (
+                score.explain() if score else f"Selected {tool.provider} ({tool.name})"
+            )
             if score:
                 result.data["provider_score"] = score.to_dict()
             result.data.update(self._tool_context_payload(tool))
             result.data["alternatives_considered"] = [
-                t.name for t in candidates
+                t.name
+                for t in candidates
                 if t.name != tool.name and t.get_status().value == "available"
             ]
         return result
@@ -275,34 +301,41 @@ class TTSSelector(BaseTool):
         task_context: dict[str, Any],
     ) -> tuple[BaseTool | None, object]:
         """Select the best TTS provider using scored ranking."""
+        from tools.provider_routing import apply_provider_preferences, enabled_candidates
+        inputs = apply_provider_preferences(inputs, "tts")
         from lib.scoring import rank_providers
 
-        preferred = inputs.get("preferred_provider", self.DEFAULT_PROVIDER)
+        from tools.provider_routing import filter_explicit_route
+
+        candidates = filter_explicit_route(inputs, candidates)
+        preferred = inputs.get("preferred_provider", "auto")
+        candidates = enabled_candidates(candidates)
         allowed = set(inputs.get("allowed_providers") or [])
         if allowed:
             candidates = [tool for tool in candidates if tool.provider in allowed]
 
-        tool_by_provider: dict[str, BaseTool] = {}
-        for tool in candidates:
-            if tool.provider not in tool_by_provider and tool.get_status() == ToolStatus.AVAILABLE:
-                tool_by_provider[tool.provider] = tool
-
-        # Gemini is the locked project default. Missing credentials or an
-        # unavailable route must surface as a blocker, never an implicit provider swap
-        # or local-engine substitution.
-        if preferred == self.DEFAULT_PROVIDER:
-            return tool_by_provider.get(self.DEFAULT_PROVIDER), None
-
         rankings = rank_providers(candidates, task_context)
+
+        tool_by_name: dict[str, BaseTool] = {}
+        for tool in candidates:
+            if (
+                tool.name not in tool_by_name
+                and tool.get_status() == ToolStatus.AVAILABLE
+            ):
+                tool_by_name[tool.name] = tool
+
 
         if preferred != "auto":
             for score_item in rankings:
-                if score_item.provider == preferred and score_item.provider in tool_by_provider:
-                    return tool_by_provider[score_item.provider], score_item
+                if (
+                    score_item.provider == preferred
+                    and score_item.tool_name in tool_by_name
+                ):
+                    return tool_by_name[score_item.tool_name], score_item
 
         for score_item in rankings:
-            if score_item.provider in tool_by_provider:
-                return tool_by_provider[score_item.provider], score_item
+            if score_item.tool_name in tool_by_name:
+                return tool_by_name[score_item.tool_name], score_item
 
         return None, None
 
@@ -326,7 +359,9 @@ class TTSSelector(BaseTool):
             "selected_tool_best_for": info.get("best_for", []),
         }
 
-    def _serialize_rankings(self, candidates: list[BaseTool], rankings: list[object]) -> list[dict[str, Any]]:
+    def _serialize_rankings(
+        self, candidates: list[BaseTool], rankings: list[object]
+    ) -> list[dict[str, Any]]:
         tool_by_name = {tool.name: tool for tool in candidates}
         serialized: list[dict[str, Any]] = []
         for score in rankings:

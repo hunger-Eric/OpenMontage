@@ -46,7 +46,7 @@ def test_timeout_does_not_resubmit_or_expose_secrets(monkeypatch, tmp_path):
     assert len(calls) == 1
 
 
-def test_native_default_and_explicit_alternative(monkeypatch):
+def test_portable_default_and_explicit_alternative(monkeypatch):
     from tools.graphics.minimax_image import MiniMaxImage
     agnes, alternative = AgnesImage(), MiniMaxImage()
     monkeypatch.setattr(agnes, "get_status", lambda: ToolStatus.AVAILABLE)
@@ -55,10 +55,10 @@ def test_native_default_and_explicit_alternative(monkeypatch):
     monkeypatch.setattr(selector, "_providers", lambda: [agnes, alternative])
     args = {"prompt": "test scene"}
     context = selector._prepare_task_context(args)
-    assert selector._select_best_tool(args, [agnes, alternative], context)[0] is None
+    assert selector._select_best_tool(args, [agnes, alternative], context)[0] in (agnes, alternative)
     assert selector._select_best_tool({**args, "preferred_provider": "agnes"}, [agnes, alternative], context)[0] is agnes
     monkeypatch.setattr(agnes, "get_status", lambda: ToolStatus.UNAVAILABLE)
-    assert selector._select_best_tool(args, [agnes, alternative], context)[0] is None
+    assert selector._select_best_tool(args, [agnes, alternative], context)[0] is alternative
     assert selector._select_best_tool({**args, "preferred_provider": "minimax"}, [agnes, alternative], context)[0] is alternative
 
 
@@ -87,7 +87,7 @@ def test_registry_retains_conditional_native_image_route(monkeypatch):
     from tools.audio.tts_selector import TTSSelector
     registry.register(TTSSelector())
     menu = registry.provider_menu_summary()
-    assert menu["production_defaults"] == {"image_provider": "codex_native", "video_provider": "agnes", "tts_provider": "gemini"}
+    assert menu["production_defaults"] == {"image_provider": "auto", "video_provider": "auto", "tts_provider": "auto"}
     native = menu["agent_native_capabilities"][0]
     assert native["tool"] == "image_gen"
     assert native["availability"] == "check_current_session_tool_inventory"
@@ -221,10 +221,10 @@ def test_download_recovers_within_original_call(monkeypatch, tmp_path):
     assert result.data["download_retry_dispatched"]
 
 
-def test_default_native_route_never_discovers_or_submits_python_provider(monkeypatch):
+def test_explicit_native_route_never_discovers_or_submits_python_provider(monkeypatch):
     monkeypatch.setattr(ImageSelector, "_providers", lambda _: (_ for _ in ()).throw(AssertionError("native default must not discover API providers")))
-    result = ImageSelector().execute({"prompt": "scene"})
+    result = ImageSelector().execute({"prompt": "scene", "preferred_provider": "codex_native"})
     assert not result.success and result.data["required_tool"] == "image_gen"
     assert result.data["selected_provider"] == "codex_native"
-    ranked = ImageSelector().execute({"prompt": "scene", "operation": "rank"})
+    ranked = ImageSelector().execute({"prompt": "scene", "operation": "rank", "preferred_provider": "codex_native"})
     assert ranked.success and ranked.data["rankings"][0]["provider"] == "codex_native"

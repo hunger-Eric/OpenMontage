@@ -83,12 +83,14 @@ def test_audio_asset_review_rejects_large_narration_slowdown(tmp_path, monkeypat
         output_path=tmp_path / "renders" / "final.mp4",
     )
 
+    assert review["review_mode"] == "advisory"
+    assert review["blocking_issues"] == []
     assert review["narration_tempo_ratio"] == 0.78
     assert review["narration_pace_acceptable"] is False
     assert any("narration tempo distortion" in issue.lower() for issue in review["issues"])
 
 
-def test_final_review_blocks_delivery_when_audio_balance_fails(tmp_path, monkeypatch):
+def test_final_review_blocks_declared_audio_balance_contract(tmp_path, monkeypatch):
     output = tmp_path / "renders" / "final.mp4"
     output.parent.mkdir(parents=True)
     subprocess.run(
@@ -113,6 +115,7 @@ def test_final_review_blocks_delivery_when_audio_balance_fails(tmp_path, monkeyp
         ],
     }
     edit = {
+        "audio_review_policy": {"mode": "enforce"},
         "version": "1.0",
         "render_runtime": "hyperframes",
         "renderer_family": "animation-first",

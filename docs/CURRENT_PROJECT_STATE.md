@@ -1,6 +1,104 @@
 # OpenMontage Current Project State
 
-Updated: 2026-10-03
+Updated: 2026-10-10
+
+## 2026-10-10 upstream integration and portable production defaults
+
+- Fork origin remains `hunger-Eric/OpenMontage`; its pre-integration main was
+  `9a7e80c6fad3f993ef4f4217c49e78f76c12d9ad` (no new origin commits).
+- Original upstream `calesthio/OpenMontage` was fetched to `upstream/main` at
+  `9327439db69021ab4b0e2776729bf3b58fdb5a87`. Relative to common base
+  `95e1c3d0ab93482159818560f6a8c8e866b9139f`, upstream adds 45 commits across
+  96 files; the pre-integration local branch had 30 independent commits at
+  `f6d2166c1ff2c6c7d61a9dd38f51591149077e2f`. The user authorized committing
+  and pushing the resolved integration on 2026-10-10. The integration retains
+  upstream/main as a merge parent; live Git refs are authoritative for the
+  current local and remote commit identities.
+- Upstream adds model/host/tool-aware routing, media contract catalogs, HeyGen
+  Avatar V, new image/video/TTS adapters, unknown-price handling; fixes Remotion
+  asset staging, theme keys/contrast and CJK captions, WAN temporal latents,
+  long-video sampling, transport-error reporting and pipeline/playbook schemas.
+  These describe integrated source, not live provider-access verification.
+- Nine merge conflicts were resolved preserving project receipts, same-engine
+  preview/finalization, transcript/provenance checks, and prior uncommitted edits.
+  Pre-update exact files/hashes and patch remain in
+  `.tmp/upstream-update-20261010-223614/`; tracked-edit stash
+  `7817f3461f8bea3009d13ac2647889e2cabc327a` remains recoverable.
+- Shared selectors now default to `auto`; personal provider preferences and
+  configured exclusions load from ignored `config.local.yaml`. This workstation
+  retains Codex-native images, Agnes video and Gemini generateContent narration
+  with restricted omitted-route requests. Grok/HeyGen adapters and vendor skills
+  are restored as optional integrations, excluded here through configuration.
+- `gemini_tts` is the upstream Interactions adapter;
+  `gemini_generate_content_tts` preserves the existing generateContent adapter
+  and its bounded recovery/audio normalization. Exact tool/model identities
+  distinguish their contracts. Shared Remotion skills have portable references;
+  applicable user/global instructions can still select a local official reader.
+- Audio-style measurements are advisory by default. Project
+  `edit_decisions.audio_review_policy` can explicitly enforce agreed thresholds.
+  Objective integrity, transcript/provenance and duplicate-submission gates remain.
+  Explainer revision/send-back limits are three; reaching a limit preserves and
+  reports unresolved artifacts, never automatically passes them. No monetary cap
+  or whole-production deadline was added.
+- Validation: broad integration suite passed 1,411 tests, with seven skips and
+  three expected failures; final routing checks passed 90 tests, composition
+  session/vertical checks passed 58, and Remotion TypeScript `tsc --noEmit` passed.
+  Initial wider-run failures were an absent Google SDK and an obsolete duplicated
+  entrypoint-provider assertion. The new project `.venv` inherits existing base
+  packages and installs Google GenAI 2.29.0 locally; requirements now match the
+  new transport's minimum 2.25.0. No global Python packages were modified.
+  Existing personal Remotion 4.0.532 pins are preserved; the merged nanoid
+  override matches the existing newer 3.3.19 lock entry.
+- Test logs: `.tmp/upstream-update-20261010-223614/integration-tests-venv.log`,
+  `final-route-tests.log` and `composition-tests.log`. Provider transports are
+  mocked or media are synthetic local fixtures. No new paid generation, live
+  verification of newly added provider endpoints, or external delivery occurred.
+
+## 2026-10-10 account-aware Agnes video selection
+
+- Current policy: `AGENT_GUIDE.md`, Project-owned generation route. The user
+  supersedes the permanent v2.0 rule: each new production checks the configured
+  key's model catalog and plan/access evidence, then the executing agent selects
+  a suitable eligible model within the authorized provider/plan/spending scope.
+- Current key's live `/v1/models` response listed `agnes-video-2.5-flash` and
+  `agnes-video-2.5`. Listing alone is not proof of access.
+- On 2026-10-10, one authorized 4-second 720P text test per model found:
+  Flash completed, downloaded and fully decoded (1280x720, 4.48 seconds);
+  ordinary 2.5 was rejected at creation with HTTP 503 / `model_not_found`:
+  no available channel for `agnes-video-2.5` under `TokenPlan`.
+- Account-specific evidence (no credentials):
+  `../.tmp/agnes-model-access-20261010-214707/results.json` and its adjacent
+  request, creation, terminal-response and media files. These are diagnostic
+  artifacts, not a completed governed production or a billing receipt.
+- Implementation: `video_selector(operation="discover_models")` reads the
+  current catalog without generation. The executing agent passes its exact
+  selected `model`; omission never injects a fixed version. New submissions
+  recheck listing. `agnes_video` has version-specific 2.5/Flash parameters and
+  retains explicit legacy requests/recovery. Ordinary 2.5 new submissions need
+  authorized `allow_paid_model=true`; failures never change model/provider.
+  Unknown future contracts are listed as unsupported and stop before generation.
+- Live updated-selector acceptance reused the completed Flash task without
+  submitting another task. Discovery then returned only Flash; recovery downloaded
+  the exact same bytes (matching SHA-256, 1280x720). Evidence beside the original
+  test: `adapter-live-discovery.json` and `adapter-recovery-result.json`.
+  No fresh generation through the updated adapter was run; new-submission
+  contracts are covered by mocked API tests, not a new paid-call claim.
+- Recheck on each new production; changed key, plan, endpoint, access response
+  or task failure invalidates prior access assumptions. Preserve historical
+  production and recovery identities; no per-production test-call requirement.
+
+## Historical: 2026-10-05 user-fixed Agnes Video 2.0 default (superseded)
+
+- Historical context only; the 2026-10-10 policy above replaces these rules.
+  At that time, the user specified a project-wide `agnes-video-v2.0` route
+  and required preserving it despite public lifecycle notices.
+- The adapter declared `DEFAULT_MODEL = "agnes-video-v2.0"`.
+- The call chain now uses the locked provider for cost/runtime estimates,
+  exposes the selected model at rank preflight, and passes the fixed 2.0 model
+  into the adapter. Conflicting model aliases and other-model recovery receipts
+  are rejected before external calls; historical receipts remain unchanged.
+  Focused selector/adapter checks pass with mocked submission and polling.
+  No live generation or availability check ran.
 
 ## 2026-10-03 same-engine composition acceptance
 
@@ -24,6 +122,25 @@ Updated: 2026-10-03
   [composition comparison](run-reports/2026-10-03-composition-preview-comparison.md).
   Model authoring time and end-to-end Feishu improvement remain unverified.
   No provider generation, historical run mutation or external delivery occurred.
+
+## 2026-10-03 V47-V01 AI operations growth video
+
+- Project `v47-v01-ai-ops-growth-20261002` completed a fresh local production
+  with seven Agnes Video 2.0 office-motion clips, Gemini Mandarin narration,
+  an Archive.org CC BY-SA music track, and a project-local Remotion atelier
+  composition. The earlier Agnes 2.5 selection is superseded only for this
+  project by the user's explicit 2.0 instruction.
+- Final MP4: `projects/v47-v01-ai-ops-growth-20261002/renders/v47-v01-ai-ops-growth-30s-final.mp4`.
+  It is 720x1280, 30 fps, 30.016 seconds, H.264/AAC, and SHA-256
+  `45FC0DEF01290DF3F96356E97499D27542858CEBA09B9771F971EB5105D8026E`.
+- The formal `video_compose` review passes container, sampled-frame, audio,
+  delivery-promise, seven-asset semantic, transcript-derived subtitle, and
+  transcript-to-script checks. A full FFmpeg decode and a twelve-frame contact
+  sheet review also pass.
+- Canonical receipts are `artifacts/asset_manifest.json`,
+  `artifacts/edit_decisions.json`, `artifacts/render_report.json`, and
+  `artifacts/final_review.json`. No Feishu upload, send, deployment, Git commit,
+  or push was performed; external delivery remains Worker-owned.
 
 ## 2026-10-03 bounded multi-shot execution guidance
 
