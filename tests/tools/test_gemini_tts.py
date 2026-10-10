@@ -119,7 +119,7 @@ def test_gemini_tts_sends_selected_voice_and_wraps_pcm_as_wav(
         captured.update(kwargs)
         return _Response(
             {
-                "modelVersion": "gemini-3.1-flash-tts-preview",
+                "modelVersion": "gemini-3.8-flash-tts",
                 "candidates": [
                     {
                         "content": {
@@ -149,18 +149,54 @@ def test_gemini_tts_sends_selected_voice_and_wraps_pcm_as_wav(
     )
 
     assert result.success is True
-    assert result.model == "gemini-3.1-flash-tts-preview"
+    assert result.model == "gemini-3.8-flash-tts"
+    assert captured["url"].endswith("/models/gemini-3.8-flash-tts:generateContent")
     assert result.data["voice"] == "runtime-selected-voice"
     assert captured["headers"]["x-goog-api-key"] == "test-key"
     assert captured["timeout"] == 600
     assert captured["json"]["generationConfig"]["speechConfig"]["voiceConfig"] == {
-        "prebuiltVoiceConfig": {"voiceName": "runtime-selected-voice"}
+        "voice": "runtime-selected-voice"
     }
+    assert captured["json"]["generationConfig"]["responseFormat"] == {
+        "audio": {"mimeType": "AUDIO_L16", "sampleRate": 24000}
+    }
+    assert "languageCode" not in captured["json"]["generationConfig"]["speechConfig"]
     with wave.open(str(output), "rb") as audio:
         assert audio.getframerate() == 24_000
         assert audio.getnchannels() == 1
         assert audio.getsampwidth() == 2
         assert audio.readframes(audio.getnframes()) == pcm
+
+
+def test_explicit_legacy_model_keeps_its_request_schema(monkeypatch, tmp_path):
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    captured = {}
+    def fake_post(url, **kwargs):
+        captured.update(url=url, **kwargs)
+        return _Response({"candidates": [{"content": {"parts": [{"inlineData": {
+            "mimeType": "audio/L16;rate=24000", "data": base64.b64encode(b"\x00\x00"*240).decode()
+        }}]}}]})
+    monkeypatch.setattr("requests.post", fake_post)
+    result = GeminiTTS().execute({"text": "历史旁白", "voice": "another-production-voice",
+                                 "model": "gemini-3.1-flash-tts-preview", "output_path": str(tmp_path/"legacy.wav")})
+    assert result.success and result.model == "gemini-3.1-flash-tts-preview"
+    assert captured["url"].endswith("/models/gemini-3.1-flash-tts-preview:generateContent")
+    assert captured["json"]["generationConfig"]["speechConfig"] == {
+        "languageCode": "cmn-CN", "voiceConfig": {"prebuiltVoiceConfig": {"voiceName": "another-production-voice"}}}
+    assert "responseFormat" not in captured["json"]["generationConfig"]
+
+
+def test_default_selector_ranks_generate_content_38_without_a_voice_default(monkeypatch):
+    from lib.config_model import OpenMontageConfig
+    config = OpenMontageConfig.model_validate({"providers": {"tts_provider": "gemini",
+                "tts_tool": "gemini_generate_content_tts", "restrict_to_preferences": True}})
+    monkeypatch.setattr(OpenMontageConfig, "load", lambda: config)
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    monkeypatch.setattr(TTSSelector, "_providers", lambda self: [GeminiTTS()])
+    result = TTSSelector().execute({"operation": "rank", "text": "待选择音色"})
+    assert result.success and result.data["selected_tool"] == "gemini_generate_content_tts"
+    assert result.data["selected_model"] == "gemini-3.8-flash-tts"
+    assert "default" not in GeminiTTS.input_schema["properties"]["voice"]
 
 
 def test_gemini_tts_accepts_provider_wav_response(
@@ -178,7 +214,7 @@ def test_gemini_tts_accepts_provider_wav_response(
     def fake_post(url, **kwargs):  # noqa: ANN001
         return _Response(
             {
-                "modelVersion": "gemini-3.1-flash-tts-preview",
+                "modelVersion": "gemini-3.8-flash-tts",
                 "candidates": [
                     {
                         "content": {
@@ -231,7 +267,7 @@ def test_gemini_tts_normalizes_parameterized_stereo_wav_response(
     def fake_post(url, **kwargs):  # noqa: ANN001
         return _Response(
             {
-                "modelVersion": "gemini-3.1-flash-tts-preview",
+                "modelVersion": "gemini-3.8-flash-tts",
                 "candidates": [
                     {
                         "content": {
@@ -283,7 +319,7 @@ def test_gemini_tts_accepts_pcm_when_audio_mime_is_omitted(
     def fake_post(url, **kwargs):  # noqa: ANN001
         return _Response(
             {
-                "modelVersion": "gemini-3.1-flash-tts-preview",
+                "modelVersion": "gemini-3.8-flash-tts",
                 "candidates": [
                     {
                         "content": {
@@ -335,7 +371,7 @@ def test_gemini_tts_sniffs_wav_before_assuming_missing_mime_is_pcm(
     def fake_post(url, **kwargs):  # noqa: ANN001
         return _Response(
             {
-                "modelVersion": "gemini-3.1-flash-tts-preview",
+                "modelVersion": "gemini-3.8-flash-tts",
                 "candidates": [
                     {
                         "content": {

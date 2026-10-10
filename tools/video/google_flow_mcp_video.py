@@ -6,6 +6,8 @@ import time
 from pathlib import Path
 from typing import Any
 
+from lib.config_model import OpenMontageConfig
+
 from tools._google_flow_mcp.client import GoogleFlowMCPError, google_flow_root
 from tools._google_flow_mcp.provider import (
     probe_media,
@@ -40,7 +42,8 @@ class GoogleFlowMCPVideo(BaseTool):
     dependencies = ["cmd:node", "cmd:ffprobe"]
     install_instructions = (
         "Build the local google-flow-mcp-v4 project and set GOOGLE_FLOW_MCP_ROOT if it is not "
-        "a sibling of OpenMontage. Pass project_url or set GOOGLE_FLOW_PROJECT_URL."
+        "a sibling of OpenMontage. Sign in to its browser profile; optionally pass project_url "
+        "or set GOOGLE_FLOW_PROJECT_URL to reuse a project."
     )
     fallback_tools: list[str] = []
     agent_skills = ["gemini-omni", "ai-video-gen"]
@@ -51,6 +54,7 @@ class GoogleFlowMCPVideo(BaseTool):
         "cinematic_quality": True,
         "browser_subscription": True,
         "explicit_credit_approval": True,
+        "max_concurrent_jobs": 1,
     }
     best_for = [
         "Google Flow Gemini Omni Flash video through an existing browser subscription",
@@ -59,14 +63,14 @@ class GoogleFlowMCPVideo(BaseTool):
     not_good_for = ["unattended generation without a confirmed credit budget"]
     input_schema = {
         "type": "object",
-        "required": ["prompt", "output_path", "confirm_paid_generation", "max_budget_credits"],
+        "required": ["prompt", "output_path", "confirm_paid_generation"],
         "properties": {
             "prompt": {"type": "string"},
             "output_path": {"type": "string", "description": "Absolute .mp4 output path"},
-            "project_url": {"type": "string", "description": "Existing Google Flow project URL"},
-            "model": {"type": "string", "default": "Gemini Omni Flash"},
-            "duration": {"type": "number", "minimum": 1, "maximum": 15, "default": 6},
-            "aspect_ratio": {"type": "string", "enum": ["16:9", "9:16", "1:1"], "default": "16:9"},
+            "project_url": {"type": "string", "description": "Existing Flow project; otherwise start from the configured homepage"},
+            "model": {"type": "string", "description": "Exact Flow UI model; defaults to google_flow.model configuration"},
+            "duration": {"type": "number", "enum": [4, 6, 8, 10], "default": 6},
+            "aspect_ratio": {"type": "string", "enum": ["16:9", "9:16"], "default": "16:9"},
             "reference_paths": {
                 "type": "array",
                 "items": {"type": "string"},
@@ -74,7 +78,7 @@ class GoogleFlowMCPVideo(BaseTool):
             },
             "confirm_paid_generation": {"type": "boolean", "default": False},
             "max_budget_credits": {"type": "number", "exclusiveMinimum": 0},
-            "timeout_seconds": {"type": "integer", "minimum": 30, "maximum": 900, "default": 300},
+            "timeout_seconds": {"type": "integer", "minimum": 30, "maximum": 900, "default": 900},
         },
     }
     resource_profile = ResourceProfile(
@@ -100,17 +104,29 @@ class GoogleFlowMCPVideo(BaseTool):
     def get_status(self) -> ToolStatus:
         return provider_status()
 
+    def get_info(self) -> dict[str, Any]:
+        info = super().get_info()
+        config = OpenMontageConfig.load().google_flow
+        info["default_model"] = config.model
+        info["model_catalog"] = {config.model: {"transport": "mcp_stdio_browser",
+                                                 "requires_ui_verification": True}}
+        return info
+
     def estimate_runtime(self, inputs: dict[str, Any]) -> float:
-        return float(inputs.get("timeout_seconds", 300))
+        return float(inputs.get("timeout_seconds", 900))
 
     def is_operation_available(self, operation: str) -> bool:
         return operation in {"text_to_video", "references_to_video"} and self.get_status() == ToolStatus.AVAILABLE
 
     def dry_run(self, inputs: dict[str, Any]) -> dict[str, Any]:
+        config = OpenMontageConfig.load().google_flow
         return {
             "tool": self.name,
             "status": self.get_status().value,
             "mcp_root": str(google_flow_root()),
+            "model": inputs.get("model") or config.model,
+            "start_url": resolve_project_url(inputs) or config.start_url,
+            "max_budget_credits": inputs.get("max_budget_credits", config.max_budget_credits),
             "requires_explicit_credit_approval": True,
             "would_execute": False,
             "fallback_used": False,
@@ -126,13 +142,8 @@ class GoogleFlowMCPVideo(BaseTool):
                 error="Google Flow video generation requires confirm_paid_generation=true",
                 data={"error_code": "approval_required", "fallback_used": False},
             )
-        project_url = resolve_project_url(inputs)
-        if not project_url:
-            return ToolResult(
-                success=False,
-                error="Google Flow video generation requires project_url or GOOGLE_FLOW_PROJECT_URL",
-                data={"error_code": "project_url_required", "fallback_used": False},
-            )
+        config = OpenMontageConfig.load().google_flow
+        project_url = resolve_project_url(inputs) or config.start_url
         output_path = Path(str(inputs["output_path"]))
         if output_path.suffix.lower() != ".mp4":
             return ToolResult(success=False, error="Google Flow video output_path must end in .mp4")
@@ -142,6 +153,18 @@ class GoogleFlowMCPVideo(BaseTool):
                 error="Google Flow video output_path already exists; refusing to overwrite it",
                 data={"error_code": "output_exists", "fallback_used": False},
             )
+        if output_path.with_suffix(output_path.suffix + ".flow-attempt.json").exists():
+            return ToolResult(success=False, error="Existing Flow attempt requires reconciliation; not submitting again",
+                              data={"error_code": "existing_attempt", "fallback_used": False})
+
+        duration = float(inputs.get("duration", 6))
+        aspect_ratio = str(inputs.get("aspect_ratio", "16:9"))
+        if duration not in {4, 6, 8, 10} or aspect_ratio not in {"16:9", "9:16"}:
+            return ToolResult(success=False, error="Flow requires 4/6/8/10 seconds and 16:9 or 9:16",
+                              data={"error_code": "invalid_video_settings", "fallback_used": False})
+        max_budget_credits = float(inputs.get("max_budget_credits", config.max_budget_credits))
+        if not 0 < max_budget_credits < float("inf"):
+            return ToolResult(success=False, error="Flow credit budget must be finite and positive")
 
         reference_paths = [Path(str(value)) for value in inputs.get("reference_paths", [])]
         missing_references = [str(path) for path in reference_paths if not path.is_file()]
@@ -152,7 +175,7 @@ class GoogleFlowMCPVideo(BaseTool):
                 data={"error_code": "reference_missing", "fallback_used": False},
             )
 
-        model = str(inputs.get("model", "Gemini Omni Flash"))
+        model = str(inputs.get("model") or config.model)
         full_prompt = (
             f"请立即使用 {model} 生成视频镜头：{inputs['prompt']}\n"
             f"目标时长 {float(inputs.get('duration', 6)):g} 秒，画幅 {inputs.get('aspect_ratio', '16:9')}。"
@@ -163,10 +186,11 @@ class GoogleFlowMCPVideo(BaseTool):
                 prompt=full_prompt,
                 output_path=output_path,
                 expected_media_type="video",
-                max_budget_credits=float(inputs["max_budget_credits"]),
-                timeout_seconds=int(inputs.get("timeout_seconds", 300)),
+                max_budget_credits=max_budget_credits,
+                timeout_seconds=int(inputs.get("timeout_seconds", 900)),
                 music=False,
                 reference_paths=reference_paths,
+                video_settings={"model": model, "duration": duration, "aspect_ratio": aspect_ratio},
             )
             probe = probe_media(output_path, "video")
         except Exception as exc:
@@ -191,13 +215,14 @@ class GoogleFlowMCPVideo(BaseTool):
             "provider": "google_flow",
             "transport": "mcp_stdio_browser",
             "model": model,
-            "project_url": project_url,
+            "project_url": receipt["opened"].get("url", project_url),
             "job_id": waited.get("jobId"),
             "output": str(output_path),
             "output_path": str(output_path),
             "sha256": downloaded.get("sha256"),
             "billing_mode": "subscription_credits",
-            "max_budget_credits": float(inputs["max_budget_credits"]),
+            "max_budget_credits": max_budget_credits,
+            "settings_receipt": receipt.get("settings"),
             "reference_count": len(reference_paths),
             "upload_receipts": receipt.get("uploads", []),
             "fallback_used": False,

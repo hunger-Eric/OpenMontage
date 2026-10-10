@@ -74,10 +74,19 @@ class ProviderConfig(BaseModel):
     disabled_providers: list[str] = Field(default_factory=list)
 
 
+class GoogleFlowConfig(BaseModel):
+    """Browser subscription settings, independent of generation approval."""
+
+    model: str = "Gemini Omni Flash"
+    start_url: str = "https://labs.google/fx/tools/flow"
+    max_budget_credits: float = Field(default=10, gt=0)
+
+
 class OpenMontageConfig(BaseModel):
     """Top-level runtime configuration."""
 
     providers: ProviderConfig = Field(default_factory=ProviderConfig)
+    google_flow: GoogleFlowConfig = Field(default_factory=GoogleFlowConfig)
     llm: LLMConfig = Field(default_factory=LLMConfig)
     budget: BudgetConfig = Field(default_factory=BudgetConfig)
     checkpoint: CheckpointConfig = Field(default_factory=CheckpointConfig)

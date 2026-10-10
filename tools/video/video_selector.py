@@ -444,7 +444,7 @@ class VideoSelector(BaseTool):
                     "normalized_task_context": task_context,
                     "selected_tool": selected.name if selected else None,
                     "selected_provider": selected.provider if selected else None,
-                    "selected_model": rank_inputs.get("model") or fixed_model,
+                    "selected_model": rank_inputs.get("model") or fixed_model or (selected.get_info().get("default_model") if selected else None),
                     "model_discovery": discovery.data if discovery is not None else None,
                 },
             )

@@ -232,12 +232,17 @@ class TTSSelector(BaseTool):
         # Rank mode — return scored provider rankings without generating
         if inputs.get("operation") == "rank":
             rankings = rank_providers(candidates, task_context)
+            selected, _ = self._select_best_tool(inputs, candidates, task_context)
+            model_props = selected.input_schema.get("properties", {}) if selected else {}
             return ToolResult(
                 success=True,
                 data={
                     "rankings": self._serialize_rankings(candidates, rankings),
                     "explanation": "\n".join(r.explain() for r in rankings[:5]),
                     "normalized_task_context": task_context,
+                    "selected_tool": selected.name if selected else None,
+                    "selected_provider": selected.provider if selected else None,
+                    "selected_model": inputs.get("model") or inputs.get("model_id") or model_props.get("model", model_props.get("model_id", {})).get("default"),
                 },
             )
 

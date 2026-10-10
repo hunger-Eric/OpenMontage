@@ -39,9 +39,22 @@ extra test generations. Recovery retains the original task/model identity.
 Selection within an already-authorized plan needs no repeated model-version
 approval; another provider or spending outside that authorization still does.
 
+For Google Flow, use `google_flow_mcp_video` through the configured local MCP
+bridge and authenticated browser subscription. `google_flow` configuration
+supplies the UI model, homepage and per-shot credit ceiling; request-level
+values override these defaults. Freeze the actual model and authorized credits
+before generation. The adapter verifies Tools-mode settings (4/6/8/10 seconds,
+16:9 or 9:16, 720p, one result), then types without submitting and requires
+acknowledgement after the separate generation click. An existing output-owned
+`.flow-attempt.json` requires reconciliation, never another submission.
+Run Flow shots sequentially against its shared browser profile.
+
 Gemini has two distinct optional transports: `gemini_tts` uses the upstream
 Interactions contract; `gemini_generate_content_tts` preserves the verified
 project generateContent route, audio normalization and bounded recovery.
+The generateContent adapter defaults to `gemini-3.8-flash-tts` using its 3.8
+audio request schema. Voice remains required per production, with no default.
+Explicit legacy 3.1 requests retain their original transport parameters.
 Select the exact tool/model rather than treating these interfaces as equivalent.
 Do not silently upgrade a production's API or voice, or call TTS again through a
 composition engine's media helper.

@@ -2,6 +2,43 @@
 
 Updated: 2026-10-10
 
+## 2026-10-10 Gemini 3.8 TTS default, per-production voice
+
+- This workstation retains `gemini_generate_content_tts` as its default TTS
+  tool, now defaulting to `gemini-3.8-flash-tts` through `generateContent`, aligned
+  with video-platform's active speech model and its 3.8 audio request shape.
+- No voice is configured globally or locally. A non-empty production-selected
+  voice is still required before any provider request; video-platform's fixed
+  voice preference was deliberately not imported, per the user's instruction.
+- The adapter reuses the existing private Google credential, a 600-second
+  request timeout and 24 kHz PCM/WAV normalization. Explicit historical 3.1
+  requests retain their original request schema; no automatic model fallback.
+- No new speech generation was authorized as part of this integration.
+- Verification: the actual TTS selector resolves `gemini_generate_content_tts`
+  with `gemini-3.8-flash-tts`; the configured key's read-only model metadata
+  request returned HTTP 200 and advertises `generateContent`. Focused TTS,
+  routing and Flow regression checks passed 82 tests. This metadata check is
+  not a completed speech generation or listening-acceptance claim.
+
+## 2026-10-10 personal Google Flow video default
+
+- The user switched this workstation's default video provider to `google_flow`
+  in ignored `config.local.yaml`. Shared defaults remain portable `auto`.
+- Local settings mirror video-platform `config/provider-profiles.json`'s
+  `google-flow-scene`: the sibling `google-flow-mcp-v4` stdio bridge,
+  `Omni 1.1 Flash`, the Flow homepage and a 10-credit per-shot ceiling.
+  Configuration alone does not authorize a generation or a model substitution.
+- Video execution resolves an existing project or creates one from the homepage,
+  verifies Tools-mode model, duration, aspect ratio, 720p and one-result settings,
+  verifies typed text, then confirms credits and waits for submission acknowledgement.
+  A durable output-owned attempt record blocks duplicate/unknown submissions.
+- Login and provider selection can be checked without generation. No paid test
+  was authorized for this synchronization; real generation speed is unverified.
+- Verification: actual selector rank resolves `google_flow_mcp_video` and
+  `Omni 1.1 Flash`; the configured browser session exposes a ready project entry
+  without generation. Focused provider/routing checks passed 99 tests; the
+  contract and Flow/configuration suite passed 1,262 tests with seven skips.
+
 ## 2026-10-10 upstream integration and portable production defaults
 
 - Fork origin remains `hunger-Eric/OpenMontage`; its pre-integration main was
@@ -26,7 +63,7 @@ Updated: 2026-10-10
   `7817f3461f8bea3009d13ac2647889e2cabc327a` remains recoverable.
 - Shared selectors now default to `auto`; personal provider preferences and
   configured exclusions load from ignored `config.local.yaml`. This workstation
-  retains Codex-native images, Agnes video and Gemini generateContent narration
+  retains Codex-native images, Google Flow video and Gemini generateContent narration
   with restricted omitted-route requests. Grok/HeyGen adapters and vendor skills
   are restored as optional integrations, excluded here through configuration.
 - `gemini_tts` is the upstream Interactions adapter;

@@ -154,9 +154,17 @@ def run_generation(
     timeout_seconds: int,
     music: bool,
     reference_paths: list[Path] | None = None,
+    video_settings: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     with GoogleFlowMCPClient(timeout_seconds=timeout_seconds + 60) as client:
         opened = client.call_tool("flow_open", {"url": url}, timeout_seconds=60)
+        settings_receipt = None
+        if video_settings is not None:
+            from tools._google_flow_mcp.video_session import resolve_video_project, configure_video_settings
+
+            project_url = resolve_video_project(client)
+            settings_receipt = configure_video_settings(client, project_url, **video_settings)
+            opened = {**opened, "url": project_url}
         uploads = []
         for reference_path in reference_paths or []:
             if not reference_path.is_file():
@@ -182,6 +190,17 @@ def run_generation(
                 "Google Flow did not verify the prompt text before submission"
             )
         submit_ref = wait_for_generation_submit(client)
+        # A durable claim precedes any credit confirmation/submission. Unknown
+        # outcomes retain this identity and cannot silently submit a second job.
+        attempt_path = output_path.with_suffix(output_path.suffix + ".flow-attempt.json")
+        if video_settings is not None:
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                with attempt_path.open("x", encoding="utf-8") as f:
+                    json.dump({"state": "submission_pending", "project_url": opened.get("url"),
+                               "settings": settings_receipt, "output_path": str(output_path)}, f)
+            except FileExistsError as exc:
+                raise GoogleFlowMCPError("Flow attempt already exists; reconcile it before submitting again") from exc
         approval = client.call_tool(
             "flow_confirm_paid_generation",
             {
@@ -204,6 +223,9 @@ def run_generation(
             raise GoogleFlowMCPError(
                 "Google Flow did not acknowledge the generation submission"
             )
+        if video_settings is not None:
+            attempt_path.write_text(json.dumps({"state": "submitted", "submitted": submitted,
+                                    "project_url": opened.get("url"), "settings": settings_receipt}), encoding="utf-8")
         waited = client.call_tool(
             "flow_wait",
             {
@@ -225,6 +247,10 @@ def run_generation(
             },
             timeout_seconds=300,
         )
+        if video_settings is not None:
+            attempt_path.write_text(json.dumps({"state": "downloaded", "wait": waited,
+                                    "download": downloaded, "project_url": opened.get("url"),
+                                    "settings": settings_receipt}), encoding="utf-8")
         return {
             "opened": opened,
             "uploads": uploads,
@@ -233,6 +259,7 @@ def run_generation(
             "submitted": submitted,
             "wait": waited,
             "download": downloaded,
+            "settings": settings_receipt,
         }
 
 

@@ -51,7 +51,8 @@ class GeminiGenerateContentTTS(BaseTool):
     determinism = Determinism.STOCHASTIC
     runtime = ToolRuntime.API
 
-    MODEL = "gemini-3.1-flash-tts-preview"
+    MODEL = "gemini-3.8-flash-tts"
+    SUPPORTED_MODELS = [MODEL, "gemini-3.1-flash-tts-preview"]
     BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
     KEY_ENVS = ("GEMINI_API_KEY", "GOOGLE_API_KEY")
     SAMPLE_RATE = 24_000
@@ -100,7 +101,7 @@ class GeminiGenerateContentTTS(BaseTool):
             },
             "model": {
                 "type": "string",
-                "const": MODEL,
+                "enum": SUPPORTED_MODELS,
                 "default": MODEL,
             },
             "output_path": {
@@ -169,7 +170,7 @@ class GeminiGenerateContentTTS(BaseTool):
             )
 
         model = str(inputs.get("model") or self.MODEL)
-        if model != self.MODEL:
+        if model not in self.SUPPORTED_MODELS:
             return ToolResult(
                 success=False,
                 error=f"Unsupported Gemini TTS model: {model}",
@@ -274,15 +275,21 @@ class GeminiGenerateContentTTS(BaseTool):
             headers={"content-type": "application/json", "x-goog-api-key": credential},
             json={
                 "contents": [{"parts": [{"text": text}]}],
-                "generationConfig": {
-                    "responseModalities": ["AUDIO"],
-                    "speechConfig": {
-                        "languageCode": language_code,
-                        "voiceConfig": {
-                            "prebuiltVoiceConfig": {"voiceName": voice}
+                "generationConfig": (
+                    {
+                        "responseModalities": ["AUDIO"],
+                        "responseFormat": {"audio": {"mimeType": "AUDIO_L16", "sampleRate": self.SAMPLE_RATE}},
+                        "speechConfig": {"voiceConfig": {"voice": voice}},
+                    }
+                    if model == "gemini-3.8-flash-tts" else
+                    {
+                        "responseModalities": ["AUDIO"],
+                        "speechConfig": {
+                            "languageCode": language_code,
+                            "voiceConfig": {"prebuiltVoiceConfig": {"voiceName": voice}},
                         },
-                    },
-                },
+                    }
+                ),
             },
             # requests follows HTTPS_PROXY/HTTP_PROXY and NO_PROXY by default,
             # matching the video project's environment-governed transport.
