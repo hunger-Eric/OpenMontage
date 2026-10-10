@@ -67,21 +67,54 @@ def configure_video_settings(client: Any, project_url: str, model: str,
                              duration: float, aspect_ratio: str) -> dict:
     if duration not in {4, 6, 8, 10} or aspect_ratio not in {"16:9", "9:16"}:
         raise GoogleFlowMCPError("Flow video requires 4/6/8/10 seconds and 16:9 or 9:16")
-    # Match the video-platform executor's modern Tools composer.
+    # Agent chat hides the ordinary composer. The header's Tools link goes to
+    # the applet gallery, not video mode; never use it as a mode switch.
     trigger = r"设置触发器|settings trigger|720p.*x[1-4]"
-    tools = r"^(?:apps_spark_2\s+)?(?:工具|tools)$"
-    snapshot = wait_snapshot(client, lambda s: bool(matching(s, trigger) or matching(s, tools)),
-                             "Flow has no video settings or Tools mode")
-    if not matching(snapshot, trigger):
-        client.call_tool("flow_click", {"ref": matching(snapshot, tools)}, timeout_seconds=30)
+
+    def button(snapshot: dict, pattern: str) -> str | None:
+        filtered = {"interactables": [i for i in visible(snapshot)
+                    if i.get("tag") == "BUTTON" or i.get("role") == "button"]}
+        return matching(filtered, pattern)
+
+    close_agent = r"^(?:close|关闭)(?:\s+(?:close|关闭))?$"
+    expand_agent = r"^(?:expand_content\s+)?(?:展开|expand)$"
+    agent_toggle = r"^(?:智能体|agent)$"
+
+    def agent_control(s: dict) -> str | None:
+        # Require an Agent-specific marker before interpreting Close/Expand.
+        if not matching(s, r"智能体指令|agent instructions|^智能体$|^agent$"):
+            return None
+        return button(s, agent_toggle) or button(s, close_agent) or button(s, expand_agent)
+
+    snapshot = wait_snapshot(client, lambda s: bool(button(s, trigger) or agent_control(s)),
+                             "Flow has no video composer or supported Agent panel controls")
+    if not button(snapshot, trigger):
+        close_ref = button(snapshot, agent_toggle) or button(snapshot, close_agent)
+        if not close_ref:
+            client.call_tool("flow_click", {"ref": button(snapshot, expand_agent)}, timeout_seconds=30)
+            snapshot = wait_snapshot(client, lambda s: bool(button(s, trigger) or
+                                     (agent_control(s) and button(s, close_agent))),
+                                     "Flow Agent panel did not expose its close control")
+            close_ref = button(snapshot, close_agent)
+        if not button(snapshot, trigger):
+            client.call_tool("flow_click", {"ref": close_ref}, timeout_seconds=30)
+            snapshot = wait_snapshot(client, lambda s: bool(button(s, trigger) or
+                                     (agent_control(s) and button(s, agent_toggle))),
+                                     "Flow Agent panel did not return to its composer")
+            if not button(snapshot, trigger):
+                client.call_tool("flow_click", {"ref": button(snapshot, agent_toggle)}, timeout_seconds=30)
+                snapshot = wait_snapshot(client, lambda s: bool(button(s, trigger)),
+                                     "Flow video composer unavailable after closing Agent panel")
+    if snapshot.get("url") != project_url:
+        raise GoogleFlowMCPError("Flow project changed while exiting Agent panel")
     choices = [r"(?:^|\s)(?:视频|video)(?:$|\s)",
                r"crop_16_9|16:9" if aspect_ratio == "16:9" else r"crop_9_16|9:16",
                r"720p", rf"(?:^|\s){duration:g}\s*(?:秒|s|seconds?)(?:$|\s)",
                r"(?:^|\s)x1(?:$|\s)"]
 
     def open_settings() -> dict:
-        current = wait_snapshot(client, lambda s: bool(matching(s, trigger)), "Flow has no settings trigger")
-        client.call_tool("flow_click", {"ref": matching(current, trigger)}, timeout_seconds=30)
+        current = wait_snapshot(client, lambda s: bool(button(s, trigger)), "Flow has no settings trigger")
+        client.call_tool("flow_click", {"ref": button(current, trigger)}, timeout_seconds=30)
         return wait_snapshot(client, lambda s: any(model in str(i.get("text", "")) for i in visible(s))
                              and all(matching(s, p, "radio") for p in choices),
                              f"Flow model/settings unavailable: {model}")

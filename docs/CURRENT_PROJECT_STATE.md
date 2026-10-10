@@ -1,6 +1,43 @@
 # OpenMontage Current Project State
 
-Updated: 2026-10-10
+Updated: 2026-10-11
+
+## 2026-10-11 Flow mode compatibility and informational costs
+
+- Flow video configuration supports the normal composer and expanded/collapsed
+  Agent panels. It verifies the video composer before proceeding and does not
+  navigate to the header Tools gallery. Both video and Agent starting modes
+  were verified on the real Flow UI through retained settings, without submission.
+- Per user instruction, the default credit ceiling is now null in shared model
+  defaults and local preferences. Costs are informational, with one brief notice;
+  an authorized production needs no separate fee approval. Explicit user caps
+  remain optional. The sibling Flow bridge supports authorization without a cap
+  while preserving single-use expiry and submission acknowledgement.
+- Duplicate/unknown attempts still require reconciliation. This change did not
+  submit a paid generation or resume historical production runs.
+
+## 2026-10-11 unified Flow material upload and chair case completion
+
+- The sibling bridge now supports existing file inputs and native media-picker
+  uploads, waits beyond uploading placeholders, selects filename/stem cards,
+  and uses Add-to-prompt when required. It does not fall back from a stale
+  explicit target or treat chooser acceptance as verified completion.
+- OpenMontage requires `uploaded=true` and `verified=true` before generation.
+  Authorized supplied references can acknowledge the per-upload rights notice;
+  the persistent do-not-show option is preserved.
+- Real UI validation completed image association for the chair production and
+  MP4 upload/association in a separate validation project. WAV selection in the
+  ordinary video material picker did not produce a usable associated asset;
+  the bridge reported failure and did not submit generation. Raw audio upload
+  through Flow Music's separate Add → Audio entry remains unverified.
+- Per the user's new production request, the existing chair run resumed through
+  the unified provider, retaining the reference, prompt, model and 10s/9:16 plan.
+  Its temporary 360p monkeypatch and inherited cap were removed. One acknowledged
+  720p Flow generation was downloaded and locally composed with the title.
+- Current authority: `projects/chair-product-promo-97bb0188-20261010/` generation
+  receipt, attempt record, semantic/visual review and compose checkpoint. Final:
+  `renders/chair-product-final.mp4`. Native audio is preserved and technically
+  checked; audio listening was not verified in this session.
 
 ## 2026-10-10 Gemini 3.8 TTS default, per-production voice
 
@@ -26,7 +63,8 @@ Updated: 2026-10-10
   in ignored `config.local.yaml`. Shared defaults remain portable `auto`.
 - Local settings mirror video-platform `config/provider-profiles.json`'s
   `google-flow-scene`: the sibling `google-flow-mcp-v4` stdio bridge,
-  `Omni 1.1 Flash`, the Flow homepage and a 10-credit per-shot ceiling.
+  `Omni 1.1 Flash` and the Flow homepage. The historical 10-credit ceiling was
+  removed on 2026-10-11 at the user's request.
   Configuration alone does not authorize a generation or a model substitution.
 - Video execution resolves an existing project or creates one from the homepage,
   verifies Tools-mode model, duration, aspect ratio, 720p and one-result settings,

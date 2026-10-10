@@ -53,14 +53,15 @@ class GoogleFlowMCPVideo(BaseTool):
         "native_audio": True,
         "cinematic_quality": True,
         "browser_subscription": True,
-        "explicit_credit_approval": True,
+        "explicit_credit_approval": False,
+        "optional_credit_cap": True,
         "max_concurrent_jobs": 1,
     }
     best_for = [
         "Google Flow Gemini Omni Flash video through an existing browser subscription",
-        "cinematic clips with explicit per-call credit approval",
+        "cinematic clips requested by the user",
     ]
-    not_good_for = ["unattended generation without a confirmed credit budget"]
+    not_good_for = ["generation without a user production request"]
     input_schema = {
         "type": "object",
         "required": ["prompt", "output_path", "confirm_paid_generation"],
@@ -76,8 +77,10 @@ class GoogleFlowMCPVideo(BaseTool):
                 "items": {"type": "string"},
                 "description": "Absolute paths uploaded as Flow ingredients before generation",
             },
-            "confirm_paid_generation": {"type": "boolean", "default": False},
-            "max_budget_credits": {"type": "number", "exclusiveMinimum": 0},
+            "confirm_paid_generation": {"type": "boolean", "default": False,
+                "description": "Set true for a user-authorized video request; no separate fee approval is needed unless the user specified a cap."},
+            "max_budget_credits": {"type": ["number", "null"], "exclusiveMinimum": 0,
+                "description": "Optional user-specified cap; omitted/null means no credit ceiling."},
             "timeout_seconds": {"type": "integer", "minimum": 30, "maximum": 900, "default": 900},
         },
     }
@@ -127,7 +130,8 @@ class GoogleFlowMCPVideo(BaseTool):
             "model": inputs.get("model") or config.model,
             "start_url": resolve_project_url(inputs) or config.start_url,
             "max_budget_credits": inputs.get("max_budget_credits", config.max_budget_credits),
-            "requires_explicit_credit_approval": True,
+            "requires_explicit_credit_approval": False,
+            "cost_notice": "Uses Flow subscription credits; report available pricing once and continue the authorized production.",
             "would_execute": False,
             "fallback_used": False,
         }
@@ -162,8 +166,9 @@ class GoogleFlowMCPVideo(BaseTool):
         if duration not in {4, 6, 8, 10} or aspect_ratio not in {"16:9", "9:16"}:
             return ToolResult(success=False, error="Flow requires 4/6/8/10 seconds and 16:9 or 9:16",
                               data={"error_code": "invalid_video_settings", "fallback_used": False})
-        max_budget_credits = float(inputs.get("max_budget_credits", config.max_budget_credits))
-        if not 0 < max_budget_credits < float("inf"):
+        budget = inputs.get("max_budget_credits", config.max_budget_credits)
+        max_budget_credits = float(budget) if budget is not None else None
+        if max_budget_credits is not None and not 0 < max_budget_credits < float("inf"):
             return ToolResult(success=False, error="Flow credit budget must be finite and positive")
 
         reference_paths = [Path(str(value)) for value in inputs.get("reference_paths", [])]

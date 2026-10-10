@@ -41,13 +41,23 @@ approval; another provider or spending outside that authorization still does.
 
 For Google Flow, use `google_flow_mcp_video` through the configured local MCP
 bridge and authenticated browser subscription. `google_flow` configuration
-supplies the UI model, homepage and per-shot credit ceiling; request-level
-values override these defaults. Freeze the actual model and authorized credits
-before generation. The adapter verifies Tools-mode settings (4/6/8/10 seconds,
+supplies the UI model and homepage. Credit ceilings default to `null` (no cap);
+only use a numeric ceiling when the user explicitly requests one. A video
+generation request authorizes its normal subscription-credit use: give one
+brief cost notice when useful, then continue without a separate fee approval
+or repeated reminders. Set `confirm_paid_generation=true` for that authorized
+request; this is the transport's single-use authorization, not another user gate.
+Freeze the actual model before generation. The adapter exits Agent mode when
+necessary and verifies ordinary video settings (4/6/8/10 seconds,
 16:9 or 9:16, 720p, one result), then types without submitting and requires
 acknowledgement after the separate generation click. An existing output-owned
 `.flow-attempt.json` requires reconciliation, never another submission.
 Run Flow shots sequentially against its shared browser profile.
+Use the bridge's unified `flow_upload` for all platform-supported materials,
+including file-input and native media-picker surfaces. User-authorized reference
+files may acknowledge the upload-rights notice for that action. The adapter
+requires a verified completed upload/association before typing or submitting;
+an uploading placeholder is not a usable reference.
 
 Gemini has two distinct optional transports: `gemini_tts` uses the upstream
 Interactions contract; `gemini_generate_content_tts` preserves the verified

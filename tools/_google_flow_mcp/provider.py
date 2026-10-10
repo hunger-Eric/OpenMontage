@@ -150,7 +150,7 @@ def run_generation(
     prompt: str,
     output_path: Path,
     expected_media_type: str,
-    max_budget_credits: float,
+    max_budget_credits: float | None,
     timeout_seconds: int,
     music: bool,
     reference_paths: list[Path] | None = None,
@@ -171,13 +171,14 @@ def run_generation(
                 raise GoogleFlowMCPError(
                     f"Google Flow reference asset does not exist: {reference_path}"
                 )
-            uploads.append(
-                client.call_tool(
-                    "flow_upload",
-                    {"filePath": str(reference_path.resolve())},
-                    timeout_seconds=120,
-                )
+            upload = client.call_tool(
+                "flow_upload",
+                {"filePath": str(reference_path.resolve()), "confirmUploadRights": True},
+                timeout_seconds=120,
             )
+            if upload.get("uploaded") is not True or upload.get("verified") is not True:
+                raise GoogleFlowMCPError("Flow did not verify the reference upload; not submitting generation")
+            uploads.append(upload)
         input_ref = wait_for_text_input(client, music=music)
         composer_text = " ".join(prompt.split())
         typed = client.call_tool(
@@ -205,7 +206,7 @@ def run_generation(
             "flow_confirm_paid_generation",
             {
                 "confirm": True,
-                "maxBudgetCredits": max_budget_credits,
+                **({"maxBudgetCredits": max_budget_credits} if max_budget_credits is not None else {}),
                 "reason": f"OpenMontage {expected_media_type} generation",
             },
             timeout_seconds=30,

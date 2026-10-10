@@ -22,6 +22,8 @@ class FlowUI:
         self.duration = 4
         self.aspect = "16:9"
         self.calls = []
+        self.agent_collapsed = False
+        self.close_only_collapses = False
 
     def __enter__(self):
         return self
@@ -35,8 +37,13 @@ class FlowUI:
         if not self.project:
             return {"url": "https://flow.google.com/", "interactables": [item("new", "新建项目")]}
         items = [item("prompt", "", contentEditable=True)]
+        items.append(item("tools-gallery", "apps_spark_2 工具", "link", tag="A"))
         if not self.tools:
-            items.append(item("tools", "apps_spark_2 工具"))
+            if self.agent_collapsed:
+                items.append(item("agent-toggle", "智能体"))
+            items += [item("agent-instructions", "article_spark", ariaLabel="智能体指令"),
+                      item("expand-agent", "expand_content", ariaLabel="展开") if self.agent_collapsed
+                      else item("close-agent", "close", ariaLabel="关闭")]
         else:
             items.append(item("settings", f"设置触发器 720p {self.duration} 秒 {self.aspect} x1"))
         if self.settings:
@@ -55,7 +62,12 @@ class FlowUI:
         if name == "flow_click":
             ref = arguments["ref"]
             if ref == "new": self.project = True
-            elif ref == "tools": self.tools = True
+            elif ref == "expand-agent": self.agent_collapsed = False
+            elif ref == "close-agent":
+                if self.close_only_collapses: self.agent_collapsed = True
+                else: self.tools = True
+            elif ref == "agent-toggle": self.tools = True
+            elif ref == "tools-gallery": pytest.fail("Tools gallery is not a video mode switch")
             elif ref == "settings": self.settings = True
             elif ref == "submit": return {"submissionAcknowledged": True}
             else:
@@ -75,6 +87,38 @@ def test_homepage_and_agent_mode_resolve_and_verify_settings():
                             resolution="720p", results=1, verified=True)
     assert client.project and client.tools and client.aspect == "9:16" and client.duration == 6
     assert sum(args.get("ref") == "settings" for _, args in client.calls) == 5
+    assert any(args.get("ref") == "close-agent" for _, args in client.calls)
+
+
+@pytest.mark.parametrize("initial_mode", ["video", "agent_expanded", "agent_collapsed", "agent_close_collapses"])
+def test_video_and_both_agent_panel_states_are_supported(initial_mode):
+    client = FlowUI()
+    client.project = True
+    client.tools = initial_mode == "video"
+    client.agent_collapsed = initial_mode == "agent_collapsed"
+    client.close_only_collapses = initial_mode == "agent_close_collapses"
+    video_session.configure_video_settings(client, "https://flow.google.com/project/test",
+                                           "Omni 1.1 Flash", 6, "9:16")
+    clicked = [args.get("ref") for name, args in client.calls if name == "flow_click"]
+    assert "tools-gallery" not in clicked
+    assert ("close-agent" in clicked) == (initial_mode in {"agent_expanded", "agent_close_collapses"})
+    assert ("agent-toggle" in clicked) == (initial_mode in {"agent_collapsed", "agent_close_collapses"})
+    assert client.aspect == "9:16" and client.duration == 6
+
+
+def test_gallery_link_alone_never_triggers_navigation_or_payment(monkeypatch):
+    client = FlowUI()
+    client.snapshot = lambda: {"url": "https://flow.google.com/project/test", "interactables": [
+        dict(ref="gallery", text="apps_spark_2 工具", tag="A", visible=True, disabled=False)]}
+    def once(client, ready, message):
+        snapshot = client.call_tool("flow_snapshot", {})
+        if not ready(snapshot): raise GoogleFlowMCPError(message)
+        return snapshot
+    monkeypatch.setattr(video_session, "wait_snapshot", once)
+    with pytest.raises(GoogleFlowMCPError, match="supported Agent panel"):
+        video_session.configure_video_settings(client, "https://flow.google.com/project/test",
+                                               "Omni 1.1 Flash", 6, "9:16")
+    assert all(name == "flow_snapshot" for name, _ in client.calls)
 
 
 def test_missing_model_stops_before_credit_confirmation(monkeypatch, tmp_path):
@@ -89,6 +133,19 @@ def test_missing_model_stops_before_credit_confirmation(monkeypatch, tmp_path):
         provider.run_generation(url="https://flow.google.com/", prompt="a shot", output_path=tmp_path/"shot.mp4",
                                 expected_media_type="video", max_budget_credits=10, timeout_seconds=60,
                                 music=False, video_settings=dict(model="Unavailable model", duration=6, aspect_ratio="9:16"))
+    assert not any(name in {"flow_type", "flow_confirm_paid_generation"} for name, _ in client.calls)
+
+
+def test_unverified_reference_upload_stops_before_prompt_and_generation(monkeypatch, tmp_path):
+    client = FlowUI()
+    monkeypatch.setattr(provider, "GoogleFlowMCPClient", lambda **kw: client)
+    reference = tmp_path / "product.jpg"
+    reference.write_bytes(b"reference fixture")
+    with pytest.raises(GoogleFlowMCPError, match="did not verify the reference upload"):
+        provider.run_generation(url="https://flow.google.com/", prompt="product", output_path=tmp_path / "shot.mp4",
+                                expected_media_type="video", max_budget_credits=None, timeout_seconds=60, music=False,
+                                reference_paths=[reference], video_settings={"model": "Omni 1.1 Flash", "duration": 6, "aspect_ratio": "9:16"})
+    assert any(name == "flow_upload" for name, _ in client.calls)
     assert not any(name in {"flow_type", "flow_confirm_paid_generation"} for name, _ in client.calls)
 
 
@@ -124,11 +181,14 @@ def test_video_uses_local_model_homepage_budget_and_rejects_existing_attempt(mon
     inputs = dict(prompt="a shot", output_path=str(tmp_path/"shot.mp4"), confirm_paid_generation=True)
     result = video_module.GoogleFlowMCPVideo().execute(inputs)
     assert result.success and result.data["model"] == "Omni 1.1 Flash"
-    assert seen[0]["max_budget_credits"] == 10 and seen[0]["video_settings"]["duration"] == 6
+    assert seen[0]["max_budget_credits"] is None and seen[0]["video_settings"]["duration"] == 6
     assert result.data["project_url"] == "https://flow.google.com/project/test"
+    assert video_module.GoogleFlowMCPVideo().dry_run(inputs)["requires_explicit_credit_approval"] is False
+    result = video_module.GoogleFlowMCPVideo().execute({**inputs, "max_budget_credits": 25})
+    assert result.success and seen[-1]["max_budget_credits"] == 25
     (tmp_path/"shot.mp4.flow-attempt.json").write_text('{"state":"submission_pending"}')
     result = video_module.GoogleFlowMCPVideo().execute(inputs)
-    assert not result.success and result.data["error_code"] == "existing_attempt" and len(seen) == 1
+    assert not result.success and result.data["error_code"] == "existing_attempt" and len(seen) == 2
 
 
 def test_selector_resolves_configured_flow_model_without_generation(monkeypatch):

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from tools._google_flow_mcp import provider as provider_module
 from tools.audio import google_flow_mcp_music as music_module
 from tools.audio.google_flow_mcp_music import GoogleFlowMCPMusic
@@ -96,7 +98,8 @@ def test_generation_submit_selector_requires_visible_enabled_control():
     assert provider_module.select_generation_submit(snapshot) == "submit"
 
 
-def test_run_generation_types_then_clicks_with_acknowledgement(monkeypatch, tmp_path):
+@pytest.mark.parametrize("budget", [None, 10])
+def test_run_generation_types_then_clicks_with_acknowledgement(monkeypatch, tmp_path, budget):
     calls = []
 
     class FakeClient:
@@ -129,12 +132,14 @@ def test_run_generation_types_then_clicks_with_acknowledgement(monkeypatch, tmp_
         prompt="product\n  turntable",
         output_path=tmp_path / "shot.mp4",
         expected_media_type="video",
-        max_budget_credits=10,
+        max_budget_credits=budget,
         timeout_seconds=60,
         music=False,
     )
 
     names = [name for name, _ in calls]
+    approval_args = next(arguments for name, arguments in calls if name == "flow_confirm_paid_generation")
+    assert ("maxBudgetCredits" in approval_args) == (budget is not None)
     assert names.index("flow_type") < names.index("flow_confirm_paid_generation") < names.index("flow_click")
     typed_args = next(arguments for name, arguments in calls if name == "flow_type")
     clicked_args = next(arguments for name, arguments in calls if name == "flow_click")

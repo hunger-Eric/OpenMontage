@@ -22,6 +22,7 @@ htmlcov/
 
 # Pipeline outputs (regenerable — never commit large media)
 output/
+outputs/
 pipeline/
 tests/qa/output/
 
@@ -54,6 +55,8 @@ pexels_video_*.mp4
 
 # Scratch/debug scripts
 scratch/
+.tmp/
+.playwright-cli/
 
 # Internal docs (strategy, handoffs, playbooks — not shipped)
 internal/

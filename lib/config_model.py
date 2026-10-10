@@ -79,7 +79,7 @@ class GoogleFlowConfig(BaseModel):
 
     model: str = "Gemini Omni Flash"
     start_url: str = "https://labs.google/fx/tools/flow"
-    max_budget_credits: float = Field(default=10, gt=0)
+    max_budget_credits: Optional[float] = Field(default=None, gt=0)
 
 
 class OpenMontageConfig(BaseModel):
