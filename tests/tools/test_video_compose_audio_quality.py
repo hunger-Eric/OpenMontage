@@ -16,6 +16,28 @@ def _touch(path: Path) -> str:
     return str(path)
 
 
+def test_final_review_accepts_only_explicitly_planned_silent_output(tmp_path):
+    output = tmp_path / "silent.mp4"
+    subprocess.run([
+        "ffmpeg", "-y", "-f", "lavfi", "-i", "color=c=blue:s=320x240:d=1",
+        "-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo",
+        "-t", "1", "-c:v", "libx264", "-pix_fmt", "yuv420p",
+        "-c:a", "aac", str(output),
+    ], check=True, capture_output=True, timeout=30)
+    tool = VideoCompose()
+    edit = {"version": "1.0", "render_runtime": "ffmpeg", "cuts": []}
+    manifest = {"version": "1.0", "assets": []}
+    planned = tool._run_final_review(
+        output, edit_decisions=edit, asset_manifest=manifest,
+        proposal_packet={"production_plan": {"render_runtime": "ffmpeg", "music_source": {"source_type": "none"}}},
+    )
+    assert planned["status"] == "pass"
+    assert planned["checks"]["audio_spotcheck"]["unexpected_silence"] is False
+    unplanned = tool._run_final_review(output, edit_decisions=edit, asset_manifest=manifest)
+    assert unplanned["status"] == "revise"
+    assert unplanned["checks"]["audio_spotcheck"]["unexpected_silence"] is True
+
+
 def test_audio_asset_review_rejects_inaudible_music(tmp_path, monkeypatch):
     narration = _touch(tmp_path / "assets" / "audio" / "narration.wav")
     music = _touch(tmp_path / "assets" / "music" / "background.mp3")

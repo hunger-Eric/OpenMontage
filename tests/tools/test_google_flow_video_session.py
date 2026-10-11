@@ -181,6 +181,32 @@ def test_generation_persists_identity_and_duplicate_claim_blocks_payment(monkeyp
     assert not any(name == "flow_confirm_paid_generation" for name, _ in clients[-1].calls)
 
 
+def test_ack_timeout_keeps_preassigned_identity_and_reads_same_submission(monkeypatch, tmp_path):
+    client = FlowUI()
+    original = client.call_tool
+    identities = []
+    def call(name, arguments, **kwargs):
+        if name == "flow_click" and arguments.get("requireGenerationAcknowledgement"):
+            record = json.loads((tmp_path / "shot.mp4.flow-attempt.json").read_text())
+            assert record["generation_id"] == arguments["generationId"]
+            identities.append(arguments["generationId"])
+            raise GoogleFlowMCPError("acknowledgement timeout")
+        if name == "flow_generation_status" and identities:
+            assert arguments["generationId"] == identities[0]
+            return {"state": "queued", "jobId": "native-original-task", "source": "provider_operation"}
+        return original(name, arguments, **kwargs)
+    client.call_tool = call
+    monkeypatch.setattr(provider, "GoogleFlowMCPClient", lambda **kwargs: client)
+    with pytest.raises(GoogleFlowMCPError, match="acknowledgement timeout"):
+        provider.run_generation(url="https://flow.google.com/", prompt="a shot", output_path=tmp_path/"shot.mp4",
+                                expected_media_type="video", max_budget_credits=None, timeout_seconds=60,
+                                music=False, video_settings=dict(model="Omni 1.1 Flash", duration=6, aspect_ratio="9:16"))
+    record = json.loads((tmp_path/"shot.mp4.flow-attempt.json").read_text())
+    assert record["job_id"] == "native-original-task"
+    assert record["generation_status"]["state"] == "queued"
+    assert record["acknowledgement_timeout"] is True and len(identities) == 1
+
+
 def test_video_uses_local_model_homepage_budget_and_rejects_existing_attempt(monkeypatch, tmp_path):
     config = OpenMontageConfig.model_validate({"google_flow": {"model": "Omni 1.1 Flash"}})
     monkeypatch.setattr(video_module.OpenMontageConfig, "load", lambda: config)

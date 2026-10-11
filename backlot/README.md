@@ -5,6 +5,13 @@ lighting up, the script as a screenplay page, the scene plan as a filmstrip
 that fills in as assets generate, decisions, spend, and activity — all
 derived from what the pipeline already writes to `projects/<id>/`.
 
+Canonical `lib.checkpoint.init_project` calls automatically start the server and
+open the project's browser page, including continuation calls. Custom project
+roots remain quiet unless `open_board=True`; `open_board=False` explicitly opts
+out. An already initialized project can be reopened with the CLI below. Startup
+failure never prevents production, and the URL remains available for manual
+opening. The server binds only to this computer's loopback interface.
+
 ```bash
 python -m backlot open <project-id>   # start server if needed + open browser
 python -m backlot open                # library view (all projects)

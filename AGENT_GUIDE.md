@@ -169,7 +169,41 @@ This skill teaches you to run discovery, classify the user's setup, present capa
 
 **Skip onboarding** when the user arrives with a specific, actionable request (e.g., "Make a 60-second explainer about black holes"). Go directly to Rule Zero.
 
-## Reference Video Entry Point
+## Video Request Entry Point
+
+OpenMontage is the preferred business entrypoint for natural-language video
+requests, including Feishu requests that do not name a project or directory.
+The executing agent interprets the requested outcome and checks current registry
+capabilities; the Bridge does not classify video requests or choose providers.
+Resolve project commands and relative paths against this checkout, without
+changing the topic's trusted attachment identity or expanding its sandbox.
+
+- **Analysis only:** "break down this video", "analyze the camera work", or
+  "transcribe it" -> use the relevant registered analysis tools. Ground claims in
+  actual frames, scene timing and audio/transcript evidence. Report partial or
+  unavailable analysis honestly. Deliver the requested analysis without starting
+  a production pipeline, requesting a production concept approval, or generating
+  paid media.
+- **Reference-driven creation:** "analyze this and make something similar" ->
+  analyze the reference first using the workflow below, then select a production
+  pipeline. The analysis may proceed directly; production follows the user's
+  actual request and existing approvals.
+- **Source-footage editing:** "edit this footage" / "cut this into clips" ->
+  use `source_media_review` and the appropriate footage-led pipeline.
+- **New production:** "make a product promo" -> follow Rule Zero. Decide duration
+  and structure from the communication goal and available material; a provider's
+  single-clip duration is not the duration of the complete film.
+
+For Feishu, accept only Bridge-frozen inputs or the exact trusted media explicitly
+referenced in the same conversation. Keep analysis evidence and subsequent
+production linked to that source and reuse valid analysis and approved plans on
+continuation. Do not search another workspace for similar historical media. Return
+new local artifacts to Worker for registration and delivery; do not upload or send
+Feishu results from the business workflow. Explicit user workflow choices take
+precedence. Missing project access or capabilities must be reported as concrete
+blockers, not a request for the user to supply a local project directory.
+
+### Reference-driven analysis and creation
 
 When the user provides a **video URL or local video file as inspiration** — for example:
 
@@ -377,7 +411,7 @@ projects/<project-name>/
 At pipeline initialization, before any stage runs:
 
 1. **Initialize the workspace**: `python -c "from lib.checkpoint import init_project; init_project('<project-id>', title='<Title>', pipeline_type='<pipeline>')"` — creates the layout above and writes `project.json` (the marker the Backlot board reads).
-2. **Open the board**: run `python -m backlot open <project-id>`. This starts the Backlot server if needed and opens the user's browser at the project's live board. If the command fails, continue the production — the board is an observer, never a blocker. This is the agent's ONLY board duty; the board derives everything else from disk.
+2. **Automatic live board**: `init_project` starts Backlot if needed and opens the project's live board for canonical production workspaces, including reinitialization on task continuation. No separate open command is needed after initialization. For an already initialized project resumed without calling `init_project`, run `python -m backlot open <project-id>` once before continuing. Include the returned board URL in the first progress update so a Feishu user can reopen it. The URL is local to this computer, not a public or phone-accessible site. Alternate workspace roots stay quiet by default; `open_board=False` is the explicit opt-out. If the board fails, report its availability and continue production — it remains an observer, never a blocker, and derives progress from disk.
 
 All tools and agents must write outputs to these paths — **always pass an explicit `output_path` under `projects/<project-id>/`**. Assets written to the repo root, cwd, or temp dirs are invisible to the user's board and violate the workspace contract.
 

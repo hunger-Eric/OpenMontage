@@ -10,12 +10,14 @@ initialization and must continue the production even if it fails.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import subprocess
 import sys
 import time
 import urllib.request
 import webbrowser
+from pathlib import Path
 
 from backlot import DEFAULT_PORT
 
@@ -30,7 +32,7 @@ def _port() -> int:
 def _server_alive(port: int) -> bool:
     try:
         with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/health", timeout=1.5) as resp:
-            return resp.status == 200
+            return resp.status == 200 and json.load(resp) == {"ok": True, "app": "backlot"}
     except Exception:
         return False
 
@@ -42,10 +44,13 @@ def _spawn_server(port: int) -> None:
         "stdout": subprocess.DEVNULL,
         "stderr": subprocess.DEVNULL,
         "stdin": subprocess.DEVNULL,
+        "cwd": str(Path(__file__).resolve().parent.parent),
     }
     if os.name == "nt":
         kwargs["creationflags"] = (
-            subprocess.CREATE_NEW_PROCESS_GROUP | getattr(subprocess, "DETACHED_PROCESS", 0x00000008)
+            subprocess.CREATE_NEW_PROCESS_GROUP
+            | getattr(subprocess, "DETACHED_PROCESS", 0x00000008)
+            | getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
         )
     else:
         kwargs["start_new_session"] = True
@@ -72,9 +77,10 @@ def cmd_open(project_id: str | None) -> int:
     if project_id:
         url = f"http://127.0.0.1:{port}/p/{project_id}"
     try:
-        webbrowser.open(url)
-    except Exception:
-        pass
+        if not webbrowser.open(url):
+            print(f"backlot: browser did not open automatically — open {url}")
+    except Exception as exc:
+        print(f"backlot: browser did not open ({exc}) — open {url}")
     print(f"backlot: {url}")
     return 0
 

@@ -1,6 +1,78 @@
 # OpenMontage Current Project State
 
-Updated: 2026-10-11
+Updated: 2026-10-12
+
+## 2026-10-12 automatic local progress board
+
+- Canonical project initialization now starts/opens Backlot after saving the
+  project marker, including continuation initialization. Alternate roots stay
+  quiet by default; explicit opt-out and best-effort failure are supported.
+  Detached server startup uses the repository cwd, independent of Feishu's cwd.
+- Related observer/checkpoint checks passed 26 tests. A temporary-root real
+  cold-start check verified the health and project-state endpoints and an
+  `in_progress` checkpoint appearing in state; its browser call was captured.
+  The local 4750 server was separately started and the existing full-film board
+  opened using the normal browser CLI. No new video generation was submitted.
+- Feishu-intake automatic opening is not yet verified by a new real video task.
+  Existing projects without checkpoints retain their derived/degraded display;
+  historical stage completion was not fabricated.
+
+## 2026-10-12 complete B film, owner continuation and verified direct delivery
+
+- The user requested the complete existing B concept after sample acceptance.
+  Nine real model-generated shots, the existing Gemini 3.8 TTS Mandarin
+  narration and transcript-derived subtitles now form a 90-second 720p film.
+  Shots 01-06 were reused; 07-09 were generated serially through VideoSelector.
+  Shot 08 was repaired for an embedded black band and shot 09 for a literal
+  handbell icon; accepted sibling media remained unchanged.
+- Feishu production task `FEGF-A2H9` became UNKNOWN after its Worker turn was
+  interrupted. The existing shot-09 repair process subsequently completed the
+  same provider task and downloaded its result; no duplicate was submitted.
+  The owner continued local composition. An attempted artifact recovery task
+  `PB1T-F3FW` returned WAITING_INPUT because the locally produced final was not
+  on its recoverable-artifact list. Neither task was marked delivered.
+- VideoCompose preflight/preview/full decode, review of all 2,697 video frames
+  and byte-preserving finalize passed. The source-bound subtitle display-mode
+  compatibility error was fixed. The technical matte detector now requires
+  a near-black, nearly constant band, avoiding false positives on this film's
+  dark studio gradients; real matte regression tests still pass. Native
+  atmosphere was raised in the second mix. Related compose checks passed 19 tests.
+- Final: `projects/math-reference-8ecfa96821/renders/bell-curve-b-full-20261012.mp4`.
+  An authorized direct owner upload delivered it to the original Feishu topic
+  as message `om_x100b638fe280e0a0b3177a6dcc30f73`. Server message and downloaded
+  media readback matched 13,133,494 bytes and SHA-256
+  `b385a6a72c55e6473515cc24c3a9fe59b7544c551123a0a2bbd67dbb86377801`.
+- Authority: project `validation/full-film-20261012-acceptance.json`, canonical
+  render report and final-review artifacts. This proves the delivered film;
+  automatic Worker continuation/recovery remains unresolved. Generated
+  apparatuses are illustrative and differ between shots. Human audio listening
+  and reconstruction of legacy upstream pipeline checkpoints were not performed.
+
+## 2026-10-11 actual Feishu sample delivery after native acknowledgement repair
+
+- Actual user reply in the original Feishu topic started task `NGN3-NJPD`.
+  The production Worker generated a fresh v2 sample through `VideoSelector`,
+  retaining Omni 1.1 Flash, 10 seconds, 16:9 and 720p. The prior unknown v1
+  attempt was preserved without resubmission.
+- The Flow bridge now recognizes native batchexecute submission operations;
+  the provider persists generation identity before clicking and queries that
+  same identity after an acknowledgement error. The real v2 provider task
+  `be3f59e9-aa28-4555-977d-cd981289f9bf` reported scheduled/pending/success
+  through active read-only native status RPCs. Full video decode and visual
+  review passed.
+- The scoped Bridge candidate was deployed with explicit user approval.
+  Credential-provider timeouts retain bounded retries instead of being treated
+  as permanent credential failures; safe diagnostics were added. The exact
+  historical CREDENTIAL failure cause was not recovered.
+- Task state is `DELIVERED`. Video message
+  `om_x100b638f6a5c48acb3259355c24d8d6` was read back from Feishu and downloaded:
+  2,452,147 bytes, SHA-256
+  `7ff00f941fee553b040f8506943ff0e8a2330ffdfa6cca65afc2d0d7aa80ac75`,
+  matching the new local sample. Original progress-card bodies were checked
+  during execution and the final closed card matched server content.
+- Authority: `projects/math-reference-8ecfa96821/validation/` v2 full-chain
+  acceptance and readbacks. This proves the new sample chain; the full original
+  90-second production and audio listening remain unverified.
 
 ## 2026-10-11 live Feishu-task Flow sample and active generation status
 

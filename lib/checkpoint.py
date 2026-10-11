@@ -204,6 +204,7 @@ def init_project(
     pipeline_dir: Optional[Path] = None,
     style_playbook: Optional[str] = None,
     execution_binding: Optional[dict[str, str]] = None,
+    open_board: Optional[bool] = None,
 ) -> Path:
     """Initialize a project workspace with the canonical layout + marker file.
 
@@ -212,6 +213,8 @@ def init_project(
     identity and stage rail before the first checkpoint exists.
 
     Idempotent: re-running preserves the original created_at and merges fields.
+    Canonical production projects automatically start/open their live board.
+    Alternate roots are quiet unless open_board=True; False opts out explicitly.
     Returns the project directory.
     """
     _validate_style_playbook(style_playbook)
@@ -257,6 +260,24 @@ def init_project(
 
     with open(marker_path, "w", encoding="utf-8") as f:
         json.dump(marker, f, indent=2)
+
+    if open_board is True or (
+        open_board is None and Path(base).resolve() == PROJECTS_DIR.resolve()
+    ):
+        try:
+            from backlot.__main__ import cmd_open
+
+            if cmd_open(project_id) != 0:
+                import logging
+                logging.getLogger(__name__).warning(
+                    "Backlot unavailable for %s; production continues", project_id
+                )
+        except Exception:
+            import logging
+            logging.getLogger(__name__).warning(
+                "Could not open Backlot for %s; production continues", project_id,
+                exc_info=True,
+            )
 
     return project_dir
 

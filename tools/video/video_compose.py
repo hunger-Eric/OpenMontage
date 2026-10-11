@@ -2705,6 +2705,17 @@ class VideoCompose(BaseTool):
         issues.extend(visual_spotcheck.get("issues", []))
 
         # --- 3. Audio spotcheck ---
+        # The FFmpeg concat path inserts a silent track for stream consistency.
+        # Do not treat that track as missing audio for an explicitly silent plan.
+        planned_silent = (
+            ((proposal_packet or {}).get("production_plan") or {})
+            .get("music_source", {}).get("source_type") == "none"
+            and not (edit_decisions or {}).get("audio")
+            and not any(
+                asset.get("type") in {"audio", "narration", "music", "sfx"}
+                for asset in (asset_manifest or {}).get("assets", [])
+            )
+        )
         audio_spotcheck: dict[str, Any] = {
             "narration_present": False,
             "music_present": False,
@@ -2748,7 +2759,7 @@ class VideoCompose(BaseTool):
                             pass
 
                 if mean_vol is not None:
-                    if mean_vol < -60:
+                    if mean_vol < -60 and not planned_silent:
                         audio_spotcheck["unexpected_silence"] = True
                         audio_spotcheck["issues"].append(
                             f"Mean volume {mean_vol:.1f} dB — effectively silent"
@@ -3158,7 +3169,9 @@ class VideoCompose(BaseTool):
 
             def dark_uniform(box: tuple[int, int, int, int]) -> bool:
                 stat = ImageStat.Stat(image.crop(box))
-                return max(stat.mean) <= 20 and max(stat.stddev) <= 8
+                # Encoded matte bars are nearly constant; a dark studio
+                # gradient is image content, even when its brightness is low.
+                return max(stat.mean) <= 3 and max(stat.stddev) <= 1
 
             left = 0
             for x in range(1, max_x + 1):
@@ -3400,6 +3413,9 @@ class VideoCompose(BaseTool):
         # Layer 2: edit_decisions subtitle style
         if edit_decisions:
             ed_style = edit_decisions.get("subtitles", {}).get("style", {})
+            # Schema display modes (e.g. "sentence") are not font mappings.
+            if not isinstance(ed_style, dict):
+                ed_style = {}
             for k, v in ed_style.items():
                 if v is not None:
                     resolved[k] = v

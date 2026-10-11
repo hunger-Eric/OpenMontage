@@ -8,6 +8,7 @@ import re
 import shutil
 import subprocess
 import time
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -269,17 +270,30 @@ def run_generation(
         )
         if video_settings is not None:
             claim = json.loads(attempt_path.read_text(encoding="utf-8"))
-            claim.update(state="submission_pending", generation_status={"state": "unknown", "source": "generation_click_invoked"})
+            claim.update(state="submission_pending", generation_id=str(uuid.uuid4()), generation_status={"state": "unknown", "source": "generation_click_invoked"})
             attempt_path.write_text(json.dumps(claim, ensure_ascii=False), encoding="utf-8")
-        submitted = client.call_tool(
-            "flow_click",
-            {
-                "ref": submit_ref,
-                "requireGenerationAcknowledgement": True,
-                "acknowledgementTimeoutMs": 30_000,
-            },
-            timeout_seconds=45,
-        )
+        click_args = {
+            "ref": submit_ref,
+            "requireGenerationAcknowledgement": True,
+            "acknowledgementTimeoutMs": 30_000,
+        }
+        if video_settings is not None:
+            click_args["generationId"] = claim["generation_id"]
+        try:
+            submitted = client.call_tool(
+                "flow_click", click_args, timeout_seconds=45,
+            )
+        except GoogleFlowMCPError:
+            if video_settings is not None:
+                # Observe the original submission before closing its MCP session.
+                # An acknowledgement timeout never authorizes another click.
+                try:
+                    status = client.call_tool("flow_generation_status", {"generationId": claim["generation_id"]}, timeout_seconds=30)
+                    claim.update(generation_status=status, job_id=status.get("jobId"), acknowledgement_timeout=True)
+                    attempt_path.write_text(json.dumps(claim, ensure_ascii=False), encoding="utf-8")
+                except GoogleFlowMCPError:
+                    pass
+            raise
         if submitted.get("submissionAcknowledged") is not True:
             raise GoogleFlowMCPError(
                 "Google Flow did not acknowledge the generation submission"
@@ -288,6 +302,7 @@ def run_generation(
             current_receipt = json.loads(attempt_path.read_text(encoding="utf-8"))
             current_receipt.update(state="submitted", submitted=submitted,
                                    generation_id=submitted.get("generationId"),
+                                   job_id=submitted.get("jobId"),
                                    project_url=opened.get("url"), settings=settings_receipt)
             attempt_path.write_text(json.dumps(current_receipt, ensure_ascii=False), encoding="utf-8")
         waited = wait_for_video_generation(
