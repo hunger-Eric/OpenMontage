@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import time
@@ -52,6 +53,9 @@ def select_text_input(snapshot: dict[str, Any], *, music: bool) -> str:
         item
         for item in snapshot.get("interactables", [])
         if isinstance(item, dict) and item.get("visible") and not item.get("disabled")
+        and (item.get("contentEditable") is True
+             or item.get("tag") in {"INPUT", "TEXTAREA"}
+             or item.get("role") == "textbox")
     ]
     if music:
         preferred = [
@@ -107,18 +111,24 @@ def wait_for_text_input(
 
 
 def select_generation_submit(snapshot: dict[str, Any]) -> str:
+    candidates = []
     for item in snapshot.get("interactables", []):
         if not isinstance(item, dict) or not item.get("visible") or item.get("disabled"):
             continue
-        label = " ".join(
-            str(item.get(key) or "") for key in ("text", "ariaLabel")
-        ).strip().lower()
+        if item.get("contentEditable") or not (
+            item.get("tag") == "BUTTON" or item.get("role") == "button"
+            or item.get("type") == "submit"
+        ):
+            continue
         is_submit = item.get("type") == "submit" or any(
-            marker in label
-            for marker in ("开始生成", "generate", "create", "arrow_forward")
+            re.fullmatch(r"开始生成|生成|generate|create|arrow_forward|send message|发送消息",
+                         str(item.get(key) or "").strip(), re.I)
+            for key in ("text", "ariaLabel")
         )
         if is_submit and item.get("ref"):
-            return str(item["ref"])
+            candidates.append(str(item["ref"]))
+    if len(candidates) == 1:
+        return candidates[0]
     raise GoogleFlowMCPError(
         "Google Flow did not expose an enabled generation submit control after typing the prompt"
     )
@@ -144,6 +154,39 @@ def wait_for_generation_submit(
     )
 
 
+def wait_for_video_generation(client, *, generation_id, timeout_seconds, attempt_path=None):
+    """Query evidence for this submission, retaining each observation for recovery."""
+    if not generation_id:
+        raise GoogleFlowMCPError("Flow acknowledged a click without a generation identity; status unknown, reconcile before any resubmission")
+    deadline = time.monotonic() + timeout_seconds
+    last_status = {"state": "unknown", "source": "not_observed"}
+    while time.monotonic() < deadline:
+        try:
+            last_status = client.call_tool(
+                "flow_generation_status", {"generationId": generation_id}, timeout_seconds=30,
+            )
+        except GoogleFlowMCPError as exc:
+            last_status = {"state": "unknown", "source": "status_query_error", "error": str(exc)}
+        if attempt_path:
+            receipt = json.loads(attempt_path.read_text(encoding="utf-8"))
+            receipt["generation_status"] = last_status
+            receipt["generation_id"] = generation_id
+            if last_status.get("jobId"):
+                receipt["job_id"] = last_status["jobId"]
+            receipt["status_checked_at"] = time.time()
+            # Observation failure is not a provider failure and never licenses resubmission.
+            receipt["state"] = "provider_failed" if last_status.get("state") == "failed" else "submitted"
+            attempt_path.write_text(json.dumps(receipt, ensure_ascii=False), encoding="utf-8")
+            with attempt_path.with_suffix(".status.jsonl").open("a", encoding="utf-8") as stream:
+                stream.write(json.dumps({"checked_at": time.time(), **last_status}, ensure_ascii=False) + "\n")
+        if last_status.get("state") == "failed":
+            raise GoogleFlowMCPError("Flow provider reported terminal failure for this generation: " + json.dumps(last_status))
+        if last_status.get("state") == "succeeded" and last_status.get("assetUrl"):
+            return {"done": True, **last_status}
+        time.sleep(min(2, max(0, deadline - time.monotonic())))
+    raise GoogleFlowMCPError("Flow observation deadline reached; do not resubmit. Last generation status: " + json.dumps(last_status))
+
+
 def run_generation(
     *,
     url: str,
@@ -157,6 +200,23 @@ def run_generation(
     video_settings: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     with GoogleFlowMCPClient(timeout_seconds=timeout_seconds + 60) as client:
+        attempt_path = output_path.with_suffix(output_path.suffix + ".flow-attempt.json")
+        def preparation(stage, **updates):
+            if video_settings is None:
+                return
+            receipt = json.loads(attempt_path.read_text(encoding="utf-8"))
+            receipt.update(updates, preparation_stage=stage,
+                           generation_status={"state": "not_started", "source": "local_handler_before_submit", "stage": stage})
+            attempt_path.write_text(json.dumps(receipt, ensure_ascii=False), encoding="utf-8")
+        if video_settings is not None:
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                with attempt_path.open("x", encoding="utf-8") as stream:
+                    json.dump({"state": "preparing", "project_url": url, "output_path": str(output_path),
+                               "requested_settings": video_settings,
+                               "generation_status": {"state": "not_started", "source": "local_handler_before_submit", "stage": "opening_project"}}, stream)
+            except FileExistsError as exc:
+                raise GoogleFlowMCPError("Flow attempt already exists; reconcile it before submitting again") from exc
         opened = client.call_tool("flow_open", {"url": url}, timeout_seconds=60)
         settings_receipt = None
         if video_settings is not None:
@@ -165,6 +225,7 @@ def run_generation(
             project_url = resolve_video_project(client)
             settings_receipt = configure_video_settings(client, project_url, **video_settings)
             opened = {**opened, "url": project_url}
+            preparation("settings_verified", project_url=project_url, settings=settings_receipt)
         uploads = []
         for reference_path in reference_paths or []:
             if not reference_path.is_file():
@@ -181,10 +242,13 @@ def run_generation(
             uploads.append(upload)
         input_ref = wait_for_text_input(client, music=music)
         composer_text = " ".join(prompt.split())
+        preparation("typing_prompt")
         typed = client.call_tool(
             "flow_type",
             {"ref": input_ref, "text": composer_text, "clearFirst": True, "submit": False},
-            timeout_seconds=60,
+            # flow_type uses per-character keyboard events. Long production
+            # prompts need time for those events plus browser scheduling.
+            timeout_seconds=max(60, int(30 + len(composer_text) * 0.05)),
         )
         if typed.get("verified") is not True:
             raise GoogleFlowMCPError(
@@ -193,15 +257,7 @@ def run_generation(
         submit_ref = wait_for_generation_submit(client)
         # A durable claim precedes any credit confirmation/submission. Unknown
         # outcomes retain this identity and cannot silently submit a second job.
-        attempt_path = output_path.with_suffix(output_path.suffix + ".flow-attempt.json")
-        if video_settings is not None:
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            try:
-                with attempt_path.open("x", encoding="utf-8") as f:
-                    json.dump({"state": "submission_pending", "project_url": opened.get("url"),
-                               "settings": settings_receipt, "output_path": str(output_path)}, f)
-            except FileExistsError as exc:
-                raise GoogleFlowMCPError("Flow attempt already exists; reconcile it before submitting again") from exc
+        preparation("prompt_verified", typed=typed)
         approval = client.call_tool(
             "flow_confirm_paid_generation",
             {
@@ -211,6 +267,10 @@ def run_generation(
             },
             timeout_seconds=30,
         )
+        if video_settings is not None:
+            claim = json.loads(attempt_path.read_text(encoding="utf-8"))
+            claim.update(state="submission_pending", generation_status={"state": "unknown", "source": "generation_click_invoked"})
+            attempt_path.write_text(json.dumps(claim, ensure_ascii=False), encoding="utf-8")
         submitted = client.call_tool(
             "flow_click",
             {
@@ -225,9 +285,15 @@ def run_generation(
                 "Google Flow did not acknowledge the generation submission"
             )
         if video_settings is not None:
-            attempt_path.write_text(json.dumps({"state": "submitted", "submitted": submitted,
-                                    "project_url": opened.get("url"), "settings": settings_receipt}), encoding="utf-8")
-        waited = client.call_tool(
+            current_receipt = json.loads(attempt_path.read_text(encoding="utf-8"))
+            current_receipt.update(state="submitted", submitted=submitted,
+                                   generation_id=submitted.get("generationId"),
+                                   project_url=opened.get("url"), settings=settings_receipt)
+            attempt_path.write_text(json.dumps(current_receipt, ensure_ascii=False), encoding="utf-8")
+        waited = wait_for_video_generation(
+            client, generation_id=submitted.get("generationId"), timeout_seconds=timeout_seconds,
+            attempt_path=attempt_path if video_settings is not None else None,
+        ) if expected_media_type == "video" else client.call_tool(
             "flow_wait",
             {
                 "forMedia": True,
@@ -249,9 +315,9 @@ def run_generation(
             timeout_seconds=300,
         )
         if video_settings is not None:
-            attempt_path.write_text(json.dumps({"state": "downloaded", "wait": waited,
-                                    "download": downloaded, "project_url": opened.get("url"),
-                                    "settings": settings_receipt}), encoding="utf-8")
+            current_receipt = json.loads(attempt_path.read_text(encoding="utf-8"))
+            current_receipt.update(state="downloaded", wait=waited, download=downloaded)
+            attempt_path.write_text(json.dumps(current_receipt, ensure_ascii=False), encoding="utf-8")
         return {
             "opened": opened,
             "uploads": uploads,

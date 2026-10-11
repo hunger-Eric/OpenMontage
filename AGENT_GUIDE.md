@@ -53,6 +53,20 @@ necessary and verifies ordinary video settings (4/6/8/10 seconds,
 acknowledgement after the separate generation click. An existing output-owned
 `.flow-attempt.json` requires reconciliation, never another submission.
 Run Flow shots sequentially against its shared browser profile.
+After submission, query `flow_generation_status` with the returned generation
+identity. Persist observations in the attempt record and status timeline;
+report only observed queue/processing/terminal states and provider progress.
+Preparation before the generation click is explicitly `not_started`; a fresh
+MCP session's no-submission state describes that session, not a historical
+provider task. Submission invoked without evidence remains `unknown`.
+After an MCP restart, pass the saved generation identity, provider `job_id` and
+original project URL to `flow_generation_status`; it reads that named provider
+record and never submits again. Flow native `scheduled`/`pending` means
+`queued` (waiting/processing); its interface does not expose a reliable separate
+running phase or percentage. Report the provider label alongside the state.
+Missing evidence or an observation timeout means status unknown, not failure
+or permission to resubmit. Provider success still requires downloading and
+validating the actual video before delivery.
 Use the bridge's unified `flow_upload` for all platform-supported materials,
 including file-input and native media-picker surfaces. User-authorized reference
 files may acknowledge the upload-rights notice for that action. The adapter

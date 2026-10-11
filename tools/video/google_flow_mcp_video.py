@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+import json
 from pathlib import Path
 from typing import Any
 
@@ -199,6 +200,14 @@ class GoogleFlowMCPVideo(BaseTool):
             )
             probe = probe_media(output_path, "video")
         except Exception as exc:
+            attempt_path = output_path.with_suffix(output_path.suffix + ".flow-attempt.json")
+            generation_status = None
+            attempt_record = {}
+            try:
+                attempt_record = json.loads(attempt_path.read_text(encoding="utf-8"))
+                generation_status = attempt_record.get("generation_status")
+            except (OSError, ValueError):
+                pass
             if output_path.exists():
                 try:
                     output_path.unlink()
@@ -211,6 +220,10 @@ class GoogleFlowMCPVideo(BaseTool):
                     "provider": "google_flow",
                     "transport": "mcp_stdio_browser",
                     "fallback_used": False,
+                    "generation_status": generation_status,
+                    "generation_id": attempt_record.get("generation_id"),
+                    "job_id": attempt_record.get("job_id"),
+                    "attempt_record": str(attempt_path) if attempt_path.exists() else None,
                 },
             )
 
@@ -222,6 +235,8 @@ class GoogleFlowMCPVideo(BaseTool):
             "model": model,
             "project_url": receipt["opened"].get("url", project_url),
             "job_id": waited.get("jobId"),
+            "generation_id": waited.get("generationId"),
+            "generation_status": {key: waited[key] for key in ("state", "source", "operations", "checkedAt") if key in waited},
             "output": str(output_path),
             "output_path": str(output_path),
             "sha256": downloaded.get("sha256"),

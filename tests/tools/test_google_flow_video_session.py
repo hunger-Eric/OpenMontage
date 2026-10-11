@@ -69,13 +69,16 @@ class FlowUI:
             elif ref == "agent-toggle": self.tools = True
             elif ref == "tools-gallery": pytest.fail("Tools gallery is not a video mode switch")
             elif ref == "settings": self.settings = True
-            elif ref == "submit": return {"submissionAcknowledged": True}
+            elif ref == "submit": return {"submissionAcknowledged": True, "generationId": "test-generation"}
             else:
                 if ref == "aspect": self.aspect = "9:16"
                 if ref == "duration": self.duration = 6
                 self.settings = False
         if name == "flow_wait":
             return {"assetUrl": "https://example.invalid/shot.mp4", "jobId": "job-1"}
+        if name == "flow_generation_status":
+            assert arguments["generationId"] == "test-generation"
+            return {"state": "succeeded", "assetUrl": "https://example.invalid/shot.mp4", "jobId": "job-1"}
         return {}
 
 
@@ -151,8 +154,16 @@ def test_unverified_reference_upload_stops_before_prompt_and_generation(monkeypa
 
 def test_generation_persists_identity_and_duplicate_claim_blocks_payment(monkeypatch, tmp_path):
     clients = []
+    observed_states = []
     def client_factory(**kwargs):
         client = FlowUI()
+        original_call = client.call_tool
+        def call(name, arguments, **call_kwargs):
+            if name in {"flow_open", "flow_type", "flow_confirm_paid_generation"} or (name == "flow_click" and arguments.get("requireGenerationAcknowledgement")):
+                record = json.loads((tmp_path / "shot.mp4.flow-attempt.json").read_text())
+                observed_states.append((name, record["generation_status"]["state"]))
+            return original_call(name, arguments, **call_kwargs)
+        client.call_tool = call
         clients.append(client)
         return client
     monkeypatch.setattr(provider, "GoogleFlowMCPClient", client_factory)
@@ -163,6 +174,8 @@ def test_generation_persists_identity_and_duplicate_claim_blocks_payment(monkeyp
     assert receipt["opened"]["url"] == "https://flow.google.com/project/test"
     record = json.loads((tmp_path/"shot.mp4.flow-attempt.json").read_text())
     assert record["wait"]["jobId"] == "job-1" and record["settings"]["verified"]
+    assert observed_states == [("flow_open", "not_started"), ("flow_type", "not_started"),
+                               ("flow_confirm_paid_generation", "not_started"), ("flow_click", "unknown")]
     with pytest.raises(GoogleFlowMCPError, match="already exists"):
         provider.run_generation(**kwargs)
     assert not any(name == "flow_confirm_paid_generation" for name, _ in clients[-1].calls)

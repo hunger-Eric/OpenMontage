@@ -2,6 +2,35 @@
 
 Updated: 2026-10-11
 
+## 2026-10-11 live Feishu-task Flow sample and active generation status
+
+- The original `math-reference-8ecfa96821` sample was exercised through
+  `VideoSelector` → `google_flow_mcp_video` → the configured stdio MCP bridge,
+  retaining Omni 1.1 Flash, 10 seconds, 16:9 and 720p. The new validation sample
+  was generated once, downloaded and fully decoded; visual contact-sheet review
+  confirmed falling/moving balls rather than a still image.
+- The original never-submitted sixth shot supplied the live status validation:
+  one submission, one provider media ID, native `scheduled` → `pending` →
+  `success`, with active read-only status RPC responses returning HTTP 200.
+  The native interface groups pending processing under `queued`; no invented
+  percent or running-phase distinction is reported.
+- Preparation now records `not_started` with its exact stage; submitting without
+  readable evidence is `unknown`. Observations and provider identity persist in
+  the output-owned attempt and status timeline. A fresh MCP session can query
+  the original named task using saved generation ID, job ID and project URL.
+- Live verification also exposed canvas preview pages and escaped signed media
+  URLs. The bridge now binds both thumbnail address formats to the named task,
+  observes its video asset, decodes complete signed URLs and rejects HTML bytes
+  as video. Shot 06 was downloaded through read-only recovery after stopping
+  its old observer; that completed generation was never resubmitted. Full decode
+  and visual review passed. An additional fresh generation after the final URI
+  repair was not performed; the same completed provider task and local browser
+  regression cover that repair.
+- Authority: this task's `projects/math-reference-8ecfa96821/validation/`, sample
+  MP4 and shot-06 attempt/status timeline. This is provider-path validation using
+  the existing Feishu task; a new Feishu intake/delivery round and the complete
+  90-second production were not validated here.
+
 ## 2026-10-11 Flow mode compatibility and informational costs
 
 - Flow video configuration supports the normal composer and expanded/collapsed

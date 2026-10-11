@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import json
 
 import pytest
 
@@ -48,6 +49,7 @@ def test_wait_for_text_input_tolerates_delayed_flow_composer(monkeypatch):
                     {
                         "ref": "el_39",
                         "tag": "DIV",
+                        "contentEditable": True,
                         "text": "您希望创作什么？",
                         "visible": True,
                         "disabled": False,
@@ -67,7 +69,7 @@ def test_video_prompt_selector_ignores_project_title_and_search():
         "interactables": [
             {"ref": "el_title", "tag": "INPUT", "ariaLabel": "可编辑文本", "visible": True, "disabled": False},
             {"ref": "el_search", "tag": "INPUT", "ariaLabel": "搜索", "visible": True, "disabled": False},
-            {"ref": "el_prompt", "tag": "DIV", "text": "您希望创作什么？", "visible": True, "disabled": False},
+            {"ref": "el_prompt", "tag": "DIV", "contentEditable": True, "text": "您希望创作什么？", "visible": True, "disabled": False},
         ]
     }
 
@@ -98,9 +100,80 @@ def test_generation_submit_selector_requires_visible_enabled_control():
     assert provider_module.select_generation_submit(snapshot) == "submit"
 
 
+def test_generation_submit_ignores_create_prompt_and_result_actions():
+    snapshot = {"interactables": [
+        {"ref": "prompt", "tag": "DIV", "contentEditable": True,
+         "text": "Create a ten-second original shot. No subtitles. Generation prompt.", "visible": True},
+        {"ref": "card", "tag": "BUTTON", "text": "Create a ten-second original shot", "visible": True},
+        {"ref": "new", "tag": "BUTTON", "text": "Create project", "visible": True},
+        {"ref": "submit", "tag": "BUTTON", "type": "submit", "text": "arrow_forward",
+         "ariaLabel": "开始生成", "visible": True},
+    ]}
+    assert provider_module.select_generation_submit(snapshot) == "submit"
+
+
+def test_prompt_selector_ignores_previous_generation_prompt_card():
+    snapshot = {"interactables": [
+        {"ref": "card", "tag": "BUTTON", "text": "Create a video. Generation prompt.", "visible": True},
+        {"ref": "title", "tag": "INPUT", "ariaLabel": "可编辑文本", "visible": True},
+        {"ref": "editor", "tag": "DIV", "contentEditable": True, "visible": True},
+    ]}
+    assert provider_module.select_text_input(snapshot, music=False) == "editor"
+
+
+def test_video_status_queries_same_generation_and_persists_progress(monkeypatch, tmp_path):
+    states = iter([{"state": "queued"}, {"state": "running", "operations": [{"id": "job", "progress": 42}]},
+                   {"state": "succeeded", "assetUrl": "https://example.invalid/shot.mp4"}])
+    queries = []
+    class Client:
+        def call_tool(self, name, arguments, **kwargs):
+            assert name == "flow_generation_status"
+            queries.append(arguments)
+            return next(states)
+    monkeypatch.setattr(provider_module.time, "sleep", lambda _: None)
+    attempt = tmp_path / "shot.mp4.flow-attempt.json"
+    attempt.write_text('{"state":"submitted","submitted":{"generationId":"one"}}')
+    result = provider_module.wait_for_video_generation(Client(), generation_id="one", timeout_seconds=10, attempt_path=attempt)
+    assert result["done"]
+    assert queries == [{"generationId": "one"}] * 3
+    rows = [json.loads(line) for line in attempt.with_suffix(".status.jsonl").read_text().splitlines()]
+    assert [row["state"] for row in rows] == ["queued", "running", "succeeded"]
+    assert json.loads(attempt.read_text())["submitted"]["generationId"] == "one"
+
+
+def test_video_provider_failure_stops_without_resubmission(monkeypatch, tmp_path):
+    class Client:
+        def call_tool(self, name, arguments, **kwargs):
+            assert name == "flow_generation_status"
+            return {"state": "failed", "source": "provider_operation", "operations": [{"id": "one", "errorCode": "7"}]}
+    attempt = tmp_path / "shot.mp4.flow-attempt.json"
+    attempt.write_text('{"state":"submitted"}')
+    with pytest.raises(provider_module.GoogleFlowMCPError, match="terminal failure"):
+        provider_module.wait_for_video_generation(Client(), generation_id="one", timeout_seconds=10, attempt_path=attempt)
+    assert json.loads(attempt.read_text())["state"] == "provider_failed"
+
+
+def test_video_status_timeout_preserves_unknown_instead_of_claiming_failure(monkeypatch, tmp_path):
+    ticks = iter([0, 0, 2, 2])
+    monkeypatch.setattr(provider_module.time, "monotonic", lambda: next(ticks))
+    monkeypatch.setattr(provider_module.time, "sleep", lambda _: None)
+    class Client:
+        def call_tool(self, name, arguments, **kwargs):
+            assert name == "flow_generation_status"
+            return {"state": "unknown", "source": "no_bound_operation"}
+    attempt = tmp_path / "shot.mp4.flow-attempt.json"
+    attempt.write_text('{"state":"submitted"}')
+    with pytest.raises(provider_module.GoogleFlowMCPError, match="observation deadline"):
+        provider_module.wait_for_video_generation(Client(), generation_id="one", timeout_seconds=1, attempt_path=attempt)
+    receipt = json.loads(attempt.read_text())
+    assert receipt["state"] == "submitted" and receipt["generation_status"]["state"] == "unknown"
+
+
 @pytest.mark.parametrize("budget", [None, 10])
-def test_run_generation_types_then_clicks_with_acknowledgement(monkeypatch, tmp_path, budget):
+@pytest.mark.parametrize("prompt", ["product\n  turntable", "Create " + "x" * 1838])
+def test_run_generation_types_then_clicks_with_acknowledgement(monkeypatch, tmp_path, budget, prompt):
     calls = []
+    typing_timeouts = []
 
     class FakeClient:
         def __init__(self, **_kwargs):
@@ -119,9 +192,13 @@ def test_run_generation_types_then_clicks_with_acknowledgement(monkeypatch, tmp_
                     return {"interactables": [{"ref": "submit", "type": "submit", "visible": True, "disabled": False}]}
                 return {"interactables": [{"ref": "prompt", "contentEditable": True, "visible": True, "disabled": False}]}
             if name == "flow_type":
+                typing_timeouts.append(timeout_seconds)
                 return {"verified": True}
             if name == "flow_click":
-                return {"submissionAcknowledged": True}
+                return {"submissionAcknowledged": True, "generationId": "test-generation"}
+            if name == "flow_generation_status":
+                assert arguments["generationId"] == "test-generation"
+                return {"state": "succeeded", "assetUrl": "https://example.invalid/video.mp4"}
             if name == "flow_wait":
                 return {"assetUrl": "https://example.invalid/video.mp4"}
             return {"ok": True}
@@ -129,7 +206,7 @@ def test_run_generation_types_then_clicks_with_acknowledgement(monkeypatch, tmp_
     monkeypatch.setattr(provider_module, "GoogleFlowMCPClient", FakeClient)
     receipt = provider_module.run_generation(
         url="https://flow.google.com/project/example",
-        prompt="product\n  turntable",
+        prompt=prompt,
         output_path=tmp_path / "shot.mp4",
         expected_media_type="video",
         max_budget_credits=budget,
@@ -144,7 +221,12 @@ def test_run_generation_types_then_clicks_with_acknowledgement(monkeypatch, tmp_
     typed_args = next(arguments for name, arguments in calls if name == "flow_type")
     clicked_args = next(arguments for name, arguments in calls if name == "flow_click")
     assert typed_args["submit"] is False
-    assert typed_args["text"] == "product turntable"
+    assert typed_args["text"] == " ".join(prompt.split())
+    if len(prompt) > 1800:
+        # The actual production prompt took ~57s in a local browser alone;
+        # retain headroom for MCP scheduling instead of a fixed 60s deadline.
+        assert typing_timeouts[0] >= 90
+    assert names.count("flow_click") == 1
     assert clicked_args["requireGenerationAcknowledgement"] is True
     assert receipt["submitted"]["submissionAcknowledged"] is True
 
@@ -257,6 +339,20 @@ def test_google_flow_video_returns_mcp_and_probe_receipts(monkeypatch, tmp_path)
     assert result.data["transport"] == "mcp_stdio_browser"
     assert result.data["codec"] == "h264"
     assert result.data["fallback_used"] is False
+
+
+def test_video_error_returns_persisted_generation_status(monkeypatch, tmp_path):
+    output_path = tmp_path / "shot.mp4"
+    monkeypatch.setattr(video_module, "provider_status", lambda: ToolStatus.AVAILABLE)
+    def failed_generation(**kwargs):
+        record = output_path.with_suffix(".mp4.flow-attempt.json")
+        record.write_text(json.dumps({"state": "provider_failed", "generation_status": {"state": "failed", "source": "provider_operation"}}))
+        raise provider_module.GoogleFlowMCPError("provider terminal failure")
+    monkeypatch.setattr(video_module, "run_generation", failed_generation)
+    result = GoogleFlowMCPVideo().execute({"prompt": "a shot", "output_path": str(output_path), "confirm_paid_generation": True})
+    assert not result.success
+    assert result.data["generation_status"]["state"] == "failed"
+    assert Path(result.data["attempt_record"]).exists()
 
 
 def test_google_flow_video_passes_reference_ingredients(monkeypatch, tmp_path):
