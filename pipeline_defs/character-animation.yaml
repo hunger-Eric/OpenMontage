@@ -87,7 +87,7 @@ stages:
     review_focus:
       - Concepts are differentiated and not a carbon copy of any reference
       - Character count, action complexity, and reuse strategy are explicit
-      - Render runtime selection presents Remotion and HyperFrames when both are available
+      - New productions use Remotion after availability check; retain only an explicit historical or user-requested runtime
       - Motion requirement is preserved; FFmpeg-only fallback is not proposed for character acting
       - Sample-first plan is included before full production
     success_criteria:

@@ -1,7 +1,8 @@
 # HyperFrames Skill (Layer 2)
 
-This is the **OpenMontage-specific** guide to HyperFrames. It explains when
-OpenMontage pipelines should choose HyperFrames over Remotion, how OpenMontage
+This is the **OpenMontage-specific** guide to HyperFrames. It explains how an
+existing locked or explicitly requested HyperFrames path works alongside the
+Remotion default, how OpenMontage
 artifacts map to HyperFrames project files, and how the compose stage drives
 the HyperFrames CLI.
 
@@ -26,7 +27,7 @@ This file teaches the bridge between the two.
 
 ---
 
-## When OpenMontage should pick HyperFrames (vs Remotion vs FFmpeg)
+## HyperFrames compatibility evaluation (existing lock or explicit request only)
 
 OpenMontage separates two concepts:
 
@@ -46,30 +47,25 @@ logged in `decision_log`. Silent runtime swaps are a contract violation.
 | Existing explainer, React scene component stack (text_card, stat_card, chart scenes, caption overlay, TalkingHead, CinematicRenderer) | **Remotion** | These compositions already exist in `remotion-composer/`. Reusing them is free; replicating them in HTML is not. |
 | Word-level caption burn / karaoke captions | **Remotion** | `remotion_caption_burn` is Remotion-specific and is NOT at parity on HyperFrames day 1. |
 | Avatar / lip-sync presenter | **Remotion** | `TalkingHead` composition lives in Remotion. No HyperFrames equivalent yet. |
-| Kinetic typography, heavy text motion, GSAP-native animation | **HyperFrames** | HTML/GSAP is the natural medium. Expressing this as Remotion `interpolate()` calls is slow and fragile. |
-| Product promo / launch reel / marketing title card | **HyperFrames** | CSS/GSAP composition grammar matches how designers already think about these. Templates (`kinetic-type`, `product-promo`, `swiss-grid`) give a strong starting point. |
-| Website-to-video / UI-driven composition | **HyperFrames** | The `website-to-video` workflow exists for exactly this. |
-| Registry block needed (data chart, grain overlay, shimmer sweep, shader transition) | **HyperFrames** | The registry is HyperFrames-only. Remotion does not have `hyperframes add`. |
+| Kinetic typography, heavy text motion, GSAP-native animation | **Remotion for new work; HyperFrames only for an existing lock or explicit request** | HTML/GSAP remains the compatibility path when explicitly selected. |
+| Product promo / launch reel / marketing title card | **Remotion for new work; HyperFrames only for an existing lock or explicit request** | HyperFrames templates remain available on that compatibility path. |
+| Website-to-video / UI-driven composition | **Remotion for new work; HyperFrames only for an existing lock or explicit request** | The `website-to-video` workflow remains available for that path. |
+| Registry block needed (data chart, grain overlay, shimmer sweep, shader transition) | **Remotion for new work; HyperFrames only for an existing artifact or explicit request** | The registry is HyperFrames-specific. |
 | Synthetic UI / fake terminal / fake browser demo | Either — depends on existing coverage | OpenMontage already ships Remotion `TerminalScene` (see `synthetic-screen-recording` Layer 3). For UI chrome beyond terminal, HyperFrames HTML is easier. |
 | Pure concat / trim of source clips, no composition | **FFmpeg** | Neither Remotion nor HyperFrames add value here. |
-| Remotion is not installed on this machine | **HyperFrames** (if available) or **FFmpeg** | Do not silently fall back. Tell the user before downgrading. |
+| Remotion is not installed on this machine | **Stop and report the gap** | Do not silently substitute HyperFrames or FFmpeg for a new production. |
 
-### Hard rule: present both runtimes when both are available
+### Runtime recommendation
 
-The decision matrix above is input for the conversation with the user, NOT
-a license to silently pick a "default." When both Remotion and HyperFrames
-are available on the machine, the proposal stage MUST:
+All new productions use Remotion by default after checking availability;
+specialized pipeline or rig requests do not change that runtime.
+Do not expose HyperFrames as a parallel technical menu or require a second
+confirmation. HyperFrames remains valid only for an existing project explicitly
+locked to it or when the user explicitly requests that runtime. If Remotion is
+unavailable for a new production, report the gap and stop; do not silently
+substitute HyperFrames. FFmpeg remains
+a standalone editing, audio, subtitle, and packaging tool.
 
-1. Present both to the user with brief-specific pros/cons.
-2. Recommend one with rationale tied to `delivery_promise` and
-   `visual_approach`.
-3. Wait for approval.
-4. Log both in `options_considered` of a `render_runtime_selection`
-   decision.
-
-See `AGENT_GUIDE.md` → "Present Both Composition Runtimes (HARD RULE)" for
-the full contract and `skills/meta/reviewer.md` for the CRITICAL-finding
-enforcement.
 
 ### Hard rule: motion-required deliverables
 
@@ -442,7 +438,7 @@ the `deterministicFonts.ts` mapping table. Safe bets: `Outfit`,
 | Pipeline | Status |
 |----------|--------|
 | `animation` | Wave 1 — HyperFrames is a first-class option for motion-graphics-heavy briefs |
-| `animated-explainer` | Wave 1 — HyperFrames viable when the concept is HTML/GSAP-native; Remotion remains default for data-chart-heavy explainers |
+| `animated-explainer` | Remotion for new work; HyperFrames remains compatible only for an existing lock or explicit user request |
 | `screen-demo` | Wave 1 — HyperFrames viable for synthetic product UI; `TerminalScene` (Remotion) remains preferred for terminal-specific demos |
 | `cinematic` | Wave 2 |
 | `hybrid` | Wave 2 |

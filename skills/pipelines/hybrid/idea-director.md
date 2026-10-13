@@ -6,18 +6,13 @@ Use this pipeline when the project combines real source media with support visua
 
 Hybrid is not a catch-all. Your first job is to define what stays primary.
 
-## Runtime Selection (MANDATORY — present both runtimes)
+## Runtime Selection
 
-Before locking the production plan, decide `render_runtime` with the user. Hybrid supports BOTH Remotion and HyperFrames; neither is an auto-default. Follow the contract in AGENT_GUIDE.md → "Present Both Composition Runtimes (HARD RULE)":
+For new work, check Remotion and record it as the default runtime. Preserve an explicit historical lock or an explicit user request for that runtime:
 
-1. Query `video_compose.get_info()["render_engines"]`. If both `remotion` and `hyperframes` are `True`, present both to the user with brief-specific analysis:
-   - **Remotion** — fits when source footage dominates and support layers are React scene components (chart, callout, text card). Remotion composes video clips + React overlays in one pass via `<OffthreadVideo>`.
-   - **HyperFrames** — fits when support layers are HTML/GSAP-native (kinetic callouts, registry blocks, typographic overlays) and source footage is embedded as `<video class="clip">`.
-2. Recommend one with rationale tied to the anchor medium and the shape of the support layer.
-3. Wait for explicit user approval.
-4. Log the choice in `decision_log` as a `render_runtime_selection` decision with BOTH runtimes in `options_considered`.
-
-A `render_runtime_selection` decision with only one runtime in `options_considered` when both were available is a CRITICAL reviewer finding.
+1. Query `video_compose.get_info()["render_engines"]` and confirm Remotion is available.
+2. Record `render_runtime: "remotion"` and the single valid choice where the schema requires a selection. Do not show a technical runtime menu or ask for another confirmation.
+3. If Remotion is unavailable, report the gap and stop; do not silently substitute another runtime.
 
 ## Reference Inputs
 

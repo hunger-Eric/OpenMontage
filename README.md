@@ -295,11 +295,11 @@ You don't need paid API keys to make real videos. Out of the box, `make setup` g
 | **Open footage** | Archive.org + NASA + Wikimedia Commons | Free/open archival footage, educational media, and documentary texture |
 | **Extra stock** | Pexels + Unsplash + Pixabay | Free stock footage/images (developer keys are free to get) |
 | **Composition (React)** | Remotion | React-based rendering — spring-animated image scenes, text cards, stat cards, charts, TikTok-style word-level captions, TalkingHead |
-| **Composition (HTML/GSAP)** | HyperFrames | HTML/CSS/GSAP rendering — kinetic typography, product promos, launch reels, registry blocks, website-to-video, rigged SVG character animation |
+| **Composition (HTML/GSAP)** | HyperFrames | Explicit or historical HTML/CSS/GSAP path — kinetic typography, product promos, launch reels, registry blocks, website-to-video, rigged SVG character animation |
 | **Post-production** | FFmpeg | Encoding, subtitle burn-in, audio mixing, color grading |
 | **Subtitles** | Built-in | Auto-generated captions with word-level timing |
 
-OpenMontage picks between Remotion and HyperFrames at proposal time (locked as `render_runtime`). Remotion is the default for data-driven explainers and anything using the existing React scene stack; HyperFrames is the default for motion-graphics-heavy briefs that express naturally as HTML + GSAP, including the `character-animation` pipeline's SVG/GSAP rig output. See `skills/core/hyperframes.md` for the full decision matrix.
+All new OpenMontage work checks Remotion and records `render_runtime=remotion` by default. Existing explicit runtimes continue unchanged. HyperFrames is available only when an existing project is explicitly locked to it or the user explicitly requests that runtime; a specialized pipeline or rig request alone does not change the runtime. FFmpeg handles editing, audio, subtitles, and packaging. See `skills/core/hyperframes.md` for the compatibility boundary.
 
 **Two free-ish paths:**
 
@@ -617,7 +617,7 @@ Each tool declares which Layer 3 skills it relies on. The agent reads Layer 1 to
 | **HyperFrames** | Local (Node.js ≥ 22) | HTML/CSS/GSAP programmatic video — kinetic typography, product promos, launch reels, custom motion graphics, registry blocks (data charts, grain overlays, shader transitions), website-to-video workflows, and rigged SVG character animation. Consumed via `npx hyperframes`; no monorepo checkout needed. |
 | **FFmpeg** | Local | Core video assembly, encoding, subtitle burn, audio muxing, color grading |
 
-Runtime is chosen at proposal (`render_runtime`) and locked through `edit_decisions`. Silent swaps between runtimes are a governance violation — see `skills/core/hyperframes.md`.
+Runtime is recorded at proposal (`render_runtime`) and locked through `edit_decisions`. Existing explicit runtime choices cannot be silently changed; all new work defaults to Remotion after availability check.
 
 </details>
 

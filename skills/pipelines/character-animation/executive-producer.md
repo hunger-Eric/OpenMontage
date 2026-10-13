@@ -19,7 +19,7 @@ be built with the available rigs, assets, or runtime, surface a blocker.
 ## Stage Order
 
 1. `research` - understand reference, technique, and feasibility.
-2. `proposal` - present concepts, runtime options, cost, music plan, sample plan.
+2. `proposal` - present concepts, the applicable runtime, cost, music plan, sample plan.
 3. `script` - write action-friendly beats and dialogue/narration.
 4. `character_design` - define characters, silhouettes, emotions, actions.
 5. `rig_plan` - define parts, pivots, layers, constraints, poses.
@@ -32,8 +32,11 @@ be built with the available rigs, assets, or runtime, surface a blocker.
 ## Governance Rules
 
 - Run registry preflight before proposal.
-- If both Remotion and HyperFrames are available, present both before locking
-  `render_runtime`.
+- New productions default to Remotion after an availability check. Preserve
+  HyperFrames only for an existing project explicitly locked to it or an
+  explicit user request for that runtime. A rig requirement alone does not
+  authorize HyperFrames; if the rig has no Remotion handoff, report the gap and
+  do not silently use HyperFrames or migrate historical assets.
 - Produce a 10-15 second sample before full asset generation.
 - Character differences belong in rig data, not one-off code paths.
 - Every generated or runtime-authored asset must list Layer 3 skills read.

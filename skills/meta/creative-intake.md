@@ -3,6 +3,12 @@
 Before the research stage, gather user intent through targeted questions.
 Do NOT start production on a vague brief.
 
+For a concrete script, scene images, mixed source material or a continued edit,
+first follow [the unified creative entry](../../docs/references/feishu-creative-entry.md).
+Reuse explicit answers and known project context. Treat the questions below as
+gaps to assess, not a required questionnaire or a new approval gate; ask only
+for missing decisions that materially affect the result, scope or authority.
+
 ## Required Questions (ask conversationally, not as a survey)
 
 1. **Purpose**: What is this video FOR? (educate, sell, inspire, document, entertain)

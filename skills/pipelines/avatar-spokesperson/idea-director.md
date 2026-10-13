@@ -6,11 +6,11 @@ Use this pipeline when the deliverable is a presenter-led avatar video: a spokes
 
 Your first job is to classify the avatar path honestly before anyone writes polished copy for an impossible production setup.
 
-## Runtime Selection (MANDATORY — present the constraint, don't silently pick)
+## Runtime Selection
 
 Lock `render_runtime = "remotion"`. **HyperFrames is NOT a valid runtime on this pipeline in Phase 1** — avatar-spokesperson depends on the Remotion `TalkingHead` composition and `remotion_caption_burn`, and neither has HyperFrames parity yet.
 
-Per AGENT_GUIDE.md → "Present Both Composition Runtimes (HARD RULE)": do NOT silently default. Tell the user: "HyperFrames is available on your machine, but avatar-spokesperson depends on the Remotion TalkingHead composition and caption burn, so remotion is the only viable runtime here — OK to proceed?" Record a `render_runtime_selection` decision with hyperframes `rejected_because: "TalkingHead + caption parity deferred on avatar-spokesperson"`.
+Check Remotion availability and record the single valid Remotion choice where the schema requires it. The TalkingHead composition and caption burn remain Remotion-only. If Remotion is unavailable, report the gap and stop.
 
 ## Reference Inputs
 

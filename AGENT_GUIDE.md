@@ -206,6 +206,13 @@ capabilities; the Bridge does not classify video requests or choose providers.
 Resolve project commands and relative paths against this checkout, without
 changing the topic's trusted attachment identity or expanding its sandbox.
 
+For natural-language creative intake, mixed scripts/images/footage and continued
+edits in the same Feishu topic, follow the
+[unified creative entry](docs/references/feishu-creative-entry.md). Interpret
+the desired outcome and each material's use in the model; do not classify by
+file type alone or add a business router to Bridge. Reuse known project context,
+ask only for material gaps and preserve existing authorization and artifacts.
+
 - **Analysis only:** "break down this video", "analyze the camera work", or
   "transcribe it" -> use the relevant registered analysis tools. Ground claims in
   actual frames, scene timing and audio/transcript evidence. Report partial or
@@ -350,21 +357,27 @@ The `decision_log` is the board's Decisions rail and the run's audit trail. It i
 
 Editing only a downstream artifact (the `asset_manifest`, a prop) while leaving the old decision in the log is a defect: the board keeps showing the stale choice (e.g. `voice → openai_onyx` after the user moved to Chirp3). The board identifies a decision by its **(category, subject) pair** and renders the latest entry for that pair as current (tagged "revised") — so the fix is to append the new entry with an identical `subject`, never to silently mutate the old one or reword the subject (a reworded subject reads as a different decision and both will show). Keeping distinct decisions in one category (e.g. TTS vs image `provider_selection`) is exactly why the pair, not the category alone, is the key. This applies at every stage, not just `idea`.
 
-### Present Both Composition Runtimes (HARD RULE)
+### Default Composition Runtime
 
-When both Remotion and HyperFrames are available on the machine (check `video_compose.get_info()["render_engines"]`), the agent **MUST present both options to the user** before locking `render_runtime` at the proposal stage. The agent MAY recommend one with rationale — but silently picking a "default" is forbidden even when the pipeline manifest or a director skill suggests one.
+New productions use **Remotion**. Check its availability, then lock
+`proposal_packet.production_plan.render_runtime="remotion"` and carry the same
+value into `edit_decisions`. Do not present a Remotion/HyperFrames/FFmpeg menu
+or ask for another technical confirmation. A `render_runtime_selection` entry
+may record Remotion as the single considered option; do not invent alternatives.
+This default does not change creative direction or existing production approvals.
 
-The presentation MUST include, for each runtime:
+`video_compose.get_info()["user_facing_render_runtimes"]` is the new-work entry;
+`render_engines` remains the actual internal availability map for compatibility.
+If Remotion is unavailable, report the missing dependency and stop that render.
+Do not automatically switch engines.
 
-1. A one-sentence plain-language description of what it is best at for **this specific brief**.
-2. A one-sentence honest tradeoff (why it might not be the right pick here).
-3. The agent's recommendation and the reason, tied to the brief's delivery_promise and visual approach.
-
-Then wait for explicit user approval before advancing. Record the full shortlist — BOTH runtimes plus any "ffmpeg" option that applies — as `options_considered` in the `render_runtime_selection` decision logged in `decision_log`. A decision log entry with only one runtime considered when both were available is a CRITICAL reviewer finding.
-
-Exception: if only one runtime is available on the machine, the agent proceeds with it but MUST say so explicitly ("HyperFrames isn't installed on this machine; I'm proceeding with Remotion. Install HyperFrames if you want the alternative."). The `render_runtime_selection` decision still records the unavailable option as `rejected_because: "runtime not available on this machine"`.
-
-This rule applies to every pipeline that invokes `video_compose` — not just Wave 1. A pipeline's director skill may recommend a runtime, but that recommendation is input to the conversation with the user, not a decision.
+Existing projects retain their explicit runtime locks. HyperFrames remains a
+compatibility path for those projects or an explicit user request to work in
+that runtime. Selecting a specialized pipeline alone does not override this
+default. If a rig/HTML workflow has no Remotion handoff, report the actual gap
+rather than migrating its assets or choosing HyperFrames silently. FFmpeg may
+still perform editing, audio processing and packaging. Runtime changes retain
+their existing approval, decision-log and validation requirements.
 
 ### Composition Authoring Mode — Templated vs Atelier
 
@@ -505,10 +518,10 @@ print(json.dumps(registry.provider_menu_summary(), indent=2))
 
 The summary returns four fields the agent should translate into plain language:
 
-- `composition_runtimes` — booleans for `ffmpeg`, `remotion`, `hyperframes`. This is the source of truth for the "Present Both Composition Runtimes (HARD RULE)" check.
+- `composition_runtimes` — actual availability booleans for `ffmpeg`, `remotion`, `hyperframes`, retained for compatibility checks. New-work planning follows Default Composition Runtime and exposes only Remotion.
 - `capabilities[]` — one entry per capability family with `configured / total` counts and provider lists. Ready-made for the "N of M configured" menu.
 - `setup_offers[]` — unavailable tools whose install is a 1-minute env-var fix. Lead with these when offering upgrades.
-- `runtime_warnings[]` — specific signals like "hyperframes: npm package not resolvable". Surface these to the user verbatim — they're the kind of silent-failure bugs that break the governance contract.
+- `runtime_warnings[]` — missing-runtime signals for preflight. Surface warnings relevant to the locked runtime; for new work report Remotion gaps. HyperFrames warnings belong to its existing or explicitly requested compatibility path.
 
 Then, for deeper inspection (only when the summary isn't enough):
 
@@ -597,7 +610,10 @@ When tools are `UNAVAILABLE` but can be fixed with simple configuration, **offer
 
 ### Composition Runtimes (Inside video_compose)
 
-`video_compose` has **three** render engines / runtimes. They are parallel, not ranked — the choice is made at proposal and locked in `edit_decisions.render_runtime`. Check which are available:
+`video_compose` retains **three** internal render engines for compatibility.
+New compositions default to Remotion and lock that value in
+`edit_decisions.render_runtime`; existing explicit locks remain unchanged.
+The following is an internal availability check, not a user-facing engine menu:
 
 ```bash
 python -c "
@@ -616,7 +632,7 @@ print('HyperFrames note:', info.get('hyperframes_note'))
 | **Remotion** | React-based composition: still images → animated video, text cards, stat cards, charts, callouts, comparisons, transitions with spring physics, word-level caption burn, TalkingHead avatar | Node.js (`npx`) + `remotion-composer/` + `node_modules` |
 | **HyperFrames** | HTML/CSS/GSAP composition: kinetic typography, product promos, launch reels, website-to-video, registry-block-driven scenes, SVG character rigs | Node.js ≥ 22 + FFmpeg + `npx` (consumed via `npx hyperframes`) |
 
-`render_runtime` is **locked at proposal** (`proposal_packet.production_plan.render_runtime`) and **carried through edit_decisions unchanged**. `video_compose` routes based on this field; silent runtime swaps are forbidden. If the chosen runtime becomes unavailable at compose time, surface a structured blocker per "Escalate Blockers Explicitly" above. See `skills/core/hyperframes.md` for the Remotion-vs-HyperFrames decision matrix.
+`render_runtime` is **locked at proposal** (`proposal_packet.production_plan.render_runtime`) and **carried through edit_decisions unchanged**. `video_compose` routes based on this field; silent runtime swaps are forbidden. If the chosen runtime becomes unavailable at compose time, surface a structured blocker per "Escalate Blockers Explicitly" above. Follow Default Composition Runtime for new work; `skills/core/hyperframes.md` covers only existing or explicitly requested HyperFrames compatibility.
 
 ### Critical Rule: Motion-Required Requests
 
@@ -650,11 +666,14 @@ See `remotion-composer/SCENE_TYPES.md` for the authoritative list and their cut 
 
 These stock scene-types are the **templated** path — fast and reliable, but they are why videos look alike. For **hero work, prefer atelier mode** (hand-authored composition) over this catalog; read those types as a *mechanics codex*, not a menu to assemble. See "Composition Authoring Mode" above and `skills/meta/bespoke-composition.md`.
 
-**When Remotion is NOT available** and `render_runtime="remotion"` was NOT locked, `video_compose` may use FFmpeg Ken Burns motion on still images. This still works but produces less engaging visuals. Mention this tradeoff in the proposal. When `render_runtime="remotion"` IS locked and Remotion is unavailable, that's a blocker — escalate, don't silently swap.
+**When Remotion is NOT available**, new compositions must report the gap and stop.
+A missing runtime lock is also a blocker; it does not authorize FFmpeg Ken Burns
+or another runtime. FFmpeg remains available for standalone editing and existing
+explicitly locked work.
 
 When `render_runtime="hyperframes"` is locked and HyperFrames is unavailable (Node < 22, missing `ffmpeg`/`npx`, or `hyperframes doctor` reports issues), that's also a blocker. Do not substitute Remotion or FFmpeg without user approval + a logged `render_runtime_selection` decision.
 
-Routing is automatic — `video_compose` reads `edit_decisions.render_runtime` and dispatches to the matching engine (`_render_via_hyperframes`, `_remotion_render`, or `_render_via_ffmpeg`). But the **agent must know both Remotion and HyperFrames exist at proposal time** so it can design the visual approach intentionally. Don't default to Remotion for motion-graphics-heavy concepts that HTML/GSAP would express more naturally, and don't default to HyperFrames for briefs that reuse the existing React scene stack.
+Routing is automatic — `video_compose` reads `edit_decisions.render_runtime` and dispatches to the matching engine (`_render_via_hyperframes`, `_remotion_render`, or `_render_via_ffmpeg`). New compositions use Remotion, including motion graphics. Other dispatch paths preserve existing explicit locks or an explicit user request for that runtime; availability and visual style alone do not authorize a switch.
 
 ## Capability Discovery
 
@@ -740,6 +759,16 @@ Three selector tools abstract multi-provider capabilities. **Selectors auto-disc
 | `video_selector` | All tools with `capability="video_generation"` | `registry.get_by_capability("video_generation")` |
 
 Selectors route based on: user preference > availability > discovery order. They adapt input schemas between providers transparently.
+
+Video generation keeps scripts, characters, scenes and reference assets in the
+same canonical project artifacts. Only the final generation request is mapped
+to the selected MCP/API adapter. Follow the
+[video provider extension contract](docs/references/video-provider-extension.md)
+for the optional `prepare_video_request` hook and existing registry discovery.
+It adapts parameters without rewriting creative content, changing the selected
+provider/model, or starting generation during preparation. Preserve native
+task status and receipts; a new adapter is not usable until its actual contract
+and runtime are verified.
 
 ## User-Facing Planning Protocol
 

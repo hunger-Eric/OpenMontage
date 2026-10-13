@@ -20,25 +20,21 @@ approval slot; do not create another reference approval step.
 
 ## Runtime Selection (required field — `render_runtime`)
 
-Explainer proposals must lock **both** a `renderer_family` (creative grammar) and a `render_runtime` (technical engine). Read `skills/meta/animation-runtime-selector.md` for the decision matrix and `AGENT_GUIDE.md` → "Present Both Composition Runtimes (HARD RULE)" for the governance contract.
+Explainer proposals must lock **both** a `renderer_family` (creative grammar) and a `render_runtime` (technical engine). Read `skills/meta/animation-runtime-selector.md` for the runtime default and compatibility boundary.
 
-**MANDATORY workflow — present both runtimes, don't silently default:**
+**Default workflow:**
 
-1. Query `video_compose.get_info()["render_engines"]`. If both `remotion` and `hyperframes` are `True`, proceed to step 2. If only one is available, go to step 4 with just that one.
-2. Present both runtimes to the user with brief-specific analysis. For THIS concept:
-   - **Remotion** — one line on fit (mention the React scene stack components that apply), one line on tradeoff.
-   - **HyperFrames** — one line on fit (mention HTML/GSAP motion, registry blocks, kinetic typography if applicable), one line on tradeoff.
-3. Recommend one with rationale tied to the brief's `delivery_promise`, `visual_approach`, and whether word-level caption burn is required (that one forces Remotion).
-4. Wait for explicit user approval. Do NOT write `render_runtime` into `proposal_packet.production_plan` before approval.
-5. Log a `render_runtime_selection` decision in `decision_log` with BOTH runtimes (plus `ffmpeg` if it was a realistic option) in `options_considered`, the user's pick as `selected`, and the rationale as `reason`. If a runtime was unavailable, record it as rejected with `rejected_because: "runtime not available on this machine"`.
+1. Query `video_compose.get_info()["render_engines"]` and confirm Remotion is available.
+2. For new work, record `render_runtime: "remotion"` and the single valid choice where the schema requires a selection. Do not show a technical runtime menu or ask for another confirmation.
+3. Log the Remotion choice in `decision_log` where the schema requires a runtime selection. Preserve an explicit historical lock or an explicit user request for that runtime.
+4. If Remotion is unavailable, report the gap and stop; do not silently substitute another runtime. Existing creative proposal approval remains unchanged.
 
-Fit cheat-sheet for recommendation (input for the conversation, not an auto-decision):
+Authoring guidance within the Remotion default:
 
-- Existing React scene stack (text_card, stat_card, bar_chart, line_chart, pie_chart, kpi_grid, callout, comparison, hero_title, caption overlay, anime_scene) fits → recommend **Remotion**.
-- Kinetic typography, custom HTML motion graphics, registry-block-driven scenes, or website-to-video → recommend **HyperFrames**.
+- Use the existing React scene stack (text_card, stat_card, bar_chart, line_chart, pie_chart, kpi_grid, callout, comparison, hero_title, caption overlay, anime_scene) where it fits the visual approach.
+- Author kinetic typography and motion graphics in Remotion. For existing HTML or HyperFrames registry assets, preserve their historical runtime lock; report a missing Remotion handoff for new work.
 - Word-level/karaoke captions required → **Remotion only** in Phase 1 (caption parity is deferred).
 
-A `render_runtime_selection` decision with only one option considered when both were available is a CRITICAL reviewer finding.
 
 ## Prerequisites
 

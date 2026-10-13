@@ -262,11 +262,11 @@ Run at **scene_plan** and **edit** stages. Prevents the "every video looks the s
    - At compose stage, `final_review.checks.promise_preservation.runtime_swap_detected` must be `false`. If `true` without an approved `render_runtime_selection` decision → **CRITICAL**
    - Runtime unavailable at compose time is not an excuse for silent swap — the correct behavior is to escalate, get approval, log a decision, then run.
 
-6. **Runtime selection presented both options** (proposal stage, MANDATORY):
-   - Query `video_compose.get_info()["render_engines"]`. If both `remotion` and `hyperframes` show `True`, the `render_runtime_selection` decision in `decision_log` MUST have BOTH runtimes in `options_considered`.
-   - A `render_runtime_selection` with only one runtime in `options_considered` when both were available on the machine → **CRITICAL**. The agent silently defaulted; the user was not presented the alternative. Re-open the proposal stage and present both.
-   - If only one runtime was available, `options_considered` must still list the unavailable one with `rejected_because: "runtime not available on this machine"` — otherwise the audit trail loses the fact that the choice was constrained, not discretionary.
-   - Per AGENT_GUIDE.md > "Present Both Composition Runtimes (HARD RULE)": the pipeline's suggested "default" runtime is NOT a license to skip the conversation with the user.
+6. **Runtime selection** (proposal stage):
+   - All new productions use `remotion` after a live availability check, with the single valid choice recorded where the schema requires it.
+   - Do not treat the absence of a second displayed runtime as a finding. HyperFrames is retained for an existing explicit lock or an explicit user request for that runtime; a specialized pipeline or rig request alone does not authorize it. FFmpeg is an internal editing, audio, subtitle, and packaging tool.
+   - If Remotion is unavailable, report the gap and stop. Do not silently substitute another runtime.
+   - Existing projects with an explicit runtime retain it; an actual runtime change still requires an explicit decision visible in the artifacts.
 
 ## Delivery Promise Review
 

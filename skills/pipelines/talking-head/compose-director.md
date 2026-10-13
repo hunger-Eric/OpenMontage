@@ -9,7 +9,7 @@ You have edit decisions and an asset manifest. Your job is to render the final t
 Phase 1 deferred from HyperFrames. `edit_decisions.render_runtime` must be `"remotion"` (preferred — uses the `TalkingHead` composition + `remotion_caption_burn`) or `"ffmpeg"` (for source-footage concat with no composition).
 
 - If `edit_decisions.render_runtime == "hyperframes"`, stop. Re-open the idea stage and surface the constraint. Silent rewrite is a governance violation.
-- Per AGENT_GUIDE.md → "Present Both Composition Runtimes (HARD RULE)": the pipeline's constraint doesn't skip the conversation. Present the constraint to the user so they know HyperFrames exists but isn't viable here. Record a `render_runtime_selection` decision with hyperframes `rejected_because: "TalkingHead + caption parity deferred on talking-head"`.
+- The Remotion lock is the established pipeline constraint. Preserve it and report an unavailable Remotion runtime; do not silently substitute another renderer.
 - Pass `proposal_packet`/`brief` to `video_compose.execute()` for runtime-swap detection.
 
 ## Prerequisites

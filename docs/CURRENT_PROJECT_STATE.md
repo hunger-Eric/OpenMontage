@@ -1,6 +1,27 @@
 # OpenMontage Current Project State
 
-Updated: 2026-10-12
+Updated: 2026-10-13
+
+## 2026-10-13 unified creative entry and provider extension
+
+- Natural-language intake now covers reference links, user scripts, scene
+  images, footage with AI inserts, mixed materials and continued edits. Follow
+  [the unified creative entry](references/feishu-creative-entry.md); production
+  authority remains in OpenMontage, with Bridge responsible for transport.
+- VideoSelector supports an optional selected-adapter `prepare_video_request`
+  hook. It preserves supplied content, model/route/attempt identity and native
+  result data; preparation failure does not execute or switch providers. See
+  [the provider extension contract](references/video-provider-extension.md).
+  This does not make a new Google/Seedance/Kling API contract configured or
+  generation-accepted.
+- All new compositions default to Remotion without a user-facing runtime menu.
+  Existing explicit runtime locks retain their compatibility routes; missing
+  Remotion or a missing runtime lock is a blocker. Follow `AGENT_GUIDE.md`'s
+  Default Composition Runtime rather than historical runtime recommendations.
+- Final related selector/provider/runtime-policy and pipeline-contract checks
+  passed 121 tests. These checks do not establish new API generation or the
+  real Feishu intake/delivery path. No Bridge service update or new media
+  generation was performed for these changes.
 
 ## 2026-10-12 automatic local progress board
 

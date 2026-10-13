@@ -8,34 +8,29 @@ You are the **Proposal Director** for a cinematic video (trailers, brand films, 
 
 ## Runtime Selection (required field — `render_runtime`)
 
-Cinematic proposals must lock **both** a `renderer_family` (creative grammar: `cinematic-trailer`, `documentary-montage`, etc.) and a `render_runtime` (technical engine). Read `skills/meta/animation-runtime-selector.md` and `skills/core/hyperframes.md` for the decision matrix, and `AGENT_GUIDE.md` → "Present Both Composition Runtimes (HARD RULE)" for the governance contract.
+Cinematic proposals must lock **both** a `renderer_family` (creative grammar: `cinematic-trailer`, `documentary-montage`, etc.) and a `render_runtime` (technical engine). Read `skills/meta/animation-runtime-selector.md` for the default and compatibility boundary.
 
-**MANDATORY workflow — present both runtimes, don't silently default:**
+**Default workflow:**
 
-1. Query `video_compose.get_info()["render_engines"]`. If both `remotion` and `hyperframes` are `True`, proceed to step 2.
-2. Present both runtimes to the user with brief-specific analysis:
-   - **Remotion** — one line on fit (mention `CinematicRenderer`, `<OffthreadVideo>`, existing transition stack if applicable), one line on tradeoff.
-   - **HyperFrames** — one line on fit (mention kinetic title sequences, registry shader transitions, or HTML-native typographic motion if applicable), one line on tradeoff.
-3. Recommend one with rationale tied to the brief's `delivery_promise` (especially `motion_required`), `renderer_family`, and approved tone.
-4. Wait for explicit user approval. Do NOT write `render_runtime` into `proposal_packet.production_plan` before approval.
-5. Log a `render_runtime_selection` decision in `decision_log` with BOTH runtimes in `options_considered` plus `ffmpeg` if it was a realistic option.
+1. Query `video_compose.get_info()["render_engines"]` and confirm Remotion is available.
+2. For new work, record `render_runtime: "remotion"` and the single valid choice where the schema requires a selection. Do not show a technical runtime menu or ask for another confirmation.
+3. Preserve an explicit historical runtime or an explicit user request for that runtime. FFmpeg is reserved for editing, audio, subtitles, and packaging.
+4. If Remotion is unavailable, report the gap and stop. Do not silently substitute another runtime.
 
-Fit cheat-sheet for the recommendation (NOT an auto-decision):
+Authoring guidance within the Remotion default:
 
-- Video-led trailer with motion clips via `<OffthreadVideo>` + color-graded overlays → lean **Remotion**.
-- HTML/GSAP-driven trailer: kinetic title sequence, launch reel, brand film where the visual grammar is typographic → lean **HyperFrames**.
-- Shader transitions or registry grain overlays → lean **HyperFrames**.
+- Use motion clips via `<OffthreadVideo>` and overlays in Remotion for video-led trailers.
+- Author kinetic titles, launch reels and typographic brand films in Remotion. Existing HyperFrames HTML or registry assets require a verified Remotion handoff for new work; report the gap if unavailable.
 - Simplest source-footage concat with no composition → **ffmpeg**.
 
 **Motion-required deliverables**: if `delivery_promise.motion_required=true`, the chosen runtime is a commitment. Silent downgrade to FFmpeg Ken Burns or still-led animatic is forbidden. If the chosen runtime becomes unavailable at render time, compose must escalate, not substitute.
 
-For an explicit 3D-world promise, query `3d_world_generation`. When
-`threejs_world` and HyperFrames are available, this is a real motion path even
-if cloud video generation is unavailable: it authors a continuous editable
-scene graph with a deterministic camera. Record the tool, local $0 generation
-cost, HyperFrames runtime, and atelier mode in the proposal.
+For an explicit 3D-world promise, query `3d_world_generation` and verify a
+Remotion-compatible asset handoff. The `threejs_world` HTML scene path requires
+HyperFrames; availability alone does not authorize choosing it. Preserve that
+path only for an existing HyperFrames lock or an explicit user request for the
+runtime. If a new Remotion production lacks the handoff, report the gap.
 
-A `render_runtime_selection` decision with only one option considered when both were available is a CRITICAL reviewer finding.
 
 ## Prerequisites
 

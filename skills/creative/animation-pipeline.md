@@ -4,24 +4,25 @@
 > HyperFrames documentation, Disney's 12 Principles of Animation (Frank Thomas & Ollie
 > Johnston), Motion Design School, The Animator's Survival Kit (Richard Williams)
 
-## Runtime Choice — Remotion vs HyperFrames
+## Runtime Choice — Remotion default
 
-Animation work in OpenMontage runs on one of two composition runtimes. Both
-are first-class; the choice is creative, not a fallback:
+All new animation work in OpenMontage uses Remotion after checking availability.
+The animation brief, a specialized pipeline, or a rig requirement does not by
+itself authorize another runtime:
 
-- **Remotion (React-based)** — when the scene is a React component, uses the
-  existing chart/text-card/comparison/kpi stack, or needs pixel-accurate
+- **Remotion (React-based)** — the default composition path for new work,
+  including React components, chart/text-card/comparison/kpi stacks, and
   frame-level interpolation through `useCurrentFrame()` + `interpolate()`.
-  Default for data-heavy explainers.
-- **HyperFrames (HTML/GSAP)** — when the motion is expressed naturally as
-  CSS + GSAP timelines: kinetic typography, product promos, launch reels,
-  website/UI-driven compositions, registry-block-driven scenes. Default
-  when the brief is motion-graphics-led and the scene library in
-  `remotion-composer/` doesn't already cover the look.
+- **HyperFrames (HTML/GSAP)** — compatibility knowledge for an existing project
+  explicitly locked to HyperFrames or a user who explicitly requests that
+  runtime. Its kinetic typography, product promo, website/UI, and registry
+  techniques remain available on that path.
 
-See `skills/core/hyperframes.md` and `skills/meta/animation-runtime-selector.md`
-for the full decision matrix. Whichever runtime is chosen at proposal must
-be locked in `edit_decisions.render_runtime` and preserved through compose.
+See `skills/meta/animation-runtime-selector.md` for the normal Remotion entry
+point and `skills/core/hyperframes.md` for the explicit compatibility path.
+The selected runtime must be locked in `edit_decisions.render_runtime` and
+preserved through compose. If a requested rig has no Remotion handoff, report
+the gap; do not silently switch or migrate historical assets.
 
 ## Quick Reference Card
 

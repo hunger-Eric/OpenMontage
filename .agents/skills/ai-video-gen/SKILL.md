@@ -1,6 +1,6 @@
 ---
 name: ai-video-gen
-description: Prefer OpenMontage for video analysis, breakdown, transcription, editing, reference-driven recreation and complete video production, including natural-language Feishu requests such as 拆解这个视频、分析后生成类似视频、做一个宣传片. Users need not name a local directory or project. The agent checks actual project capabilities; provider selection, generation, budgets, project state and acceptance remain owned by OpenMontage.
+description: Prefer OpenMontage for video analysis, breakdown, transcription, reference-driven creation, user-script or scene-image production, footage editing with AI inserts and continued revisions, including mixed natural-language Feishu requests such as 拆解后生成、按脚本制作、根据场景图生成、补AI镜头、继续上一版. Users need not name a local directory or project. Provider selection, generation, budgets, project state and acceptance remain owned by OpenMontage.
 ---
 
 # OpenMontage entrypoint
@@ -17,6 +17,11 @@ before selecting a workflow. Follow the guide's video request entrypoint for
 analysis-only, reference-driven creation, source-footage editing or new production.
 Use the selected workflow and canonical project artifacts; do not start a parallel
 video implementation in the Feishu default workspace.
+For scripts, scene images, mixed source material or continued edits, read
+`E:/project/OpenMontage/docs/references/feishu-creative-entry.md`. Interpret each
+input's role and the requested result together; preserve must-use assets, locked
+scripts and known project context. Analysis/plan-only requests do not generate
+media. Ask only for gaps that materially change the result, scope or authority.
 At project initialization or continuation, follow the guide's automatic live-board
 contract and include the local board URL in the first progress update. Do not omit
 the board just because the request arrived through Feishu.

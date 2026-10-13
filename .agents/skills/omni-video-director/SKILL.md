@@ -13,6 +13,9 @@ description: "用 Codex 统筹故事、口播、角色、表演与剪辑，协�
 - 先辨认本次是方案、样片、完整成片，还是修改已有视频。方案请求只准备方案；已经明确的生产请求持续完成相应交付。
 - 复用已有参考分析、已接受素材、模型选择和创作决定。从用户指定的不满意部分继续，避免每次重新分析或生成整片。
 - 本机视频生产沿用 OpenMontage：`E:/project/OpenMontage/docs/CURRENT_PROJECT_STATE.md`、`AGENT_GUIDE.md` 和选定流程的导演技能。Feishu 是输入和交付入口，不建立另一套生产流程。
+- 飞书自然语言制作与续改先读[统一创作入口](../../../docs/references/feishu-creative-entry.md)。链接、脚本、场景图和实拍素材可以混用；按目标与材料用途组织制作，同话题补素材延续已知作品，保留用户指定的台词和必用素材。
+- 前期脚本、角色、场景和素材工件与视频提供方分离，最后的生成调用沿用 `video_selector` 和[提供方扩展接口](../../../docs/references/video-provider-extension.md)。MCP 与 API 的参数差异由选定适配器处理；本技能的 Omni 表演方法不能被当作其他模型的参数契约。
+- 新作品合成默认锁定 `render_runtime="remotion"`，不向用户展示 Remotion／Hyperframes 选择菜单。角色、表演和镜头仍按创作目标决定；已有作品继续沿用其明确保存的渲染记录，不能在续改时静默换引擎。
 - 在其他环境采用已有项目的权威执行器与工件。工具缺失时说明实际缺口，不自行换模型或创建替代生产系统。
 - 创作提示词按需参考 `E:/project/OpenMontage/docs/references/google-omni-video-prompting.md`。它保存官方方法摘要、多场景模板与 Flow 能力区别；仅读取本次相关部分。此参考不可访问时，可查 [官方提示词指南](https://deepmind.google/models/gemini-omni/prompt-guide/)。
 

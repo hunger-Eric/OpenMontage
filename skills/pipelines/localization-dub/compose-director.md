@@ -9,7 +9,7 @@ Render the localized outputs. The quality bar is intelligibility, timing coheren
 Phase 1 deferred from HyperFrames. `edit_decisions.render_runtime` must be `"remotion"` or `"ffmpeg"`. Localization depends on Remotion's caption stack (per-locale subtitle burn) and, when dubbing with lip-sync, on the Remotion TalkingHead pipeline. HyperFrames has no parity for either in Phase 1.
 
 - If `edit_decisions.render_runtime == "hyperframes"`, stop. Re-open the idea stage and surface the constraint — don't silently rewrite the runtime.
-- Per AGENT_GUIDE.md → "Present Both Composition Runtimes (HARD RULE)": the pipeline's constraint does NOT skip the conversation. Present the constraint to the user so they know HyperFrames exists but isn't viable here. Log a `render_runtime_selection` decision with hyperframes `rejected_because: "caption + lip-sync parity deferred on localization-dub"`.
+- This pipeline uses Remotion for caption and lip-sync composition; preserve that locked runtime and report an unavailable Remotion runtime rather than substituting.
 - Pass `proposal_packet`/`brief` to `video_compose.execute()` for end-to-end runtime-swap detection.
 
 ## Prerequisites

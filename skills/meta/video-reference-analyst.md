@@ -229,17 +229,17 @@ Video clips (sci-fi)     Video gen: 0/12 configured BLOCKED without key
 Narration (deep male)    TTS: ElevenLabs available  READY
 Background music         Music: MusicGen available  READY
 Composition engine       Remotion: available        READY
-                         HyperFrames: available     READY
-                         FFmpeg: available          READY (standalone ops)
+Post-production          FFmpeg: available          READY (standalone ops)
 ```
 
-**Composition engine selection:** Remotion and HyperFrames are parallel, non-ranked
-composition runtimes — do NOT pre-lock either one here. When both are available, the
-"Present Both Composition Runtimes (HARD RULE)" gate in `AGENT_GUIDE.md` governs the
-choice: present both options to the user with tradeoffs at the proposal stage and wait
-for explicit approval before locking `render_runtime`. Silently picking a default is
-forbidden. FFmpeg is not a composition runtime in this flow — it is reserved for
-standalone operations (trim, transcode, subtitle burn) outside the composition pipeline.
+**Composition engine selection:** For a new production, check Remotion
+availability and record `render_runtime: "remotion"`; do not expose a technical
+runtime menu or require a second confirmation. Preserve an explicit historical
+runtime. HyperFrames requires an existing explicit lock or an explicit user
+request for that runtime; a specialized brief alone does not authorize it.
+FFmpeg remains reserved for standalone editing, audio, subtitle, and packaging
+operations. If Remotion is unavailable, report the gap and do not silently
+substitute a renderer.
 
 Be honest about gaps. If video generation is needed but unavailable, say so clearly:
 
@@ -330,8 +330,8 @@ Use this structure for each variant:
 **Visual plan:**
 - Playbook: [closest match + customizations]
 - Visual treatment: [how visuals will be created — which tools, which providers]
-- Composition: [approved runtime after presenting available Remotion and
-  HyperFrames options under AGENT_GUIDE.md; do not silently pre-lock a default]
+- Composition: [Remotion by default after availability check; preserve an
+  explicit historical or user-requested HyperFrames path, if applicable]
 - Motion: [video gen clips / Remotion spring animations on stills / etc.]
 - Clip duration strategy: [fit the live provider envelope to narrative beats,
   speech and action windows. Consolidate adjacent scenes only when the story

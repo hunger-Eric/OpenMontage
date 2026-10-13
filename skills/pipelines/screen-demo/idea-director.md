@@ -1,16 +1,22 @@
 # Idea Director - Screen Demo Pipeline
 
-## Runtime Selection (MANDATORY — present all viable runtimes)
+## Runtime Selection
 
-Lock `render_runtime` at the idea stage alongside the production mode. Which runtimes are viable depends on the mode:
+Lock `render_runtime` at the idea stage alongside the production mode. New
+screen-demo productions use Remotion after checking availability:
 
 | Production mode | Viable runtimes |
 |-----------------|-----------------|
-| `real_capture` (actual screen recording) | `remotion` (preferred — mix capture with overlays), `ffmpeg` (pure concat/trim) |
+| `real_capture` (actual screen recording) | `remotion` (mix capture with overlays); FFmpeg is post-processing |
 | `synthetic_terminal` (Remotion `TerminalScene`) | `remotion` only |
-| `synthetic_ui` (custom HTML UI demo) | `remotion` OR `hyperframes` — real choice, present both |
+| `synthetic_ui` (custom HTML UI demo) | `remotion`; preserve only an explicit historical or user-requested HyperFrames runtime |
 
-Per AGENT_GUIDE.md → "Present Both Composition Runtimes (HARD RULE)": when the mode allows multiple runtimes AND both are available on the machine (check `video_compose.get_info()["render_engines"]`), present both to the user with brief-specific analysis, recommend one, wait for approval. Do NOT silently default. When the mode constrains the choice (e.g. `synthetic_terminal` is Remotion-only), tell the user the constraint explicitly rather than silently locking remotion. Record every choice in `decision_log` under `render_runtime_selection` with all considered options.
+Check Remotion availability and record it as the default for all new work. A
+screen-demo mode does not authorize HyperFrames; preserve it only for an
+explicit historical lock or explicit user request. If Remotion is unavailable,
+report the gap and stop without switching or migrating assets. Record the
+selected runtime where the schema requires it without exposing a technical
+menu.
 
 ## When To Use
 

@@ -8,6 +8,7 @@ the tool file in tools/video/; no changes to this selector are needed.
 from __future__ import annotations
 
 import os
+from copy import deepcopy
 
 from tools.base_tool import (
     BaseTool,
@@ -39,6 +40,20 @@ class VideoSelector(BaseTool):
     # Default score gap for the preferred_provider override (see input_schema).
     PREFERRED_PROVIDER_GAP = 0.15
     DEFAULT_PROVIDER = "auto"
+    _FROZEN_REQUEST_IDENTITY_FIELDS = frozenset({
+        "model",
+        "model_id",
+        "model_name",
+        "model_variant",
+        "preferred_tool",
+        "preferred_provider",
+        "hosting_provider",
+        "allowed_providers",
+        "attempt_id",
+        "idempotency_key",
+        "external_task_id",
+        "project_url",
+    })
 
     capabilities = [
         "text_to_video",
@@ -243,6 +258,10 @@ class VideoSelector(BaseTool):
                 "type": "string",
                 "description": "Exact agent-selected provider model from discovery and plan/access evidence; Agnes has no permanent version default.",
             },
+            "model_id": {
+                "type": "string",
+                "description": "Exact provider model identifier when the selected adapter uses model_id.",
+            },
             "allow_paid_model": {"type": "boolean", "default": False},
             "seconds": {"type": "string"},
             "size": {"type": "string"},
@@ -408,7 +427,9 @@ class VideoSelector(BaseTool):
 
     def execute(self, inputs: dict[str, object]) -> ToolResult:
         from tools.provider_routing import apply_provider_preferences, enabled_candidates
-        inputs = apply_provider_preferences(inputs, "video")
+        # Providers and request adapters must not be able to mutate a caller's
+        # nested request payload while normalizing a concrete provider request.
+        inputs = deepcopy(apply_provider_preferences(inputs, "video"))
         from lib.scoring import rank_providers
 
         candidates = enabled_candidates(self._providers())
@@ -459,10 +480,10 @@ class VideoSelector(BaseTool):
             )
 
         # Adapt input keys: stock tools use 'query' while generators use 'prompt'
-        adapted = dict(inputs)
+        adapted = deepcopy(inputs)
         fixed_model = getattr(tool, "supports", {}).get("usage_conditions", {}).get("fixed_model")
         if fixed_model:
-            for field in ("model", "model_name", "model_variant"):
+            for field in ("model", "model_id", "model_name", "model_variant"):
                 if field in adapted and str(adapted[field]).strip() != fixed_model:
                     return ToolResult(
                         success=False,
@@ -474,6 +495,11 @@ class VideoSelector(BaseTool):
             required = tool.input_schema.get("properties", {})
             if "query" in required and "query" not in adapted:
                 adapted["query"] = adapted.get("prompt", "")
+
+        adapted_or_error = self._prepare_selected_request(tool, adapted)
+        if isinstance(adapted_or_error, ToolResult):
+            return adapted_or_error
+        adapted = adapted_or_error
 
         # Auto-resolve reference_image_path to a URL for providers that need it
         if adapted.get("operation") == "image_to_video" and adapted.get(
@@ -501,6 +527,12 @@ class VideoSelector(BaseTool):
         if result.success:
             result.data.setdefault("selected_tool", tool.name)
             result.data["selected_provider"] = tool.provider
+            result.data.setdefault(
+                "selected_model",
+                result.model
+                or result.data.get("model")
+                or VideoSelector._requested_model(adapted),
+            )
             result.data["selection_reason"] = (
                 score.explain() if score else f"Selected {tool.provider} ({tool.name})"
             )
@@ -515,6 +547,71 @@ class VideoSelector(BaseTool):
             # Input-aware fallback list (drops image_selector for motion-required briefs).
             result.data.setdefault("fallback_tools", self.fallback_tools_for(inputs))
         return result
+
+    @staticmethod
+    def _prepare_selected_request(
+        tool: BaseTool, inputs: dict[str, object]
+    ) -> dict[str, object] | ToolResult:
+        """Run an optional provider-owned request adapter without changing inputs.
+
+        A concrete adapter can expose ``prepare_video_request(inputs) -> dict``
+        to add provider aliases after routing has frozen its identity.  It is a
+        parameter adapter only: every input field already present must retain
+        its value, and preparation failure prevents the provider call.
+        """
+        prepare = getattr(tool, "prepare_video_request", None)
+        if not callable(prepare):
+            return inputs
+
+        original = deepcopy(inputs)
+        try:
+            prepared = prepare(deepcopy(inputs))
+        except Exception:
+            return ToolResult(
+                success=False,
+                error="Selected provider request preparation failed.",
+                data={
+                    "selected_tool": tool.name,
+                    "selected_provider": tool.provider,
+                    "selected_model": VideoSelector._requested_model(original),
+                    "fallback_used": False,
+                },
+            )
+        try:
+            is_valid = (
+                isinstance(prepared, dict)
+                and all(
+                    key in prepared and prepared[key] == value
+                    for key, value in original.items()
+                )
+                and not any(
+                    field not in original and field in prepared
+                    for field in VideoSelector._FROZEN_REQUEST_IDENTITY_FIELDS
+                )
+            )
+        except Exception:
+            is_valid = False
+        if not is_valid:
+            return ToolResult(
+                success=False,
+                error="Selected provider request preparation returned an invalid request.",
+                data={
+                    "selected_tool": tool.name,
+                    "selected_provider": tool.provider,
+                    "selected_model": VideoSelector._requested_model(original),
+                    "fallback_used": False,
+                },
+            )
+        return prepared
+
+    @staticmethod
+    def _requested_model(inputs: dict[str, object]) -> object:
+        return (
+            inputs.get("model")
+            or inputs.get("model_id")
+            or inputs.get("model_name")
+            or inputs.get("model_variant")
+        )
 
     def _select_best_tool(
         self,

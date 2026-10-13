@@ -2,7 +2,7 @@
 
 Meta-skill that answers two questions:
 
-1. **Which composition runtime should this video use?** — Remotion, HyperFrames, or FFmpeg.
+1. **Which composition runtime should this video use?** — Remotion by default; HyperFrames or FFmpeg only for explicit or historical paths.
 2. **Which animation library / Layer 3 skills should this scene reach for?** — Remotion primitives, GSAP plugins, framer-motion, Lottie, Manim, D3.
 
 Read this before authoring any animated component or composition, and whenever you're choosing `render_runtime` at proposal time. It routes you to the right Layer 3 skill so you don't waste time hand-rolling what a plugin already solves.
@@ -30,49 +30,40 @@ engine (`render_runtime`). Both are locked at proposal and carried through
 `edit_decisions` unchanged. Silent runtime swaps at compose time are a
 contract violation.
 
-### HARD RULE — present both runtimes, don't silently default
+### Default runtime
 
-When both Remotion AND HyperFrames are available on the machine (check
-`video_compose.get_info()["render_engines"]`), the agent MUST present both
-options to the user before locking `render_runtime`. The decision matrix
-below is the agent's input for the conversation, NOT a license to silently
-pick the "default" entry. See `AGENT_GUIDE.md` → "Present Both Composition
-Runtimes" for the full contract.
-
-Concretely, at the proposal stage:
-
-1. Query `video_compose.get_info()["render_engines"]` to find which
-   runtimes are available on this machine.
-2. If both Remotion and HyperFrames are available, present both to the
-   user with: one-line description tailored to the brief, one-line
-   honest tradeoff, agent's recommendation with reason.
-3. Wait for explicit user approval.
-4. Log the decision in `decision_log` with category
-   `render_runtime_selection` and both runtimes in `options_considered`.
-5. Only then write `render_runtime` into `proposal_packet.production_plan`.
-
-A `render_runtime_selection` decision with only one option considered
-when both were available is a CRITICAL reviewer finding.
+All new productions, including specialized pipeline or rig requests, default
+to Remotion after checking its availability. Record
+`render_runtime: "remotion"` in the proposal/edit decisions and the single
+valid choice where the schema requires a selection; do not expose a technical
+runtime menu or require a second confirmation. Existing projects with an
+explicit runtime continue unchanged. HyperFrames remains a compatibility path
+only when an existing project is explicitly locked to it or the user explicitly
+names that runtime. A rig requirement alone does not change the runtime. If a
+requested rig has no Remotion handoff, report the gap and do not migrate
+historical assets or silently switch. FFmpeg is an editing, audio, subtitle,
+and packaging tool, not a user-facing primary choice.
 
 | Brief characteristic | `render_runtime` | Read |
 |---|---|---|
 | Existing React scene stack (text_card, stat_card, chart, caption overlay, TalkingHead, CinematicRenderer) | **remotion** | `skills/core/remotion.md` |
 | Word-level caption burn / karaoke captions | **remotion** | `skills/core/remotion.md` |
 | Avatar / lip-sync / presenter | **remotion** | `skills/core/remotion.md` |
-| Kinetic typography, HTML/GSAP-native motion, product promo, launch reel | **hyperframes** | `skills/core/hyperframes.md` + `.agents/skills/hyperframes/SKILL.md` (router) → `hyperframes-core` (contract), `hyperframes-creative` (palette/type), `hyperframes-animation` (motion) |
-| Website → video, UI-driven composition | **hyperframes** | `.agents/skills/website-to-video/SKILL.md` (renamed from website-to-hyperframes in 0.7) |
-| Registry block needed (data-chart, grain-overlay, shader transitions, etc.) | **hyperframes** | `.agents/skills/hyperframes-registry/SKILL.md` |
-| Editable browser-native 3D terrain/world and free-viewpoint fly-through | **hyperframes** | `skills/creative/3d-world-generation.md` + `.agents/skills/threejs-world-generation/SKILL.md` |
+| Kinetic typography, HTML/GSAP-native motion, product promo, launch reel | **remotion** for new work; HyperFrames only for an existing locked or explicitly named runtime | `skills/core/remotion.md`; compatibility: `skills/core/hyperframes.md` |
+| Website → video, UI-driven composition | **remotion** for new work; HyperFrames skill only for an existing locked or explicitly named HyperFrames path | `skills/core/remotion.md`; compatibility: `.agents/skills/website-to-video/SKILL.md` |
+| Registry block needed (data-chart, grain-overlay, shader transitions, etc.) | **remotion** for new work; HyperFrames registry only for an existing locked or explicitly named HyperFrames artifact | `skills/core/remotion.md`; compatibility: `.agents/skills/hyperframes-registry/SKILL.md` |
+| Editable browser-native 3D terrain/world and free-viewpoint fly-through | **remotion** for new work; HyperFrames only for an explicitly named compatibility path | `skills/core/remotion.md`; compatibility: `skills/creative/3d-world-generation.md` + `.agents/skills/threejs-world-generation/SKILL.md` |
 | Reference-grade 3D world film rendered in Blender | **ffmpeg packaging of Blender frames** | `skills/creative/3d-world-generation.md` + `.agents/skills/3d-asset-generation/SKILL.md` |
-| Beat-synced music video (audio drives scene timing) | **hyperframes** | `.agents/skills/music-to-video/SKILL.md` — uses `hyperframes beats` to detect drops, lays out frames on the beat grid |
-| Porting an existing Remotion composition to HyperFrames | **hyperframes** | `.agents/skills/remotion-to-hyperframes/SKILL.md` — migration guidance, ONLY for explicit port requests |
+| Beat-synced music video (audio drives scene timing) | **remotion** for new work; HyperFrames beat tooling only for an existing locked or explicitly named HyperFrames path | `skills/core/remotion.md`; compatibility: `.agents/skills/music-to-video/SKILL.md` |
+| Porting an existing Remotion composition to HyperFrames | **hyperframes only for an explicit port request** | `.agents/skills/remotion-to-hyperframes/SKILL.md` |
 | BGM / SFX / image / icon resolution (any pipeline, any runtime) | n/a | `.agents/skills/media-use/SKILL.md` — `resolve` verb against project cache + global cache + HeyGen catalog |
-| Short design-led motion graphic (lower-third, stat reveal, logo sting, headline) | **hyperframes** | `.agents/skills/motion-graphics/SKILL.md` |
+| Short design-led motion graphic (lower-third, stat reveal, logo sting, headline) | **remotion** for new work; HyperFrames motion skill only for an existing locked or explicitly named HyperFrames path | `skills/core/remotion.md`; compatibility: `.agents/skills/motion-graphics/SKILL.md` |
 | Pure concat / trim of source clips, no composition needed | **ffmpeg** | `skills/core/ffmpeg.md` |
 | Selected runtime is unavailable | **escalate** — do not substitute silently | `AGENT_GUIDE.md` → Escalate Blockers |
 
-Read `skills/core/hyperframes.md` for the full Remotion-vs-HyperFrames
-decision matrix and the list of features that stay Remotion-only in Phase 1.
+Read `skills/core/remotion.md` for the normal composition entry point. Read
+`skills/core/hyperframes.md` only for an existing locked or explicitly named
+HyperFrames compatibility path and its Phase 1 boundaries.
 
 ## Animation library decision matrix
 
@@ -94,7 +85,7 @@ decision matrix and the list of features that stay Remotion-only in Phase 1.
 | Mathematical / scientific visualization | Manim | `.agents/skills/manim-composer`, `.agents/skills/manimce-best-practices` |
 | D3 data-driven visualization | D3 | `.agents/skills/d3-viz` |
 | Data chart (bar/line/pie/KPI) | Remotion built-in chart components | `remotion-composer/SCENE_TYPES.md` |
-| HyperFrames composition — animation knowledge (rules, blueprints, transitions, runtime adapters) | HyperFrames + GSAP default | `.agents/skills/hyperframes-animation` (consolidated motion skill) + `.agents/skills/gsap-core`, `.agents/skills/gsap-timeline` |
+| HyperFrames composition — animation knowledge (rules, blueprints, transitions, runtime adapters) | HyperFrames + GSAP only on an existing locked or explicitly requested HyperFrames path | `.agents/skills/hyperframes-animation` (consolidated motion skill) + `.agents/skills/gsap-core`, `.agents/skills/gsap-timeline` |
 | HyperFrames composition structure (data-* timing, tracks, sub-compositions) | HyperFrames | `.agents/skills/hyperframes-core` |
 | Explicit Three.js world (terrain, regions, landmarks, camera path) | HyperFrames + `threejs_world` | `.agents/skills/threejs-world-generation` |
 | Detailed Blender world film (generated/catalog meshes, PBR, camera path) | Blender + FFmpeg packaging | `.agents/skills/3d-asset-generation` |

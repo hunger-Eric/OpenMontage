@@ -65,6 +65,7 @@ class VideoCompose(BaseTool):
     stability = ToolStability.EXPERIMENTAL
     execution_mode = ExecutionMode.SYNC
     determinism = Determinism.DETERMINISTIC
+    DEFAULT_RENDER_RUNTIME = "remotion"
 
     dependencies = ["cmd:ffmpeg"]
     install_instructions = "Install FFmpeg: https://ffmpeg.org/download.html"
@@ -279,11 +280,11 @@ class VideoCompose(BaseTool):
             return False
 
     def get_info(self) -> dict[str, Any]:
-        """Extend base get_info to surface all available render runtimes.
+        """Report the new-work default and legacy runtime compatibility.
 
-        Preflight reports each runtime's availability separately so the agent
-        can choose an appropriate `render_runtime` at proposal stage. Silent
-        fallback between runtimes is forbidden.
+        Availability remains visible for existing locked projects, but new
+        proposals have one user-facing runtime: Remotion. Silent fallback
+        between runtimes is forbidden.
         """
         info = super().get_info()
         ffmpeg_ok = self._ffmpeg_available()
@@ -296,6 +297,9 @@ class VideoCompose(BaseTool):
         }
         # Backwards-compat alias — some proposal skills inspect this name.
         info["render_runtimes"] = info["render_engines"]
+        info["default_render_runtime"] = self.DEFAULT_RENDER_RUNTIME
+        info["user_facing_render_runtimes"] = [self.DEFAULT_RENDER_RUNTIME]
+        info["compatibility_render_runtimes"] = ["hyperframes", "ffmpeg"]
 
         if remotion_ok:
             info["remotion_components"] = self._REMOTION_COMPONENTS
@@ -320,31 +324,24 @@ class VideoCompose(BaseTool):
 
         if hyperframes_ok:
             info["hyperframes_note"] = (
-                "HyperFrames is available for HTML/CSS/GSAP composition. Use it "
-                "for kinetic typography, product promos, launch reels, "
-                "website-to-video, and registry-block-driven scenes. Consumed via "
-                "'npx hyperframes' (npm package: 'hyperframes'). "
-                "Before locking render_runtime='hyperframes' at the proposal stage, "
-                "verify the runtime with `hyperframes_compose` operation='doctor' "
-                "or `make hyperframes-doctor`. An 'available' flag from the runtime "
-                "check means node + ffmpeg + the npm package all resolve; it does "
-                "not guarantee a render will succeed on the first specific "
-                "composition."
+                "HyperFrames is available only for historical or explicitly locked "
+                "compatibility work. Do not recommend it for new productions; new "
+                "proposals must lock render_runtime='remotion'."
             )
         else:
             info["hyperframes_note"] = (
-                "HyperFrames is NOT available. Requires Node.js >= 22, FFmpeg, "
-                "npx on PATH, and the 'hyperframes' npm package to be resolvable. "
-                "Run `make hyperframes-doctor` to see the specific missing piece, "
-                "or call `hyperframes_compose` operation='doctor' directly."
+                "HyperFrames is unavailable and remains a historical or explicitly "
+                "locked compatibility runtime only. Do not recommend it for new "
+                "productions; new proposals must lock render_runtime='remotion'."
             )
 
         # Governance note — agents and reviewers consume this.
         info["runtime_governance"] = (
-            "render_runtime is locked at proposal stage and carried unchanged "
-            "through edit_decisions. Silent swaps are forbidden. If the "
-            "chosen runtime fails, surface a structured blocker and wait for "
-            "user approval before switching."
+            "New proposals must lock render_runtime='remotion' and carry it "
+            "unchanged through edit_decisions. Existing explicit runtime locks "
+            "remain compatible. Silent swaps are forbidden; if the chosen runtime "
+            "fails, surface a structured blocker and wait for user approval before "
+            "switching."
         )
         return info
 
@@ -1624,8 +1621,9 @@ class VideoCompose(BaseTool):
                     "it MUST be locked at proposal stage (proposal_packet."
                     "production_plan.render_runtime) and carried forward through "
                     "edit_decisions.render_runtime. Valid values: 'remotion', "
-                    "'hyperframes', 'ffmpeg'. Re-run the proposal stage with an "
-                    "explicit runtime choice — do NOT default this field."
+                    "'hyperframes', 'ffmpeg'. Re-run the proposal stage and lock "
+                    "render_runtime='remotion' for a new production; this renderer "
+                    "will not silently fill a missing lock."
                 ),
             )
 

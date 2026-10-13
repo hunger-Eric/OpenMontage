@@ -99,7 +99,7 @@ stages:
       - Free/local tool options are highlighted where applicable
       - "Audio architecture decided: single narrator / character dialogue / narrator+characters"
       - "Provider choice presented as comparison table with costs — agent recommends but user decides"
-      - "render_runtime chosen explicitly — remotion for React scene stack, hyperframes for HTML/GSAP motion graphics, ffmpeg for simple concat. See skills/core/hyperframes.md and skills/meta/animation-runtime-selector.md for the decision matrix. Record in decision_log with category render_runtime_selection."
+      - "render_runtime defaults to remotion for all new productions after availability check. Preserve an existing explicit lock or a user-explicit runtime request; do not expose a technical runtime menu. If remotion is unavailable, report the gap and do not switch. See skills/meta/animation-runtime-selector.md and record the selected runtime in decision_log where required."
     success_criteria:
       - Schema-valid proposal_packet with at least 3 concept_options
       - selected_concept includes animation_mode and reuse_strategy
