@@ -35,11 +35,17 @@ authority.
 For video-plan requests, including "我有个产品叫 X，帮我写一份视频方案" or
 "使用 ai-video-gen 技能，我有个产品叫 X，帮我写一份视频方案", read
 `E:/project/OpenMontage/docs/references/manual-video-handoff.md`. Prepare the
-plan, necessary reference images and copyable per-shot prompts by default.
+plan by generation segment, with one necessary reference-image group and one
+complete copyable prompt per segment. Keep short shot/action beats inside the
+segment's prompt; do not automatically split each beat into a generation task.
 Users need not list these outputs or name a manual workflow. Explicit text-only
-limits take precedence. Use the existing project workflow, deliver
-them, and end the task before calling a video provider. Later supplied videos
-use the existing continuation path. Complete-video requests retain automatic
+limits take precedence. Use the existing project workflow and deliver one
+self-contained Excel workbook. Each segment row links its scene/actions,
+embedded reference-image group, narration/dialogue, on-screen text and complete
+copyable prompt. Retain originals in the project; the default output attachment
+is only the final workbook, without separate image attachments. End the task before
+calling a video provider. Later supplied videos use the existing continuation
+path. Complete-video requests retain automatic
 production.
 The manual plan is platform-neutral: describe the composition and performance,
 without selecting or requiring a video model, provider, account or MCP session.
@@ -51,7 +57,10 @@ the board just because the request arrived through Feishu.
 
 For Feishu, preserve the Bridge's trusted attachment, topic-continuity and artifact
 contracts. Use only the exact supplied or explicitly referenced trusted media;
-return new local artifacts for Worker registration and delivery. Do not send or
+return new local artifacts for Worker registration and delivery. Video-sample approval
+requests must include the validated sample video as an output artifact, even
+when production is waiting for approval; a local-only link is insufficient.
+Do not send or
 upload Feishu results yourself. Do not ask users for a project path. If the project
 or a required capability is unavailable, identify the concrete blocker and retain
 the request and existing evidence; respect explicit user choices and permissions.

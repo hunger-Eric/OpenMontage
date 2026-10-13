@@ -13,6 +13,7 @@ from tools.graphics import google_flow_mcp_image as image_module
 from tools.graphics.google_flow_mcp_image import GoogleFlowMCPImage
 from tools.video import google_flow_mcp_video as video_module
 from tools.video.google_flow_mcp_video import GoogleFlowMCPVideo
+from tools.video.video_selector import VideoSelector
 
 
 class _SnapshotClient:
@@ -355,7 +356,8 @@ def test_video_error_returns_persisted_generation_status(monkeypatch, tmp_path):
     assert Path(result.data["attempt_record"]).exists()
 
 
-def test_google_flow_video_passes_reference_ingredients(monkeypatch, tmp_path):
+@pytest.mark.parametrize("reference_field", ["reference_paths", "reference_image_paths"])
+def test_google_flow_video_passes_reference_ingredients(monkeypatch, tmp_path, reference_field):
     output_path = tmp_path / "shot.mp4"
     reference_path = tmp_path / "robot.png"
     reference_path.write_bytes(b"reference")
@@ -375,7 +377,7 @@ def test_google_flow_video_passes_reference_ingredients(monkeypatch, tmp_path):
             "prompt": "robot cleans the lens",
             "output_path": str(output_path),
             "project_url": "https://labs.google/fx/tools/flow/project/example",
-            "reference_paths": [str(reference_path)],
+            reference_field: [str(reference_path)],
             "confirm_paid_generation": True,
             "max_budget_credits": 10,
         }
@@ -384,6 +386,134 @@ def test_google_flow_video_passes_reference_ingredients(monkeypatch, tmp_path):
     assert captured["reference_paths"] == [reference_path]
     assert result.data["reference_count"] == 1
     assert result.data["upload_receipts"] == [{"uploaded": True}]
+
+
+def test_google_flow_prepare_reference_alias_preserves_existing_request_fields(tmp_path):
+    reference_path = tmp_path / "product.png"
+    reference_path.write_bytes(b"reference")
+    original = {
+        "prompt": "product closeup",
+        "model": "Omni 1.1 Flash",
+        "route": "google_flow",
+        "attempt_id": "attempt-1",
+        "reference_image_paths": [str(reference_path)],
+    }
+
+    prepared = VideoSelector._prepare_selected_request(GoogleFlowMCPVideo(), original)
+
+    assert isinstance(prepared, dict)
+    assert prepared["reference_image_paths"] == original["reference_image_paths"]
+    assert prepared["reference_paths"] == original["reference_image_paths"]
+    for field in ("prompt", "model", "route", "attempt_id"):
+        assert prepared[field] == original[field]
+
+
+def test_google_flow_video_deduplicates_equivalent_reference_aliases(monkeypatch, tmp_path):
+    output_path = tmp_path / "shot.mp4"
+    reference_path = tmp_path / "product.png"
+    reference_path.write_bytes(b"reference")
+    captured = {}
+    monkeypatch.setattr(video_module, "provider_status", lambda: ToolStatus.AVAILABLE)
+    monkeypatch.setattr(
+        video_module,
+        "run_generation",
+        lambda **kwargs: captured.update(kwargs) or _receipt(output_path, "video"),
+    )
+    monkeypatch.setattr(video_module, "probe_media", lambda *_args: {"duration_seconds": 6.0})
+
+    result = GoogleFlowMCPVideo().execute(
+        {
+            "prompt": "product closeup",
+            "output_path": str(output_path),
+            "confirm_paid_generation": True,
+            "reference_paths": [str(reference_path)],
+            "reference_image_paths": [str(reference_path)],
+        }
+    )
+
+    assert result.success
+    assert captured["reference_paths"] == [reference_path]
+    assert result.data["reference_count"] == 1
+
+
+def test_google_flow_video_idempotency_key_normalizes_reference_aliases(tmp_path):
+    reference_a = tmp_path / "product-a.png"
+    reference_b = tmp_path / "product-b.png"
+    reference_a.write_bytes(b"a")
+    reference_b.write_bytes(b"b")
+    tool = GoogleFlowMCPVideo()
+    base = {
+        "prompt": "product closeup",
+        "model": "Omni 1.1 Flash",
+        "duration": 6,
+        "aspect_ratio": "16:9",
+        "project_url": "https://flow.google.com/project/test",
+    }
+
+    canonical_key = tool.idempotency_key({**base, "reference_paths": [str(reference_a)]})
+    alias_key = tool.idempotency_key({**base, "reference_image_paths": [str(reference_a)]})
+    duplicate_key = tool.idempotency_key({
+        **base,
+        "reference_paths": [str(reference_a)],
+        "reference_image_paths": [str(reference_a)],
+    })
+
+    assert canonical_key == alias_key == duplicate_key
+    assert alias_key != tool.idempotency_key({**base, "reference_image_paths": [str(reference_b)]})
+    assert tool.idempotency_key(base)
+
+
+@pytest.mark.parametrize("case", ["conflict", "invalid"])
+def test_google_flow_video_idempotency_key_rejects_invalid_reference_aliases(tmp_path, case):
+    reference_path = tmp_path / "product.png"
+    reference_path.write_bytes(b"reference")
+    inputs = {"prompt": "product closeup"}
+    if case == "conflict":
+        other = tmp_path / "other.png"
+        other.write_bytes(b"other")
+        inputs.update(
+            reference_paths=[str(reference_path)],
+            reference_image_paths=[str(other)],
+        )
+    else:
+        inputs["reference_image_paths"] = "not-an-array"
+
+    with pytest.raises(ValueError, match="reference"):
+        GoogleFlowMCPVideo().idempotency_key(inputs)
+
+
+@pytest.mark.parametrize("case", ["conflict", "invalid", "missing"])
+def test_google_flow_video_invalid_references_stop_before_submission(monkeypatch, tmp_path, case):
+    output_path = tmp_path / "shot.mp4"
+    reference_path = tmp_path / "product.png"
+    reference_path.write_bytes(b"reference")
+    monkeypatch.setattr(video_module, "provider_status", lambda: ToolStatus.AVAILABLE)
+    monkeypatch.setattr(
+        video_module,
+        "run_generation",
+        lambda **_kwargs: pytest.fail("run_generation must not be called"),
+    )
+    inputs = {
+        "prompt": "product closeup",
+        "output_path": str(output_path),
+        "confirm_paid_generation": True,
+    }
+    if case == "conflict":
+        other = tmp_path / "other.png"
+        other.write_bytes(b"other")
+        inputs.update(
+            reference_paths=[str(reference_path)],
+            reference_image_paths=[str(other)],
+        )
+    elif case == "invalid":
+        inputs["reference_image_paths"] = "not-an-array"
+    else:
+        inputs["reference_image_paths"] = [str(tmp_path / "missing.png")]
+
+    result = GoogleFlowMCPVideo().execute(inputs)
+
+    assert not result.success
+    assert result.data["error_code"] in {"invalid_reference", "reference_missing"}
 
 
 def test_google_flow_image_returns_mcp_and_probe_receipts(monkeypatch, tmp_path):

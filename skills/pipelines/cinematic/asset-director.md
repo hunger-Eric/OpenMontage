@@ -77,6 +77,13 @@ Before batch-generating support assets, produce one sample of each expensive gen
 
 If `motion_required = true`, the representative visual must be a video clip sample, not a still image sample.
 
+Before requesting approval, validate the actual sample and include its playable
+media file in the current deliverable artifacts. For video samples in Feishu,
+return the MP4 to Worker for registration and delivery to the original topic; a localhost
+preview or Backlot link alone is insufficient. Keep the stage awaiting approval
+and use the existing executor result contract to return the sample while paused;
+do not claim that the complete film is finished or start the remaining generation.
+
 If rejected, adjust parameters and retry (max 3 iterations). Do not batch until approved.
 
 Before the sample is generated, tell the user exactly which generation path will be used:

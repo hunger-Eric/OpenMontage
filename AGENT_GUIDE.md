@@ -224,12 +224,19 @@ a copy request into a visual plan.
 Do not require manual-generation terminology, a deliverable checklist, or a
 model choice. Fill ordinary creative gaps with clearly marked suggestions;
 ask only about gaps that materially affect the requested result.
-Reuse the same planning and image tools, then deliver the document and actual
-necessary reference images before any video-generation call. Explicitly text-only
-or initial-concept requests do not authorize generating images. The manual plan
-describes composition, performance and shot continuity without naming a video
-model or platform;
-employees choose their own generation method. It requires no video-provider
+Organize the manual plan by generation segment: one necessary reference-image
+group and one complete prompt per segment. Keep short shot/action beats inside
+that prompt rather than automatically making each beat a separate generation
+task; split segments when the content or explicit user requirements call for it.
+Reuse the same planning and image tools, then deliver one self-contained Excel
+workbook. Each generation-segment row links its scene/actions, embedded reference
+images, narration/dialogue, on-screen text and one complete copyable prompt.
+Deliver it before any video-generation call. Keep originals in the project; return only the
+final workbook as the default attachment, without separate image attachments.
+Explicitly text-only or initial-concept requests do not authorize generating
+images. The manual plan describes composition, performance and shot continuity
+without naming a video model or platform; employees choose their own generation
+method. It requires no video-provider
 selection, discovery or local video MCP session. End this task after delivering
 the plan; a later trusted video upload continues the existing project and
 post-production flow.
@@ -255,7 +262,12 @@ referenced in the same conversation. Keep analysis evidence and subsequent
 production linked to that source and reuse valid analysis and approved plans on
 continuation. Do not search another workspace for similar historical media. Return
 new local artifacts to Worker for registration and delivery; do not upload or send
-Feishu results from the business workflow. Explicit user workflow choices take
+Feishu results from the business workflow. When asking for video-sample approval, return
+the validated sample video as a deliverable artifact in the current response,
+even when the full production is paused. A localhost/Backlot link or text saying
+the sample passed does not replace the video. Preserve the awaiting-approval
+state and the existing executor result contract; do not mark the full film complete.
+Explicit user workflow choices take
 precedence. Missing project access or capabilities must be reported as concrete
 blockers, not a request for the user to supply a local project directory.
 

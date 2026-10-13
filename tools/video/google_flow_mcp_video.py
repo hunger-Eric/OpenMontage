@@ -78,6 +78,11 @@ class GoogleFlowMCPVideo(BaseTool):
                 "items": {"type": "string"},
                 "description": "Absolute paths uploaded as Flow ingredients before generation",
             },
+            "reference_image_paths": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Compatibility alias for reference_paths from VideoSelector image inputs",
+            },
             "confirm_paid_generation": {"type": "boolean", "default": False,
                 "description": "Set true for a user-authorized video request; no separate fee approval is needed unless the user specified a cap."},
             "max_budget_credits": {"type": ["number", "null"], "exclusiveMinimum": 0,
@@ -104,6 +109,65 @@ class GoogleFlowMCPVideo(BaseTool):
     user_visible_verification = [
         "Play the generated clip and inspect motion, framing, and synchronized audio",
     ]
+
+    @staticmethod
+    def _normalize_reference_values(field: str, value: object) -> list[tuple[str, Path]]:
+        """Validate one supported reference field without silently dropping it."""
+        if not isinstance(value, (list, tuple)):
+            raise ValueError(f"Google Flow video {field} must be an array of paths")
+        normalized: list[tuple[str, Path]] = []
+        for raw_path in value:
+            if not isinstance(raw_path, str) or not raw_path.strip():
+                raise ValueError(
+                    f"Google Flow video {field} contains an invalid reference path"
+                )
+            path = Path(raw_path)
+            normalized.append((str(path.resolve()), path))
+        return normalized
+
+    @classmethod
+    def _reference_paths_from_inputs(cls, inputs: dict[str, Any]) -> list[Path]:
+        """Accept the selector's image alias while rejecting conflicting inputs."""
+        has_canonical = "reference_paths" in inputs
+        has_image_alias = "reference_image_paths" in inputs
+        canonical = cls._normalize_reference_values(
+            "reference_paths", inputs["reference_paths"]
+        ) if has_canonical else []
+        image_alias = cls._normalize_reference_values(
+            "reference_image_paths", inputs["reference_image_paths"]
+        ) if has_image_alias else []
+        if has_canonical and has_image_alias:
+            if [item[0] for item in canonical] != [item[0] for item in image_alias]:
+                raise ValueError(
+                    "Google Flow video reference_paths conflicts with reference_image_paths"
+                )
+
+        selected = canonical if has_canonical else image_alias
+        unique_paths: list[Path] = []
+        seen: set[str] = set()
+        for identity, path in selected:
+            if identity not in seen:
+                seen.add(identity)
+                unique_paths.append(path)
+        return unique_paths
+
+    def prepare_video_request(self, inputs: dict[str, Any]) -> dict[str, Any]:
+        """Add the provider-native reference field without altering frozen inputs."""
+        self._reference_paths_from_inputs(inputs)
+        prepared = dict(inputs)
+        if "reference_image_paths" in inputs and "reference_paths" not in inputs:
+            prepared["reference_paths"] = list(inputs["reference_image_paths"])
+        return prepared
+
+    def idempotency_key(self, inputs: dict[str, Any]) -> str:
+        """Hash the effective reference set for canonical and alias callers alike."""
+        if "reference_paths" not in inputs and "reference_image_paths" not in inputs:
+            return super().idempotency_key(inputs)
+        canonical_inputs = dict(inputs)
+        canonical_inputs["reference_paths"] = [
+            str(path.resolve()) for path in self._reference_paths_from_inputs(inputs)
+        ]
+        return super().idempotency_key(canonical_inputs)
 
     def get_status(self) -> ToolStatus:
         return provider_status()
@@ -172,7 +236,14 @@ class GoogleFlowMCPVideo(BaseTool):
         if max_budget_credits is not None and not 0 < max_budget_credits < float("inf"):
             return ToolResult(success=False, error="Flow credit budget must be finite and positive")
 
-        reference_paths = [Path(str(value)) for value in inputs.get("reference_paths", [])]
+        try:
+            reference_paths = self._reference_paths_from_inputs(inputs)
+        except ValueError as exc:
+            return ToolResult(
+                success=False,
+                error=str(exc),
+                data={"error_code": "invalid_reference", "fallback_used": False},
+            )
         missing_references = [str(path) for path in reference_paths if not path.is_file()]
         if missing_references:
             return ToolResult(
