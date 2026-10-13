@@ -56,6 +56,17 @@ script and render parameters. Do not rebuild the composition in this stage.
    exact accepted bytes. Use its `final_review` and output for checkpoint and
    Worker delivery. It does not re-render, transcribe or repeat stem probes.
 
+For reference-driven films, the owner also applies
+`skills/meta/reference-production-handoff.md` to that exact preview. Record
+script coherence, reference adaptation, performance and continuity independently
+from the technical/visual verdict, with actual evidence and unresolved items.
+Full-frame-sequence inspection is visual evidence only: it cannot establish
+audible naturalness, voice continuity or temporal lip sync. Without appropriate
+listening/playback evidence those findings remain `unverified`; do not report
+the whole creative review as passed. An accepted sample with a different speech
+architecture does not cover the full film. Resolve material promise failures
+under existing review/approval policy before claiming delivery acceptance.
+
 Changed source, media, captions, parameters or timeline require a new preview
 and acceptance. Existing outputs are never overwritten. For repaired legacy
 renders, the existing `render`/`review` entry remains available. Direct renderer

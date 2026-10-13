@@ -30,6 +30,14 @@ Read the `proposal_packet.selected_concept` carefully. Extract:
 - **Target audience** — shapes complexity and assumed knowledge
 - **Narrative structure** — the structural approach (myth_busting, journey, data_narrative, etc.)
 
+For reference-driven work, also read
+`skills/meta/reference-production-handoff.md` and the proposal's
+`metadata.reference_adaptation`. Start from its communication beats and approved
+changes, not only the selected concept's short summary. Carry its reference in
+the script metadata. Missing brand facts are a writing constraint: preserve the
+story's function with supported, concrete content instead of repeating generic
+advice to fill the target duration.
+
 Then read the `research_brief` for grounding material:
 - **`data_points`** — specific statistics and facts to weave into the script. Use claims with `surprise_factor: "surprising"` or `"counterintuitive"` as retention anchors.
 - **`audience_insights.misconceptions`** — if the narrative structure is `myth_busting`, these are your myth/reality pairs.
@@ -52,7 +60,9 @@ The Research Director has already done the heavy lifting — you have a `researc
 
 ### Step 3: Plan the Narrative Arc
 
-Before writing prose, plan the structure. Every explainer script follows a dramatic arc:
+Before writing prose, plan the structure. The following arc is useful for an
+explainer; adapt it to the approved reference's communication purpose rather than
+forcing a presenter demonstration or advertisement into an educational climax:
 
 ```
 HOOK (0-5s)     → Grab attention. Question, bold claim, or surprising fact.
@@ -80,8 +90,16 @@ Map each of the brief's `key_points` to a specific section in the BUILD phase.
 
 Before writing sections, create a top-level `voice_performance` plan using
 `skills/meta/voice-performance-director.md`. The plan must describe the vocal
-intent, pacing profile, energy curve, pause policy, and which section should be
-used for TTS sample approval. Do not leave this as a vague "natural voice" note.
+intent, pacing profile, energy curve, pause policy, and which passage should be
+used in the existing speech sample. Do not leave this as a vague "natural voice" note.
+
+For native dialogue, use the same performance intent in the video prompts rather
+than planning a separate TTS track. Draft the complete spoken text first, with a
+clear progression and ending; then divide it into semantic sections. Avoid giving
+every section its own opening question, repeated instruction and closing slogan.
+Attach delivery directions to the specific idea: emphasis, gaze, purposeful
+gesture and the state in which the next passage continues. Section timings are
+estimates, not fixed provider clip slots.
 
 Write each section with these fields:
 
@@ -129,9 +147,16 @@ Write each section with these fields:
 
 Count your words. If you're 20%+ over budget, the TTS will either rush or exceed duration. Cut ruthlessly.
 
+The table estimates English speech. For Mandarin and other languages without
+space-delimited words, estimate from spoken syllables/characters and the chosen
+delivery, including purposeful pauses; do not use whitespace word counts. Refine
+timing from the existing sample's actual delivery. If pronunciation needs repair,
+keep the passage's meaning and its connection to the whole script while choosing
+clearer wording.
+
 #### Speaker Directions
 
-Write directions that TTS can actually implement. Prefer structured
+For external narration, write directions that TTS can actually implement. Prefer structured
 `delivery_cues` over prose-only `speaker_directions`:
 
 | Direction | TTS Implementation |
@@ -142,7 +167,9 @@ Write directions that TTS can actually implement. Prefer structured
 | "Whisper" | SSML whisper tag (model-dependent) |
 | "Emphasize THIS word" | Note for post-processing or SSML emphasis |
 
-Avoid directions TTS can't do: "smile while speaking", "gesture toward screen", "look at camera."
+Keep visual actions such as gaze and gestures in the scene/video direction,
+separate from TTS instructions. For native dialogue, combine vocal delivery with
+those actions in the corresponding video prompt.
 
 **Expressive narration rule:** every narration-led section must include at
 least two concrete cues among `pace`, `energy`, `emphasis_words`,

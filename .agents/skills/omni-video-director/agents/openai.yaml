@@ -1,0 +1,4 @@
+interface:
+  display_name: "Omni 视频导演"
+  short_description: "协作 Omni 出片，支持角色命名、查询与跨项目复用，统筹表演和剪辑"
+  default_prompt: "使用 $omni-video-director，按我的目标和参考素材完成视频创作，沿用已选模型。"

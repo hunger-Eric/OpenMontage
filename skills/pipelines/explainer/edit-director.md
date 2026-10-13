@@ -18,6 +18,15 @@ This is where raw assets become a coherent video. Good editing makes average ass
 
 ### Step 1: Map Assets to Timeline
 
+For reference-driven work, read `skills/meta/reference-production-handoff.md`
+and the approved adaptation referenced by the scene plan. Start from the spoken
+progression and actual performance windows, not a row of equal-length provider
+clips. Trim redundant lead-ins and intermediate closing holds; retain deliberate
+pauses. Let speech continue over inserts tied to what is being described. Choose
+the return to the presenter from the next thought or action, matching gaze,
+posture and prop state where visible. Carry compatible ambience across joins
+separately from speech; do not crossfade syllables to mask a voice change.
+
 Start the single project-local composition while assets are preparing, using
 the existing scaffold once. Use actual final-audio transcript timestamps for
 scene ranges, narration, captions and information-card reveals; storyboard

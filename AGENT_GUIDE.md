@@ -24,6 +24,12 @@ transport, media integrity and receipts. Provider scoring is advisory evidence,
 not a substitute for the agent's production plan. Freeze the selected tool,
 host, model and authorized spending scope before generation.
 
+When writing artifacts on Windows, save Python scripts containing non-ASCII text
+as UTF-8 files and run those files. If passing a PowerShell here-string to Python
+through a pipe, set `$OutputEncoding = [System.Text.UTF8Encoding]::new($false)`
+and `$env:PYTHONUTF8 = '1'` before the pipe. `PYTHONUTF8` alone does not control
+PowerShell's pipe encoding. Write JSON with `encoding="utf-8"`.
+
 Codex native `image_gen` is an optional explicit route. Check its availability
 in the actual session, then register the image and provenance in the project.
 Its desktop availability does not imply Worker access. Python API providers
@@ -47,7 +53,11 @@ generation request authorizes its normal subscription-credit use: give one
 brief cost notice when useful, then continue without a separate fee approval
 or repeated reminders. Set `confirm_paid_generation=true` for that authorized
 request; this is the transport's single-use authorization, not another user gate.
-Freeze the actual model before generation. The adapter exits Agent mode when
+Resolve the actual model once from the approved selection or configured default,
+then reuse it for subsequent shots. Keep the exact model in tool parameters and
+receipts; do not repeat its name or request another model confirmation in routine
+progress updates. Discuss the model again only if that selection changes or a
+model-specific limitation affects the result. The adapter exits Agent mode when
 necessary and verifies ordinary video settings (4/6/8/10 seconds,
 16:9 or 9:16, 720p, one result), then types without submitting and requires
 acknowledgement after the separate generation click. An existing output-owned
@@ -72,6 +82,15 @@ including file-input and native media-picker surfaces. User-authorized reference
 files may acknowledge the upload-rights notice for that action. The adapter
 requires a verified completed upload/association before typing or submitting;
 an uploading placeholder is not a usable reference.
+
+For Omni generation and conversational-edit prompting across different use
+cases, consult `docs/references/google-omni-video-prompting.md`. It summarizes
+the official guide, separates Flow capabilities from older API preview
+limitations, and offers adaptable examples. It is a creative reference, not
+an additional preflight or approval step; keep the selected model and route.
+The user-callable `$omni-video-director` skill coordinates story, references,
+performance, conversational edits and composition while using this project's
+existing production authority and execution paths.
 
 Gemini has two distinct optional transports: `gemini_tts` uses the upstream
 Interactions contract; `gemini_generate_content_tts` preserves the verified
@@ -228,6 +247,14 @@ This is a first-class workflow in OpenMontage.
 4. **Then** run normal capability audit and pipeline selection
 5. Present **2-3 differentiated concepts** for the user's version — not a carbon copy
 
+For every reference-driven production, also read
+`skills/meta/reference-production-handoff.md`. Preserve the reference's
+communication logic in `proposal_packet.metadata.reference_adaptation` and
+carry its approved revision through each stage. A reference summary, a suggested pipeline,
+or completed checkpoints alone do not prove this handoff. Review script,
+performance and cross-shot continuity against the plan, separately from
+technical media validity. This applies equally to Feishu and local requests.
+
 ### Important distinction
 
 - **Reference-driven request:** "make me something like this" -> use `video-reference-analyst.md`
@@ -282,13 +309,18 @@ For any meaningful production decision, the agent must communicate the decision 
 
 ### Announce Before Execution
 
-Before any paid or consequential generation call, state:
+When first choosing the production route, briefly state:
 
 - the exact tool name,
 - the provider,
 - the model or provider variant,
 - the reason it was chosen,
 - whether it is a sample or a batch run.
+
+Once selected, reuse that route without repeating this announcement for each
+shot, poll, continuation or prompt refinement. Progress updates should describe
+the work and result. Retain exact provider/model identity in the request and
+receipts; an unchanged selection is not a new decision or approval request.
 
 ### Ask Before Major Changes
 

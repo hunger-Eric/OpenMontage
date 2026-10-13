@@ -13,6 +13,21 @@ metadata:
 
 # Gemini Omni Flash (Google DeepMind)
 
+## Current prompting reference (2026-10-13)
+
+For cross-scenario prompting, consult
+`docs/references/google-omni-video-prompting.md` (relative to the project root),
+based on [Google DeepMind's official prompt guide](https://deepmind.google/models/gemini-omni/prompt-guide/).
+It covers references, movement, storyboards, conversational changes and shot
+transitions, with project-authored examples.
+
+The API descriptions below document an older preview route. They do not define
+the current Flow UI's capabilities, and their hard limitations/pricing have not
+been refreshed by this documentation task. For the selected Flow/MCP route,
+follow `AGENT_GUIDE.md` and the reference above; do not switch to a direct API
+because this skill's older body prefers it. Recheck current API documentation
+when using that API. This reference adds no approval or forced-check step.
+
 Gemini Omni is Google DeepMind's video generation **and editing** model family, announced at I/O 2026. The first model, **Gemini Omni Flash** (`gemini-omni-flash-preview`, developer access since June 30, 2026), generates 3-10 second clips at 720p/24fps with synthesized audio via the Gemini **Interactions API**. Its differentiator in the OpenMontage fleet is **stateful conversational editing**: each generation returns an `interaction_id`, and a follow-up call with `previous_interaction_id` edits that video in place — no other wrapped provider can refine a clip without regenerating it.
 
 OpenMontage wraps it as `gemini_omni_video` (native Gemini API, no gateway). It shares `GOOGLE_API_KEY`/`GEMINI_API_KEY` with `google_imagen` and `google_tts` — one key, three capabilities. Paid tier only: ~$0.10 per second of output video (billed as 5,792 output tokens/sec at $17.50/1M).

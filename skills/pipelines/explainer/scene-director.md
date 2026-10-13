@@ -19,6 +19,10 @@ This is where words become visuals. A great script with a bad scene plan produce
 
 ### Step 1: Analyze the Script
 
+For reference-driven work, read `skills/meta/reference-production-handoff.md`
+and the approved adaptation referenced by the script. Use its beat functions,
+speech architecture and continuity strategy when turning the script into shots.
+
 Read every section. For each, note:
 - What concept is being explained?
 - What enhancement cues did the script writer embed?
@@ -38,7 +42,13 @@ If you encounter a visualization need that no existing skill covers, use the **S
 
 ### Step 3: Decompose into Scenes
 
-Transform each script section into 1-3 visual scenes. Each scene is a distinct visual moment.
+Transform the script into meaningful visual moments. A section may span several
+shots and an uninterrupted performance may span several sections; do not impose
+one talking-head clip per section. Place B-roll where it explains a spoken point.
+For presenter shots, describe the specific delivery/action, incoming and outgoing
+gaze/posture/hand state, and whether speech continues over the next visual.
+Separate generation duration (including editing handles) from intended screen
+time. A repeated identity prompt and closing smile are not a continuity plan.
 
 ```json
 {
@@ -143,30 +153,17 @@ Show code with syntax highlighting. Highlight specific lines as the narrator exp
 - Tools: `code_snippet` tool + Remotion
 - Example: "Python code: `results = collection.query(embedding, n_results=5)`. Highlight `embedding` parameter when narrator says 'vector'."
 
-### Step 4b: Write Narration with Duration Budget
+### Step 4b: Plan Visual Timing Around the Spoken Story
 
-If the video includes narration, the script **must** be written to fit the video duration.
-
-**Duration budgeting formula:**
-1. Calculate total video duration from scene timings (last cut's `out_seconds`).
-2. Target narration at **85-90%** of video duration to leave breathing room at intro/outro.
-3. Budget words: **2.0-2.5 words/second** for documentary style with natural pauses; **2.5-3.0 words/second** for energetic/fast-paced delivery.
-4. Example: 53s video → target 45-48s of narration → 90-120 words max (documentary) or 112-144 words (energetic).
-
-**Per-scene word budgets:**
-- Allocate words proportionally to each scene's duration.
-- A 5s scene gets ~10-12 words. A 6s scene gets ~12-15 words.
-- Leave 0.5-1s of silence between scene transitions for visual breathing room.
-
-**Validation (mandatory before TTS generation):**
-- [ ] Total word count is within budget for the target duration
-- [ ] No single scene's narration exceeds its time slot
-- [ ] Opening and closing scenes have brief narration (let visuals breathe)
-
-**After TTS generation:**
-- The TTS tool returns `audio_duration_seconds` — compare it against video duration.
-- If narration exceeds video by >1s, either trim the script and regenerate, or extend the video's closing scene.
-- Always run `composition_validator` before rendering to catch mismatches automatically.
+The Script stage owns the wording and overall delivery; the Scene stage arranges
+visuals around it rather than writing a second narration to fill scene slots.
+Estimate action/reading time from the actual language and intended performance.
+Use the narration or native-speech sample to refine scene lengths. Speech can
+continue across visual cuts; place silence at intended thought or action pauses,
+not automatically between every shot. If an idea cannot fit the planned screen
+time, adjust the visual coverage or return a specific wording/timing proposal to
+the script owner. Do not independently replace the approved text or rush speech
+to match a provider's generated duration.
 
 ### Step 4c: 5-Aspect Scene-Plan Checklist
 

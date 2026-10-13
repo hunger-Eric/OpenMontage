@@ -46,6 +46,14 @@ Quick routing for common explainer needs:
 
 ### Step 1: Inventory Required Assets
 
+For reference-driven work, read `skills/meta/reference-production-handoff.md`
+and the approved adaptation referenced by the scene plan. Generate from its
+speech architecture and per-shot performance/continuity notes. Include the
+previous and next passage's context in the delivery instructions; quote only
+the current intended dialogue as spoken text. Use action-specific gestures and
+continuing poses rather than the same opening, generic hand motion and closing
+smile in every request.
+
 Walk every scene in the scene plan. For each `required_assets` entry, create an asset task:
 
 ```
@@ -59,7 +67,7 @@ Asset Task:
 ```
 
 Also create tasks for:
-- **Narration audio** — one per script section (use `tts_selector` or a concrete TTS provider)
+- **Narration audio** — coherent passages with one selected voice/delivery setup for external narration; use provider-sized chunks only where needed, retaining neighboring context. Native dialogue comes from its video assets, not an additional TTS track.
 - **Background music** — one track for the whole video (use `music_gen` or select from library)
 - **Sound effects** — per playbook's `sfx_style` (optional, use `music_gen` or stock)
 
@@ -78,7 +86,7 @@ Before generating anything:
 
 Before batch-generating assets, produce one sample of each expensive asset type and present them to the user for approval:
 
-1. **TTS sample**: Generate narration for `script.voice_performance.sample_section_id` when present; otherwise pick the section with the most demanding delivery. Play it for the user. Confirm voice, pace, pauses, emphasis, and tone are acceptable before generating the rest.
+1. **Speech sample**: Use the approved final speech architecture. For reference-driven multi-shot speech, assemble adjacent beats with the planned insert/transition in the existing sample slot. Use the selected TTS voice for external narration, or actual video-native/lip-sync speech for visible dialogue. Develop the voice, delivery and join together; an isolated still or TTS sample does not establish continuity for independently generated native dialogue.
 2. **Image sample**: Generate one image for the most representative scene. Show it to the user. Confirm the style, quality, and prompt approach before batch-generating all images.
 3. **Music sample** (if using `music_gen`): Generate one short clip. Confirm mood and energy before committing.
 
@@ -149,7 +157,14 @@ request; do not regenerate accepted siblings.
 
 ### Step 3: Generate Narration
 
-For each script section:
+For native dialogue, use the generated video audio and its transcript; this TTS
+procedure applies to external narration. Group connected sections into coherent
+spoken passages within the selected provider's limits. Keep the chosen voice
+and settings stable, preserve section delivery cues inside each passage, and
+map sections back to the actual audio timestamps rather than making each section
+a separate performance with its own restart.
+
+For each planned narration passage:
 1. Extract the narration text
 2. Read `script.voice_performance` and section `delivery_cues`
 3. Use `delivery_cues.provider_text` when present; otherwise transform the section text with purposeful punctuation and break tags only when the selected provider supports them

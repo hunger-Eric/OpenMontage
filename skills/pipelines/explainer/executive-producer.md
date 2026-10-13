@@ -55,6 +55,7 @@ EP_STATE:
   research_brief: null         # full research_brief artifact — available to all downstream stages
   selected_concept: null       # the approved concept from proposal_packet
   production_plan: null        # the approved tool/provider plan
+  reference_adaptation_ref: null # approved proposal path/hash for reference-driven runs
   approved_budget_usd: null    # optional; null means no artificial project cap
 
   # Cross-stage tracking
@@ -70,6 +71,13 @@ EP_STATE:
 ## Execution Protocol
 
 ### Phase 0: Initialize
+
+For reference-driven work, read `skills/meta/reference-production-handoff.md`
+and carry its approved plan/revision throughout EP_STATE. Do not automatically
+choose this pipeline because the analyzer suggested it. Validate pipeline fit
+against the user's requested communication grammar. Give each director the
+approved adaptation and prior artifact so the story, voice strategy and
+continuity decisions survive the handoff; use the existing review process.
 
 1. Load the pipeline manifest (`animated-explainer.yaml`)
 2. Load the playbook (from user selection or default)

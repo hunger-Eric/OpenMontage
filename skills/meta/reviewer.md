@@ -6,6 +6,18 @@ After completing any pipeline stage's work — before checkpointing. You are the
 
 Every stage gets reviewed. No exceptions. The review quality determines whether the final video is worth watching.
 
+## Reference-driven cross-stage review
+
+When this is a reference-driven production, read
+`skills/meta/reference-production-handoff.md` and the approved adaptation plan.
+Use the existing stage review to examine the actual story, performance and
+adjacent-shot continuity against that plan. Give concrete replacement wording,
+delivery instructions or edit changes for problems found. Do not add a separate
+reference checklist or checkpoint gate; the production handoff belongs in the
+artifacts the next director uses.
+Never use transcript matching or frame-only inspection to pass audible
+naturalness. Unavailable audio/playback evidence remains `unverified`.
+
 ## Critique Quality (CHAI Rules)
 
 > Findings ≠ critiques. A finding identifies a problem; a critique tells the next stage how to fix it. The CMU/Harvard CHAI study ("Building a Precise Video Language with Human-AI Oversight", arXiv 2604.21718v2) showed that critique quality, measured on three axes, directly governs downstream output quality. Apply all three to every reviewer pass.

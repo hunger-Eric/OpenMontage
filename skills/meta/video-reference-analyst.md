@@ -25,6 +25,11 @@ Do NOT trigger when:
 
 ## Protocol
 
+Read `skills/meta/reference-production-handoff.md` for the shared evidence,
+adaptation and downstream-review contract. The five visual aspects below are
+necessary but do not replace narrative, speech/performance and edit-function
+analysis.
+
 ### Step 1: Analyze the Reference
 
 #### Reference acquisition and evidence gate
@@ -133,20 +138,28 @@ the visual transitions, the narration style]
 Now let me check what I can do with your current setup..."
 ```
 
-The 5-aspect block above is the **canonical form** that `proposal-director`, `script-director`, and `scene-director` will read. Do not collapse it back into prose — keep the labels.
+The 5-aspect block describes the visual material. Alongside it, map the source
+timeline into communication beats: spoken meaning, on-screen copy, presenter
+role/performance and the reason for each cut or insert. A speech passage can span
+multiple detected shots. This story/edit map is the input to the adaptation in
+`skills/meta/reference-production-handoff.md`; visual labels alone are not the
+writing brief. Keep the visual labels available for downstream prompts.
 
 **Motion classification is critical.** The VideoAnalysisBrief now includes per-scene
 `motion_type` ("motion_clip", "animated_still", "static_image") and `flow_variance`.
 Use this to determine the production approach:
 
-- If most scenes are `motion_clip` → the reference uses **video generation** (Kling,
-  MiniMax, etc.) → plan around video gen tools, not image gen
+- If most scenes are `motion_clip` → the reference contains moving footage.
+  This does not establish whether it was filmed or generated. For a newly
+  generated adaptation, plan a motion-capable route rather than replacing
+  those actions with still-image pans.
 - If most scenes are `animated_still` → the reference uses **still images with
   Ken Burns / pan-zoom** → image gen + Remotion/FFmpeg composition is appropriate
 - If mixed → note which sections use motion and which use stills
 
-**Never guess** whether a reference uses images or video. Read the `motion_type` field.
-Getting this wrong leads to proposing the wrong pipeline and wrong tool path.
+Use `motion_type` as structural evidence alongside the actual media observations;
+select the production route from the requested adaptation and supported actions,
+not from a guessed origin of the reference footage.
 
 **Vision analysis:** After presenting the structural data, examine the extracted
 keyframes yourself. You ARE a multimodal model — look at the keyframe images and
@@ -317,22 +330,21 @@ Use this structure for each variant:
 **Visual plan:**
 - Playbook: [closest match + customizations]
 - Visual treatment: [how visuals will be created — which tools, which providers]
-- Composition: [Remotion (default when available) / FFmpeg (fallback only)]
+- Composition: [approved runtime after presenting available Remotion and
+  HyperFrames options under AGENT_GUIDE.md; do not silently pre-lock a default]
 - Motion: [video gen clips / Remotion spring animations on stills / etc.]
-- Clip duration strategy: [maximize clip duration to minimize API calls and cost.
-  Most providers support 5s and 10s clips. Prefer 10s clips and consolidate
-  adjacent scenes into single clips where narratively coherent. A 60s video
-  needs 6×10s clips, not 12×5s — half the cost, fewer cuts, smoother motion.]
+- Clip duration strategy: [fit the live provider envelope to narrative beats,
+  speech and action windows. Consolidate adjacent scenes only when the story
+  and continuity benefit; longer clips do not inherently mean smoother editing.
+  Final cut lengths come from the actual accepted media, not equal clip slots.]
 
 **Audio plan:**
 - Audio architecture: [single narrator / character dialogue / narrator + characters]
 - Voice casting: [voice name + ID for each role — narrator, character A, etc.]
-- TTS provider: [selected from available providers via tts_selector preflight —
-  Google Chirp3-HD (best value: near-free, expressive, 24kHz),
-  ElevenLabs (voice cloning only), OpenAI gpt-4o-mini-tts (good with
-  instructions param), Piper (offline/free). Do NOT hardcode a provider —
-  run preflight to check what's configured and recommend the best available.
-  **Default recommendation: Google Chirp3-HD** unless voice cloning is needed.]
+- Speech route: [use the approved native speech, TTS, supplied audio or silent
+  architecture. Discover current tools and provider contracts; do not hardcode
+  a TTS default or add TTS to a video-native speech plan. Explain continuity
+  limits and bind the representative sample to this same architecture.]
 - Music: [library track / generated / none]
 - Sound design: [any special audio needs]
 
@@ -440,10 +452,15 @@ Only skip the sample if the user insists after being advised.
 
 **Sample contents:**
 - 1-2 representative scenes (the hook + one middle scene)
-- Actual TTS narration with chosen voice
+- Actual speech using the approved architecture (native video speech, TTS or
+  supplied audio); silent productions have no invented narration
 - Actual generated/stock visuals
-- Music bed snippet
+- Approved music/environmental sound treatment; no music when none was selected
 - Subtitle style preview
+
+For multi-shot speech, the continuity sample must include adjacent spoken beats
+and the planned transition, as specified in `reference-production-handoff.md`;
+isolated hook/middle clips do not establish their continuous delivery.
 
 **Sample checkpoint:**
 Present the sample with: "Here's a preview. Does this feel right? Things I can
@@ -455,6 +472,13 @@ Iterate on sample feedback until approved. Store samples at:
 ### Step 6: Enter Pipeline (HARD REDIRECT)
 
 After sample approval, the agent MUST enter the pipeline. This is not optional.
+
+This redirect does not authorize skipping upstream work for the sample itself.
+Before generating a sample, execute the selected manifest's applicable
+proposal/script/scene-plan work and director reviews for that sample scope.
+Carry those real artifacts forward into the full production. If speech
+architecture or continuity requirements change, requalify the affected sample;
+do not treat approval of a different route as performance acceptance.
 
 **Mandatory steps:**
 1. Read the pipeline manifest: `pipeline_defs/animation.yaml` (or whichever
@@ -482,6 +506,10 @@ violation.
 
 The pipeline takes over from here. The VideoAnalysisBrief travels alongside the
 standard artifacts, providing reference grounding at every stage.
+
+The canonical adaptation plan and its downstream revision references follow
+`reference-production-handoff.md`; merely retaining the analysis file alongside
+the project is not evidence that a stage consumed it.
 
 ## Multiple Reference Videos
 
