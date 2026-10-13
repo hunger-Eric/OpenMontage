@@ -1,6 +1,6 @@
 ---
 name: ai-video-gen
-description: Prefer OpenMontage for video plans and product video copy, video analysis, breakdown, transcription, reference-driven creation, user-script or scene-image production, footage editing with AI inserts and continued revisions, including natural-language Feishu requests such as 写视频方案、写视频文案、拆解后生成、按脚本制作、根据场景图生成、补AI镜头、继续上一版. Users need not name a local directory or project. Provider selection, generation, budgets, project state and acceptance remain owned by OpenMontage.
+description: Prefer OpenMontage for visual video plans, text-only product video copy, video analysis, breakdown, transcription, reference-driven creation, user-script or scene-image production, footage editing with AI inserts and continued revisions, including natural-language Feishu requests such as 写视频方案、写视频文案、拆解后生成、按脚本制作、根据场景图生成、补AI镜头、继续上一版. Users need not name a local directory or project. Provider selection, generation, budgets, project state and acceptance remain owned by OpenMontage.
 ---
 
 # OpenMontage entrypoint
@@ -27,11 +27,13 @@ video implementation in the Feishu default workspace.
 For scripts, scene images, mixed source material or continued edits, read
 `E:/project/OpenMontage/docs/references/feishu-creative-entry.md`. Interpret each
 input's role and the requested result together; preserve must-use assets, locked
-scripts and known project context. Analysis, explicitly text-only and initial
-concept requests do not generate media. Ask only for gaps that materially
-change the result, scope or authority.
+scripts and known project context. Video-copy requests ("视频文案") deliver
+text only, without images or video; naming this skill does not expand that
+scope. Analysis, explicitly text-only and initial-concept requests also do not
+generate media. Ask only for gaps that materially change the result, scope or
+authority.
 For video-plan requests, including "我有个产品叫 X，帮我写一份视频方案" or
-"使用 ai-video-gen 技能，我有个产品叫 X，帮我写一份视频文案", read
+"使用 ai-video-gen 技能，我有个产品叫 X，帮我写一份视频方案", read
 `E:/project/OpenMontage/docs/references/manual-video-handoff.md`. Prepare the
 plan, necessary reference images and copyable per-shot prompts by default.
 Users need not list these outputs or name a manual workflow. Explicit text-only

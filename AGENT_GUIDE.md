@@ -217,17 +217,18 @@ Complete-video requests retain the automatic production workflow. When the user
 asks for a video plan, use the
 [manual generation plan workflow](docs/references/manual-video-handoff.md).
 For example, "I have a product called X; write a video plan for it" is sufficient.
-Under the `ai-video-gen` entrypoint, a request for product video copy such as
-"使用 ai-video-gen 技能，我有个产品叫 X，帮我写一份视频文案" also uses this
-plan deliverable unless the user explicitly limits the task to text or concepts.
+Users may also say "使用 ai-video-gen 技能，我有个产品叫 X，帮我写一份视频方案".
+Video copy ("视频文案") is a separate text-only deliverable: write the requested
+copy without generating images or videos. Naming a video skill does not turn
+a copy request into a visual plan.
 Do not require manual-generation terminology, a deliverable checklist, or a
 model choice. Fill ordinary creative gaps with clearly marked suggestions;
 ask only about gaps that materially affect the requested result.
 Reuse the same planning and image tools, then deliver the document and actual
 necessary reference images before any video-generation call. Explicitly text-only
 or initial-concept requests do not authorize generating images. The manual plan
-describes composition,
-performance and shot continuity without naming a video model or platform;
+describes composition, performance and shot continuity without naming a video
+model or platform;
 employees choose their own generation method. It requires no video-provider
 selection, discovery or local video MCP session. End this task after delivering
 the plan; a later trusted video upload continues the existing project and
