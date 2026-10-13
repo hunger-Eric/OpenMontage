@@ -67,7 +67,7 @@ Asset Task:
 ```
 
 Also create tasks for:
-- **Narration audio** — coherent passages with one selected voice/delivery setup for external narration; use provider-sized chunks only where needed, retaining neighboring context. Native dialogue comes from its video assets, not an additional TTS track.
+- **Narration audio** — coherent passages with one selected voice/delivery setup for external narration; use provider-sized chunks only where needed, retaining neighboring context. Native dialogue comes from its video assets, not an additional TTS track. For pure-Chinese Omni/Flow native-speaking assets, follow `docs/references/omni-chinese-redub.md`: independent Chinese TTS and phrase/pause alignment are mandatory while preserving the picture. Pure English and mixed-language assets retain native audio and skip that redub/alignment branch.
 - **Background music** — one track for the whole video (use `music_gen` or select from library)
 - **Sound effects** — per playbook's `sfx_style` (optional, use `music_gen` or stock)
 
@@ -157,12 +157,18 @@ request; do not regenerate accepted siblings.
 
 ### Step 3: Generate Narration
 
-For native dialogue, use the generated video audio and its transcript; this TTS
-procedure applies to external narration. Group connected sections into coherent
-spoken passages within the selected provider's limits. Keep the chosen voice
-and settings stable, preserve section delivery cues inside each passage, and
-map sections back to the actual audio timestamps rather than making each section
-a separate performance with its own restart.
+For pure-Chinese Omni/Flow native dialogue, use the generated video audio as
+the timing reference, then follow the redub workflow cited above: independent
+Chinese TTS replacement and phrase/pause alignment are mandatory, with the
+TTS and alignment receipts registered. For English or mixed-language native
+dialogue, retain the original audio and skip redubbing, transcription,
+synchronization, and listening-specific checks unless the user separately
+requests captions or another explicit text/audio deliverable. This TTS
+procedure applies to external narration. Group connected sections into
+coherent spoken passages within the selected provider's limits. Keep the
+chosen voice and settings stable, preserve section delivery cues inside each
+passage, and map cues to the generated narration's actual timestamps rather
+than making each section a separate performance with its own restart.
 
 For each planned narration passage:
 1. Extract the narration text

@@ -4,9 +4,11 @@ from pathlib import Path
 import json
 import subprocess
 
+import pytest
 import yaml
 
 from schemas.artifacts import validate_artifact
+from tools.base_tool import ToolResult
 from tools.video.video_compose import VideoCompose
 
 
@@ -314,7 +316,17 @@ def test_final_review_requires_model_semantic_receipts_for_generated_motion(tmp_
     assert validate_artifact("final_review", review) is None
 
 
-def test_final_review_requires_decision_log_for_approved_semantic_deviation(tmp_path):
+@pytest.mark.parametrize(
+    ("review_status", "requirement_status", "expected_issue"),
+    [
+        ("pass", "fail", "unmet requirements"),
+        ("pass", "unknown", "unmet requirements"),
+        ("approved_deviation", "deviation", "decision log"),
+    ],
+)
+def test_final_review_blocks_declared_semantic_failures(
+    tmp_path, review_status, requirement_status, expected_issue
+):
     output = tmp_path / "semantic-deviation.mp4"
     subprocess.run(
         [
@@ -349,7 +361,7 @@ def test_final_review_requires_decision_log_for_approved_semantic_deviation(tmp_
             "source_tool": "video_selector", "scene_id": "s1",
             "provider": "agnes", "model": "agnes-video-v2.0",
             "semantic_review": {
-                "status": "approved_deviation",
+                "status": review_status,
                 "executor_type": "model",
                 "provider": "openai",
                 "model": "gpt-5",
@@ -357,7 +369,7 @@ def test_final_review_requires_decision_log_for_approved_semantic_deviation(tmp_
                 "requirements": [{
                     "kind": "action",
                     "requirement": "the creature's tail glows",
-                    "status": "deviation",
+                    "status": requirement_status,
                     "evidence": "the generated clip uses a glowing stone instead",
                 }],
             },
@@ -374,7 +386,7 @@ def test_final_review_requires_decision_log_for_approved_semantic_deviation(tmp_
 
     assert review["status"] == "revise"
     assert review["checks"]["semantic_alignment"]["complete"] is False
-    assert any("decision log" in issue.lower() for issue in review["issues_found"])
+    assert any(expected_issue in issue.lower() for issue in review["issues_found"])
 
 
 def test_uniform_border_detector_finds_pillarbox_and_accepts_full_bleed(tmp_path):
@@ -462,6 +474,176 @@ def test_final_review_revises_when_narration_transcript_is_missing(tmp_path, mon
 
     assert review["status"] == "revise"
     assert any("transcript_comparison skipped" in issue for issue in review["issues_found"])
+
+
+def test_preflight_blocks_declared_narration_without_transcript_before_render(monkeypatch):
+    """A declared narration must not spend a render before transcript review."""
+    from tools.video import composition_session
+
+    monkeypatch.setattr(
+        composition_session,
+        "preflight",
+        lambda *_args: (_ for _ in ()).throw(AssertionError("session preflight reached")),
+    )
+    result = VideoCompose().execute(
+        {
+            "operation": "preflight",
+            "edit_decisions": {
+                "audio": {"narration": {"segments": [{"asset_id": "voice"}]}},
+            },
+            "asset_manifest": {"assets": [{"id": "voice", "type": "narration"}]},
+            "script_text": "这段旁白已经声明。",
+        }
+    )
+
+    assert not result.success
+    assert "Declared final-review inputs preflight failed" in result.error
+    assert "narration_transcript not provided" in result.error
+
+
+def test_render_blocks_bad_declared_transcript_before_renderer(tmp_path, monkeypatch):
+    transcript = tmp_path / "bad-transcript.json"
+    transcript.write_text(
+        json.dumps({"word_timestamps": [{"word": "unrelated words only"}]}),
+        encoding="utf-8",
+    )
+    tool = VideoCompose()
+    monkeypatch.setattr(
+        tool,
+        "_render_via_ffmpeg",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("renderer reached")),
+    )
+
+    result = tool.execute(
+        {
+            "operation": "render",
+            "edit_decisions": {
+                "render_runtime": "ffmpeg",
+                "cuts": [{"id": "cut", "source": "voice", "in_seconds": 0, "out_seconds": 1}],
+                "audio": {"narration": {"segments": [{"asset_id": "voice"}]}},
+            },
+            "asset_manifest": {"assets": [{"id": "voice", "type": "narration"}]},
+            "narration_transcript_path": str(transcript),
+            "script_text": "the approved narration text",
+        }
+    )
+
+    assert not result.success
+    assert "Declared final-review inputs preflight failed" in result.error
+    assert "Low transcript-to-script match" in result.error
+
+
+def test_preflight_blocks_model_declared_failed_semantic_requirement():
+    inputs = {
+        "operation": "preflight",
+        "edit_decisions": {"render_runtime": "remotion", "cuts": []},
+        "proposal_packet": {
+            "production_plan": {"delivery_promise": {"motion_required": True}},
+        },
+        "asset_manifest": {
+            "assets": [{
+                "id": "cup-action",
+                "type": "video",
+                "provider": "google_flow",
+                "model": "omni-1.1-flash",
+                "semantic_review": {
+                    "status": "pass",
+                    "executor_type": "model",
+                    "provider": "openai",
+                    "model": "gpt-5",
+                    "response_id": "resp-semantic-fail",
+                    "requirements": [{
+                        "kind": "continuity",
+                        "requirement": "the lid remains detached before drinking",
+                        "status": "fail",
+                    }],
+                },
+            }],
+        },
+        "decision_log": {"decisions": []},
+    }
+
+    result = VideoCompose().execute(inputs)
+
+    assert not result.success
+    assert "Model semantic review reports unmet requirements" in result.error
+
+
+def test_declared_preflight_allows_approved_semantic_deviation_with_adaptation_log():
+    inputs = {
+        "edit_decisions": {"render_runtime": "remotion", "cuts": []},
+        "proposal_packet": {
+            "production_plan": {"delivery_promise": {"motion_required": True}},
+        },
+        "asset_manifest": {
+            "assets": [{
+                "id": "cup-action",
+                "type": "video",
+                "provider": "google_flow",
+                "model": "omni-1.1-flash",
+                "semantic_review": {
+                    "status": "approved_deviation",
+                    "executor_type": "model",
+                    "provider": "openai",
+                    "model": "gpt-5",
+                    "response_id": "resp-semantic-deviation",
+                    "requirements": [{
+                        "kind": "action",
+                        "requirement": "the hand opens the lid",
+                        "status": "deviation",
+                    }],
+                },
+            }],
+        },
+        "decision_log": {
+            "decisions": [{
+                "category": "semantic_adaptation",
+                "subject": "cup-action",
+                "reason": "Approved visual deviation for this generated asset.",
+            }],
+        },
+    }
+
+    assert VideoCompose()._declared_final_review_preflight_issues(inputs) == []
+
+
+@pytest.mark.parametrize(
+    "script_text",
+    [
+        "这段原生中文口播只作为素材说明。",
+        "This native English speech is retained as source audio.",
+        "这段 native audio 保留，不做 redub。",
+    ],
+)
+def test_render_reaches_renderer_for_script_only_native_audio(tmp_path, monkeypatch, script_text):
+    """Script-only source audio must not be turned into a transcript gate."""
+    source = _touch(tmp_path / "source.mp4")
+    reached = []
+    tool = VideoCompose()
+
+    def render_stub(**kwargs):
+        reached.append(kwargs)
+        return ToolResult(success=True, data={"renderer_stub": True})
+
+    monkeypatch.setattr(tool, "_render_via_ffmpeg", render_stub)
+    result = tool.execute(
+        {
+            "operation": "render",
+            "output_path": str(tmp_path / "output.mp4"),
+            "edit_decisions": {
+                "render_runtime": "ffmpeg",
+                "renderer_family": "footage-first",
+                "cuts": [{"id": "source", "source": "source", "in_seconds": 0, "out_seconds": 1}],
+            },
+            "asset_manifest": {
+                "assets": [{"id": "source", "type": "video", "path": source}],
+            },
+            "script_text": script_text,
+        }
+    )
+
+    assert result.success, result.error
+    assert reached
 
 
 def test_final_review_revises_on_low_transcript_match(tmp_path):

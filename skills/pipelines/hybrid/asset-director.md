@@ -6,6 +6,13 @@ This stage prepares the support kit around the anchor edit: subtitles, diagrams,
 
 ## Prerequisites
 
+Before proposing or generating support assets, read the project constraints and
+workflow documents relevant to this request. Resolve the effective provider
+from the actual registry and configured preferences; selector arguments supplied
+by the agent do not establish a user-selected provider. Preserve explicit
+user/project locks and report unavailable capabilities without silently
+switching routes.
+
 | Layer | Resource | Purpose |
 |-------|----------|---------|
 | Schema | `schemas/artifacts/asset_manifest.schema.json` | Artifact validation |
@@ -14,6 +21,16 @@ This stage prepares the support kit around the anchor edit: subtitles, diagrams,
 | Playbook | Active style playbook | Consistency rules |
 
 ## Process
+
+### 0. Native speech and source policy
+
+For any generated native-speaking person shot, resolve the project language
+policy before selecting support assets. Pure-Chinese Omni/Flow speech must use
+the project redub workflow (`docs/references/omni-chinese-redub.md`) with
+independent TTS and phrase/pause alignment; pure English and mixed-language
+speech retain native audio and skip that special branch. User-provided
+original footage remains in the anchor edit unless the brief explicitly
+authorizes replacement.
 
 ### 1. Build Shared Support Assets First
 

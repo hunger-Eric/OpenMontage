@@ -213,6 +213,26 @@ the desired outcome and each material's use in the model; do not classify by
 file type alone or add a business router to Bridge. Reuse known project context,
 ask only for material gaps and preserve existing authorization and artifacts.
 
+Complete-video requests retain the automatic production workflow. When the user
+asks for a video plan, use the
+[manual generation plan workflow](docs/references/manual-video-handoff.md).
+For example, "I have a product called X; write a video plan for it" is sufficient.
+Under the `ai-video-gen` entrypoint, a request for product video copy such as
+"使用 ai-video-gen 技能，我有个产品叫 X，帮我写一份视频文案" also uses this
+plan deliverable unless the user explicitly limits the task to text or concepts.
+Do not require manual-generation terminology, a deliverable checklist, or a
+model choice. Fill ordinary creative gaps with clearly marked suggestions;
+ask only about gaps that materially affect the requested result.
+Reuse the same planning and image tools, then deliver the document and actual
+necessary reference images before any video-generation call. Explicitly text-only
+or initial-concept requests do not authorize generating images. The manual plan
+describes composition,
+performance and shot continuity without naming a video model or platform;
+employees choose their own generation method. It requires no video-provider
+selection, discovery or local video MCP session. End this task after delivering
+the plan; a later trusted video upload continues the existing project and
+post-production flow.
+
 - **Analysis only:** "break down this video", "analyze the camera work", or
   "transcribe it" -> use the relevant registered analysis tools. Ground claims in
   actual frames, scene timing and audio/transcript evidence. Report partial or

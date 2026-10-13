@@ -354,6 +354,7 @@ class VideoCompose(BaseTool):
             if inputs.get("script_path") and not inputs.get("script_text"):
                 inputs["script_text"] = self._read_text_file(inputs["script_path"])
             if operation in {"preflight", "preview", "finalize"}:
+                self._raise_if_declared_final_review_inputs_fail(inputs)
                 from tools.video.composition_session import preflight, preview, finalize
                 if operation == "preflight":
                     result = ToolResult(success=True, data={"operation": operation, **preflight(self, inputs)})
@@ -1600,6 +1601,16 @@ class VideoCompose(BaseTool):
         if not edit_decisions:
             return ToolResult(success=False, error="edit_decisions required for render")
 
+        declared_review_issues = self._declared_final_review_preflight_issues(inputs)
+        if declared_review_issues:
+            return ToolResult(
+                success=False,
+                error=(
+                    "Declared final-review inputs preflight failed — render blocked.\n"
+                    + "\n".join(f"  • {issue}" for issue in declared_review_issues)
+                ),
+            )
+
         # Governed production checks deterministic inputs before spending render
         # time. Legacy low-level callers retain their existing minimal contracts.
         if all(inputs.get(key) for key in ("asset_manifest", "proposal_packet", "decision_log")):
@@ -2363,6 +2374,174 @@ class VideoCompose(BaseTool):
 
         return result
 
+    @classmethod
+    def _declared_semantic_alignment(
+        cls,
+        proposal_packet: dict[str, Any] | None,
+        asset_manifest: dict[str, Any] | None,
+        decision_log: dict[str, Any] | None,
+    ) -> dict[str, Any]:
+        """Validate model-declared semantic receipts without inspecting media.
+
+        This deliberately checks only the receipt supplied by the model. It does
+        not infer actions, language, or continuity from pixels or audio.
+        """
+        alignment: dict[str, Any] = {
+            "required": False,
+            "complete": True,
+            "reviewed_assets": 0,
+            "missing_assets": [],
+            "issues": [],
+        }
+        production_plan = (proposal_packet or {}).get("production_plan") or {}
+        delivery_plan = production_plan.get("delivery_promise") or {}
+        generated_motion_assets = [
+            asset for asset in (asset_manifest or {}).get("assets", [])
+            if isinstance(asset, dict)
+            and asset.get("type") in {"video", "animation"}
+            and (asset.get("model") or asset.get("provider"))
+        ]
+        alignment["required"] = bool(
+            delivery_plan.get("motion_required") and generated_motion_assets
+        )
+        if not alignment["required"]:
+            return alignment
+
+        decisions = (
+            decision_log.get("decisions", [])
+            if isinstance(decision_log, dict)
+            else []
+        )
+        for asset in generated_motion_assets:
+            asset_id = str(asset.get("id") or "")
+            review = asset.get("semantic_review")
+            requirements = review.get("requirements") if isinstance(review, dict) else None
+            failed_requirements = [
+                requirement for requirement in requirements or []
+                if not isinstance(requirement, dict)
+                or requirement.get("status") not in {"pass", "deviation"}
+            ]
+            valid_receipt = (
+                isinstance(review, dict)
+                and review.get("status") in {"pass", "approved_deviation"}
+                and review.get("executor_type") == "model"
+                and bool(review.get("provider"))
+                and bool(review.get("model"))
+                and bool(review.get("response_id") or review.get("integrity_hash"))
+                and isinstance(requirements, list)
+                and bool(requirements)
+                and not failed_requirements
+            )
+            if not valid_receipt:
+                alignment["complete"] = False
+                alignment["missing_assets"].append(asset.get("id"))
+                if failed_requirements:
+                    statuses = ", ".join(
+                        str(requirement.get("status", "invalid"))
+                        if isinstance(requirement, dict) else "invalid"
+                        for requirement in failed_requirements
+                    )
+                    alignment["issues"].append(
+                        "Model semantic review reports unmet requirements for generated asset "
+                        f"{asset_id or '<unknown>'}: {statuses}"
+                    )
+                continue
+
+            alignment["reviewed_assets"] += 1
+            has_deviation = (
+                review.get("status") == "approved_deviation"
+                or any(
+                    requirement.get("status") == "deviation"
+                    for requirement in requirements
+                )
+            )
+            if has_deviation:
+                has_logged_adaptation = any(
+                    isinstance(decision, dict)
+                    and decision.get("category") == "semantic_adaptation"
+                    and (
+                        asset_id in str(decision.get("subject") or "")
+                        or asset_id in str(decision.get("reason") or "")
+                    )
+                    for decision in decisions
+                )
+                if not has_logged_adaptation:
+                    alignment["complete"] = False
+                    alignment["issues"].append(
+                        "Approved semantic deviation for generated asset "
+                        f"{asset_id or '<unknown>'} has no matching semantic_adaptation "
+                        "decision log entry"
+                    )
+
+        if not alignment["complete"]:
+            alignment["issues"].append(
+                "Model semantic review receipt missing, incomplete, or lacks an approved "
+                "semantic adaptation for generated motion assets: "
+                + ", ".join(str(value) for value in alignment["missing_assets"])
+            )
+        return alignment
+
+    @classmethod
+    def _declared_transcript_comparison(
+        cls,
+        edit_decisions: dict[str, Any] | None,
+        asset_manifest: dict[str, Any] | None,
+        narration_transcript_path: str | Path | None,
+        script_text: str | None,
+    ) -> dict[str, Any]:
+        """Run the existing transcript comparison only when it was declared."""
+        narration_expected = bool(
+            ((edit_decisions or {}).get("audio") or {})
+            .get("narration", {})
+            .get("segments")
+        ) or any(
+            isinstance(asset, dict) and asset.get("type") == "narration"
+            for asset in (asset_manifest or {}).get("assets", [])
+        )
+        # A source script alone is not a request to transcribe native/source
+        # audio. The comparison becomes required only for declared narration,
+        # or when the caller actually supplies a transcript to compare.
+        comparison_requested = bool(narration_transcript_path)
+        comparison = cls._compare_transcript_to_script(
+            Path(narration_transcript_path) if narration_transcript_path else None,
+            script_text,
+        )
+        comparison["required"] = narration_expected or comparison_requested
+        return comparison
+
+    def _declared_final_review_preflight_issues(self, inputs: dict[str, Any]) -> list[str]:
+        """Return declared review failures that must stop a render before work starts."""
+        semantic_alignment = self._declared_semantic_alignment(
+            inputs.get("proposal_packet"),
+            inputs.get("asset_manifest"),
+            inputs.get("decision_log"),
+        )
+        transcript_comparison = self._declared_transcript_comparison(
+            inputs.get("edit_decisions"),
+            inputs.get("asset_manifest"),
+            inputs.get("narration_transcript_path"),
+            inputs.get("script_text"),
+        )
+        issues: list[str] = []
+        if semantic_alignment["required"] and not semantic_alignment["complete"]:
+            issues.extend(semantic_alignment["issues"])
+        if (
+            transcript_comparison["required"]
+            and transcript_comparison.get("transcript_matches_script") is not True
+        ):
+            issues.extend(transcript_comparison.get("issues"))
+            if not transcript_comparison.get("issues"):
+                issues.append("Narration transcript does not match the approved script")
+        return issues
+
+    def _raise_if_declared_final_review_inputs_fail(self, inputs: dict[str, Any]) -> None:
+        issues = self._declared_final_review_preflight_issues(inputs)
+        if issues:
+            raise ValueError(
+                "Declared final-review inputs preflight failed — render blocked.\n"
+                + "\n".join(f"  • {issue}" for issue in issues)
+            )
+
     @staticmethod
     def _measure_integrated_loudness(path: Path) -> float | None:
         """Return EBU R128 integrated loudness for one source asset.
@@ -2899,76 +3078,11 @@ class VideoCompose(BaseTool):
 
         issues.extend(promise_preservation.get("issues", []))
 
-        semantic_alignment: dict[str, Any] = {
-            "required": False,
-            "complete": True,
-            "reviewed_assets": 0,
-            "missing_assets": [],
-            "issues": [],
-        }
-        delivery_plan = production_plan.get("delivery_promise") or {}
-        generated_motion_assets = [
-            asset for asset in (asset_manifest or {}).get("assets", [])
-            if isinstance(asset, dict)
-            and asset.get("type") in {"video", "animation"}
-            and (asset.get("model") or asset.get("provider"))
-        ]
-        semantic_alignment["required"] = bool(
-            delivery_plan.get("motion_required") and generated_motion_assets
+        semantic_alignment = self._declared_semantic_alignment(
+            proposal_packet,
+            asset_manifest,
+            decision_log,
         )
-        if semantic_alignment["required"]:
-            decisions = (
-                decision_log.get("decisions", [])
-                if isinstance(decision_log, dict)
-                else []
-            )
-            for asset in generated_motion_assets:
-                review = asset.get("semantic_review")
-                valid_receipt = (
-                    isinstance(review, dict)
-                    and review.get("status") in {"pass", "approved_deviation"}
-                    and review.get("executor_type") == "model"
-                    and bool(review.get("provider"))
-                    and bool(review.get("model"))
-                    and bool(review.get("response_id") or review.get("integrity_hash"))
-                    and bool(review.get("requirements"))
-                )
-                if valid_receipt:
-                    semantic_alignment["reviewed_assets"] += 1
-                    has_deviation = (
-                        review.get("status") == "approved_deviation"
-                        or any(
-                            isinstance(requirement, dict)
-                            and requirement.get("status") == "deviation"
-                            for requirement in review.get("requirements", [])
-                        )
-                    )
-                    if has_deviation:
-                        asset_id = str(asset.get("id") or "")
-                        has_logged_adaptation = any(
-                            isinstance(decision, dict)
-                            and decision.get("category") == "semantic_adaptation"
-                            and (
-                                asset_id in str(decision.get("subject") or "")
-                                or asset_id in str(decision.get("reason") or "")
-                            )
-                            for decision in decisions
-                        )
-                        if not has_logged_adaptation:
-                            semantic_alignment["complete"] = False
-                            semantic_alignment["issues"].append(
-                                "Approved semantic deviation for generated asset "
-                                f"{asset_id or '<unknown>'} has no matching semantic_adaptation "
-                                "decision log entry"
-                            )
-                else:
-                    semantic_alignment["complete"] = False
-                    semantic_alignment["missing_assets"].append(asset.get("id"))
-            if not semantic_alignment["complete"]:
-                semantic_alignment["issues"].append(
-                    "Model semantic review receipt missing or incomplete for generated motion assets: "
-                    + ", ".join(str(value) for value in semantic_alignment["missing_assets"])
-                )
         issues.extend(semantic_alignment["issues"])
 
         narration_expected = bool(
@@ -3075,12 +3189,12 @@ class VideoCompose(BaseTool):
         # as the word 'dot'" trap) that volume-based audio checks miss.
         # Only runs when caller provides both the transcript and script; when
         # skipped, issues list records that so the silence is visible.
-        comparison_requested = bool(narration_transcript_path or script_text)
-        transcript_comparison = self._compare_transcript_to_script(
-            Path(narration_transcript_path) if narration_transcript_path else None,
+        transcript_comparison = self._declared_transcript_comparison(
+            edit_decisions,
+            asset_manifest,
+            narration_transcript_path,
             script_text,
         )
-        transcript_comparison["required"] = narration_expected or comparison_requested
         issues.extend(transcript_comparison.get("issues", []))
 
         # --- 7. Determine overall status ---
@@ -3098,6 +3212,14 @@ class VideoCompose(BaseTool):
         ]
 
         critical_issues.extend(audio_spotcheck.get("blocking_issues", []))
+
+        # Receipt structure, rather than its diagnostic wording, is the
+        # delivery gate for model-declared motion requirements.
+        if semantic_alignment["required"] and not semantic_alignment["complete"]:
+            critical_issues.extend(
+                issue for issue in semantic_alignment["issues"]
+                if issue not in critical_issues
+            )
 
         # A skipped comparison is informational for videos without narration,
         # but becomes a hard delivery gate as soon as narration is declared or
