@@ -40,10 +40,18 @@ complete copyable prompt per segment. Keep short shot/action beats inside the
 segment's prompt; do not automatically split each beat into a generation task.
 Users need not list these outputs or name a manual workflow. Explicit text-only
 limits take precedence. Use the existing project workflow and deliver one
-self-contained Excel workbook. Each segment row links its scene/actions,
-embedded reference-image group, narration/dialogue, on-screen text and complete
-copyable prompt. Retain originals in the project; the default output attachment
-is only the final workbook, without separate image attachments. End the task before
+self-contained fixed-layout vertical illustrated Word document from the DOCX template.
+Its overview, reference-asset image section and one vertical block per segment link
+scene/actions, embedded reference-image group, narration/dialogue, on-screen text and
+complete copyable prompt. Prepare or reuse actual product, character and main-scene images
+as needed, including animated characters; text descriptions and image placeholders
+do not complete the required visual references. Design the necessary views and
+details without fixing the image count. In the document, the reference-asset image
+section records image IDs, visual settings, purpose and related segments. Each
+segment states its selected IDs, local image order and uses, with matching
+references in its full prompt. Reuse accepted images across segments. Retain
+originals in the project; the default output attachment
+is only the final document, without separate image attachments. End the task before
 calling a video provider. Later supplied videos use the existing continuation
 path. Complete-video requests retain automatic
 production.

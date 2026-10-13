@@ -228,11 +228,23 @@ Organize the manual plan by generation segment: one necessary reference-image
 group and one complete prompt per segment. Keep short shot/action beats inside
 that prompt rather than automatically making each beat a separate generation
 task; split segments when the content or explicit user requirements call for it.
-Reuse the same planning and image tools, then deliver one self-contained Excel
-workbook. Each generation-segment row links its scene/actions, embedded reference
-images, narration/dialogue, on-screen text and one complete copyable prompt.
+Reuse the same planning and image tools, then deliver one self-contained fixed-layout
+vertical illustrated Word document from the DOCX template. Its overview, reference-
+asset image section and one vertical block per generation segment link scene/actions,
+embedded reference images, narration/dialogue, on-screen text and one complete copyable prompt.
+Prepare or reuse identifiable character references for live-action, animated or
+other recurring characters, product references where appearance matters, and
+references for each distinct main scene. Choose images and views from the actual
+creative needs; do not stop at two images or require a fixed count. The document's
+reference-asset image section records stable image IDs, visual settings, purpose and
+related segments. Each segment names its image IDs, local image order and what
+each image constrains, consistently with its complete prompt. Reuse the same
+character or scene across segments; missing necessary images leave the plan
+incomplete. Follow the manual workflow for the detailed reference design. Use the
+Excel template only when the user explicitly requests XLSX; do not emit multiple
+formats by default.
 Deliver it before any video-generation call. Keep originals in the project; return only the
-final workbook as the default attachment, without separate image attachments.
+final DOCX document as the default attachment, without separate image attachments.
 Explicitly text-only or initial-concept requests do not authorize generating
 images. The manual plan describes composition, performance and shot continuity
 without naming a video model or platform; employees choose their own generation
