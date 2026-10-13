@@ -26,8 +26,8 @@ EP_STATE:
   budget_spent_usd: 0.0
 
   # Avatar-specific
-  avatar_path: null            # heygen_api / sadtalker / musetalk / stock
-  narration_source: null       # tts / provided_audio
+  avatar_path: null            # heygen_api / sadtalker / musetalk / stock / native_omni
+  narration_source: null       # tts / provided_audio / native_audio / native_audio_postdub
   cta_type: null               # what the viewer should do after watching
   presenter_framing: null      # layout: center, left-third, etc.
 
@@ -45,6 +45,14 @@ EP_STATE:
 ```
 
 ## Pivot Decision Matrix
+
+An approved Google Omni / Flow native-presenter route is also a valid presenter
+path; use its available video tool without requiring `talking_head` or `lip_sync`.
+Apply [the Chinese redub workflow](../../../docs/references/omni-chinese-redub.md):
+pure Chinese uses `native_audio_postdub`; pure English and mixed language use
+`native_audio` and bypass redub, listening and synchronization checks throughout
+the stages and gates below. Keep ordinary media/visual validation. Only use the
+pivot matrix below when no approved native-presenter route is available either.
 
 `talking_head` is the preferred tool but commonly unavailable (requires GPU or HeyGen API key). When blocked, the EP must route the project explicitly — not improvise.
 
@@ -109,8 +117,9 @@ CHECK: Subtitle safety
 ```
 CHECK: Avatar generation
   - Did the avatar tool produce a usable video?
-  - Is lip-sync timing acceptable?
-  - Is narration audio clear and natural?
+  - Pure-Chinese Omni postdub: are phrase/pause timing and listening acceptable?
+  - Lip-sync/audio-driven paths: is mouth timing acceptable, except native Omni English/mixed language?
+  - Audio listening checks exclude native Omni English/mixed-language speech
   - Budget gate: 90% threshold warning
 
 CHECK: Support asset restraint
@@ -134,13 +143,16 @@ CHECK: Timeline completeness
 ```
 CHECK: Output validation
   - ffprobe: duration, resolution, codec
-  - Lip-sync or mouth timing acceptable for the chosen path
+  - Mouth timing acceptable where required; skip native Omni English/mixed language
   - Subtitle placement clean and non-overlapping
-  - Audio clear and presenter-focused
+  - Speech clear where listening review applies; skip native Omni English/mixed language
   - No uncanny-valley artifacts that break immersion
 ```
 
 ## Quality Gates Summary
+
+Speech/listening/lip-sync items in this summary are conditional: native Omni
+English and mixed-language speech bypass them, as specified above.
 
 | Gate | After Stage | What's Checked | Fail Action |
 |------|-------------|---------------|-------------|

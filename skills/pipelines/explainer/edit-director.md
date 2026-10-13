@@ -107,6 +107,12 @@ Use the playbook's typography for font choices.
 
 ### Step 4: Configure Audio Layers
 
+Follow [the background music workflow](../../../docs/references/music-workflow.md).
+Use final narration timing and choose music entry, changes, silence and ending
+from the content. Keep supported controls in `audio.music`; record section
+intent and source/timeline ranges in `metadata.music_plan`. These metadata notes
+need explicit compose-time realization and do not add renderer capabilities.
+
 ```json
 {
   "audio": {
@@ -164,13 +170,16 @@ Adjust cut timing if any violates these rules.
 - [ ] Every cut's `source` references a valid asset_id from the manifest
 - [ ] Every cut records schema-valid `media_type` matching that manifest asset
 - [ ] Every narration segment references a valid audio asset
-- [ ] Music asset exists
+- [ ] Music asset exists when music is part of the accepted plan; otherwise the
+  approved no-music choice is recorded
 
 **Audio sync:**
 - [ ] Narration segments are ordered and non-overlapping
 - [ ] Narration timing aligns with corresponding visual cuts
-- [ ] Music ducking is configured
-- [ ] Narration/music stems were measured and the intended mix was reviewed
+- [ ] Planned music balance uses fixed levels or ducking appropriate to the
+  selected execution path; skip this item for an approved no-music plan
+- [ ] Available narration/music stems were measured and the intended mix was
+  reviewed; do not require a music stem for an approved no-music plan
 - [ ] Narration tempo was reviewed against the agreed performance and any declared limits
 
 **Subtitles:**
@@ -199,6 +208,9 @@ Validate the edit_decisions artifact against the schema and persist via checkpoi
 
 - **Forgetting gaps**: If scene-1 ends at 10s and scene-2 starts at 10.5s, there's a 0.5s black frame. Check for gaps.
 - **Audio drift**: Narration audio may be slightly longer/shorter than planned. Adjust visual cuts to match actual narration durations, not planned durations.
-- **No ducking**: Music playing at full volume under narration makes the video unwatchable. Always configure ducking.
+- **Music obscuring speech**: Review the intended balance. Configure dynamic
+  ducking when approved music needs speech-dependent level changes and the
+  selected mixing path supports them; fixed levels/fades or an approved
+  no-music choice do not require ducking.
 - **Same transition everywhere**: Varying transitions creates rhythm. Use the playbook's allowed set, but don't use the same one for every cut.
 - **Subtitle font mismatch**: Subtitles should use the playbook's body font, not a random default.

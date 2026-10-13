@@ -107,14 +107,20 @@ Based on the edit decisions, pick the rendering approach:
 - SRT subtitle burn-in
 - Best for: environments without Node.js/Remotion installed
 
-**IMPORTANT: When using Remotion, ALL of these go through Remotion — not FFmpeg:**
-- Audio (narration + music) → Remotion `audio` prop, NOT external audio_mixer
+**Remotion remains the video and caption renderer:**
+- Audio → Remotion props with separate sources or one prepared mix as appropriate;
+  local audio preprocessing does not change the locked video runtime (see Step 5).
 - Subtitles → Remotion `captions` prop (word-level), NOT SRT burn via FFmpeg
 - Text overlays (CTA, titles) → Remotion `text_card` cut type, NOT AI-generated images
 
 ### Step 2: Audio Acquisition (Narration, Music, Subtitles)
 
-Before rendering, present the user with audio options and get their preferences.
+For music, reuse the proposal and asset manifest's accepted choice, including
+no music. Follow [the background music workflow](../../../docs/references/music-workflow.md)
+for remaining gaps; do not reacquire or regenerate music during composition.
+
+Reuse established audio choices. Present options only for unresolved choices
+that materially affect this production; do not reopen accepted music or voices.
 
 **Present to the user:**
 
@@ -128,7 +134,9 @@ Before rendering, present the user with audio options and get their preferences.
 > - `shimmer` — expressive, warm (organic, lifestyle)
 > - `alloy` — neutral, balanced (general purpose)
 >
-> **Music:** I can automatically find royalty-free background music from Pixabay (no key needed). If you have a `FREESOUND_API_KEY`, I can also search Freesound as a backup.
+> **Music:** Reuse the confirmed track and music direction. If the choice is
+> unresolved, report the available sources and licensing/cost constraints under
+> the Music Plan rather than assuming a provider or automatic backup.
 >
 > **Subtitles:** I'll generate word-level subtitles using WhisperX transcription of the final narration, burned into the video via Remotion captions.
 >
@@ -155,16 +163,10 @@ Before rendering, present the user with audio options and get their preferences.
    # If narration exceeds video by >1s: shorten script and regenerate
    ```
 
-3. **Download background music:**
-   ```python
-   from tools.audio.archive_org_music import ArchiveOrgMusic
-   result = ArchiveOrgMusic().execute({
-       'query': '<mood/genre matching video topic>',
-       'min_duration': video_duration_seconds,
-       'max_duration': 300,
-       'output_path': 'path/to/music.mp3',
-   })
-   ```
+3. **Resolve background music from the asset manifest:**
+   Use the accepted asset ID/path and its actual duration. Apply edit's source
+   ranges and section plan with supported tools. If required music is missing,
+   report the asset gap instead of silently downloading a replacement.
 
 4. **Generate subtitles via WhisperX:**
    ```python
@@ -198,8 +200,10 @@ For each cut in the edit decisions:
 
 For audio:
 1. Verify narration duration fits within video duration (use `audio_probe`)
-2. Verify music duration covers video duration
-3. Prepare ducking parameters from edit decisions
+2. Verify the planned source ranges, loop/section treatment and timeline coverage;
+   an approved no-music choice needs no music asset
+3. Map requested ducking to a mixing path that actually supports it; metadata
+   and flags alone are not proof of execution
 
 ### Step 3: Determine Output Profile
 
@@ -247,8 +251,8 @@ for the proven formula — especially the all-dark-background rule for visual co
 
 ### Step 5: Audio Post-Processing
 
-**Remotion path (DEFAULT):** Skip external audio mixing entirely. Remotion handles all audio
-natively via `<Audio>` components. Pass audio sources in the composition props:
+**Remotion path:** Keep the locked Remotion video runtime. If fixed music volume
+and fades satisfy the edit, pass separate audio sources in composition props:
 ```json
 {
   "audio": {
@@ -257,10 +261,17 @@ natively via `<Audio>` components. Pass audio sources in the composition props:
   }
 }
 ```
-Remotion renders audio and video in a single pass — no external muxing needed.
-Do NOT use `audio_mixer` for ducking/mixing when rendering via Remotion.
+The built-in Explainer and CinematicRenderer music components implement fixed
+volume and fades, not speech-dependent ducking. When dynamic ducking or section
+changes are required, use the stage's existing `audio_mixer` preprocessing path
+or an actually implemented custom composition. Consume the prepared output once
+in the selected composition; do not play the same narration/music again as
+separate tracks. Keep final narration available for captions and transcript
+checks. Report unsupported effects rather than claiming a flag executed them.
 
-**FFmpeg fallback (ONLY when Remotion is unavailable):**
+**Approved FFmpeg video path:** This is not permission to swap the locked video
+runtime. AudioMixer may also prepare audio for a Remotion composition. For an
+already selected FFmpeg path:
 Call the `audio_mixer` tool to:
 1. Layer narration segments in order
 2. Mix background music at playbook volume
@@ -268,6 +279,10 @@ Call the `audio_mixer` tool to:
 4. Normalize overall audio levels
 5. Output the final mixed audio track
 The video_compose tool will mux this with the video.
+
+Record the actual mixing path, consumed assets/output, receipt and executed
+ducking/fade settings in `render_report.metadata.music_mix`; keep requested
+settings distinct from actual execution and listening evidence.
 
 ### Step 5b: Generate Subtitles (Mandatory)
 
@@ -342,6 +357,11 @@ If Remotion is not available, fall back to SRT generation + FFmpeg burn:
 **The final deliverable MUST have subtitles** — either via Remotion captions or FFmpeg burn.
 
 ### Step 5c: Pre-Render Validation (Mandatory)
+
+Include [the final-production prompt](../../../docs/references/music-workflow.md#最终制作提示)
+in the final composition instructions. Keep mixing, dubbing, model, engine and
+verification notes outside the picture; inspect captions, corner labels,
+end cards and other overlays in the actual preview for accidental production text.
 
 **Always run the composition validator before rendering.** This catches problems that waste render time.
 
@@ -453,8 +473,9 @@ re-run compose plus final review, up to two repair rounds:
 
 1. `narration_pace_acceptable=false`: restore the approved natural narration;
    retime visuals/captions to the voice. Never stretch speech to fill the cut.
-2. `music_audible=false`: recompute stem gain from measured LUFS, remix through
-   `audio_mixer`, then re-render.
+2. `music_audible=false` when audible music is part of the accepted plan:
+   review the actual mix and intended level before adjusting gain/remixing.
+   Do not add music for an approved no-music choice or fill deliberate silence.
 3. Missing/cut-off audio: repair the mux/timeline and re-render.
 
 Stop and ask only when the repair requires a new paid generation call, a
@@ -473,12 +494,13 @@ remaining evidence and blocker; do not return the revise artifact as delivery.
 - [ ] Duration within ±5% of target
 - [ ] Resolution matches selected profile
 - [ ] Audio channels present (stereo)
-- [ ] No audio clipping or silence gaps > 1s
+- [ ] No audio clipping or unintended silence; preserve planned silence
 
 **Quality check (covered by self-review above):**
 - [ ] Visual: all scene frames inspected
 - [ ] Audio: full transcription verified
-- [ ] Audio: per-track balance verified and background music is audible
+- [ ] Audio: per-track balance verified; selected music is audible where planned,
+  or the approved no-music choice is preserved
 - [ ] Audio: narration pace is natural; no unapproved global slowdown
 - [ ] Subtitles: visible and correctly timed
 

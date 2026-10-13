@@ -21,6 +21,8 @@ Use one primary path and record it clearly:
 
 - `talking_head` from still image plus audio,
 - `lip_sync` from existing presenter plate plus new audio,
+- approved Google Omni / Flow native presenter footage with language-specific
+  audio handling under [the Chinese redub workflow](../../../docs/references/omni-chinese-redub.md),
 - externally supplied avatar render if created outside the current runtime.
 
 Do not hide a blocked avatar path. Record it.
@@ -43,6 +45,21 @@ Spokesperson videos depend on speech. Determine whether narration is:
 - already embedded in a presenter plate.
 
 If narration is missing and no TTS tool is available, mark the project blocked instead of pretending the stage succeeded.
+
+For generated Omni / Flow presenters, apply the language branch to the complete
+video script before calling speech tools. Pure Chinese uses independent TTS and
+native-audio phrase/pause alignment; register both the original and final audio
+with the alignment receipt. Pure English and mixed language retain native audio
+and skip dubbing, synchronization and listening-specific checks. Do not split
+Chinese sections out of a mixed-language script or invoke TTS for that branch.
+
+For background music, follow
+[the music workflow](../../../docs/references/music-workflow.md) and the accepted
+source choice. Keep final dialogue timing authoritative; register music paths,
+actual duration and provenance separately. Do not reintroduce old Chinese
+dialogue by retaining an inseparable native background track. English/mixed
+native audio stays intact, and embedded music is not a reason to split it or
+automatically add another track.
 
 ### 3. Build The Minimal Support Kit
 

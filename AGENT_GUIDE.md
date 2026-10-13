@@ -92,6 +92,15 @@ The user-callable `$omni-video-director` skill coordinates story, references,
 performance, conversational edits and composition while using this project's
 existing production authority and execution paths.
 
+For Google Omni / Flow generated presenter speech, follow the project-owned
+[Chinese redub workflow](docs/references/omni-chinese-redub.md). Pure Chinese
+speech requires independent dubbing and phrase/pause alignment to the native
+audio while preserving the picture. Pure English and mixed-language speech
+keep native audio and skip redubbing, synchronization and listening-specific
+checks. Classify the complete spoken script, not individual Chinese subclips
+inside a mixed-language video. This user-selected language policy takes
+precedence over generic presenter audio/mouth-review instructions.
+
 Gemini has two distinct optional transports: `gemini_tts` uses the upstream
 Interactions contract; `gemini_generate_content_tts` preserves the verified
 project generateContent route, audio normalization and bounded recovery.
@@ -767,6 +776,9 @@ Music is a critical part of any video. **Surface the music situation to the user
 
 Check music availability in this order and present the options:
 
+Reuse a music decision the user has already approved, including accepted
+project-local tracks; do not reopen it or acquire another track at compose time.
+
 1. **User music library:** Check `registry.get_by_capability("music_library")` and inspect `music_library/`. If tracks exist, list durations and let the user pick one.
 2. **Royalty-free search:** Check `registry.get_by_capability("music_search")` for configured search/download tools. Report licensing constraints and whether a key is required.
 3. **Music generation APIs:** Check `registry.get_by_capability("music_generation")`. Report status, quota, cost, and quality tradeoffs honestly.
@@ -774,6 +786,7 @@ Check music availability in this order and present the options:
 
 **Always present the user with explicit choices:**
 - Use a track from their library (which one?)
+- Use a selected search result with its license and attribution requirements
 - Provide a different track (drop it in `music_library/`)
 - Generate one via API (if available — name the provider and cost)
 - Proceed without music
@@ -781,6 +794,11 @@ Check music availability in this order and present the options:
 **If no music source is available:** Tell the user explicitly. Do NOT let this surface as a surprise at the asset stage.
 
 Record the music decision in the proposal/brief artifact so the asset director knows what to do.
+
+For music direction, section changes, native-audio boundaries and actual mixing
+handoff, follow [the background music workflow](docs/references/music-workflow.md).
+A coherent track can span the film with changes in level or silence; it need not
+change at every cut. Metadata plans and `ducking` flags do not prove execution.
 
 ## Pipeline Asset Expectations
 

@@ -228,19 +228,27 @@ Process asset tasks grouped by tool for efficiency:
 2. Apply syntax highlighting theme from playbook's overlay styles
 3. Generate highlighted image or Remotion-compatible data
 
-### Step 5: Generate Music
+### Step 5: Prepare The Approved Music
 
-1. Read playbook's `audio.music_mood` and `audio.music_volume`
-2. Check the music decision from `proposal_packet.production_plan.music_source` (set by the Proposal Director)
-3. Source the background track in this priority order:
-   - **User-selected library track**: If the proposal specified a track from `music_library/`, copy it to `projects/<project>/assets/music/background_music.mp3`
-   - **User music library (`music_library/`)**: If the folder exists and has tracks, pick the best match for the playbook's `audio.music_mood`. List candidates by filename and let the EP decide.
-   - **Music generation API**: Use `music_gen` (ElevenLabs) or `suno_music` if available. Check status via registry first — if the tool is unavailable or quota-exhausted, skip immediately (do NOT attempt and fail silently).
-   - **No music available**: Log this clearly in the asset manifest as `"music_status": "unavailable"` with the reason. Do NOT silently produce a video without music — the EP and user should know.
-4. Duration should be at least as long as total video duration. If shorter, it can be looped by the compose stage.
-5. Verify the audio file exists at `projects/<project>/assets/music/background_music.mp3`
+Follow [the background music workflow](../../../docs/references/music-workflow.md).
 
-**Critical:** If music generation fails or is unavailable, report it immediately in the asset manifest — do not defer the problem to the compose stage.
+1. Read the proposal's music choice, `metadata.music_plan` where present, and the
+   playbook's music direction. Reuse accepted music; do not select a new provider
+   or track simply because this stage has started.
+2. If the choice is unresolved, follow `AGENT_GUIDE.md > Music Plan`: user library,
+   configured search options, generation options, supplied music or no music.
+   Check current availability and the stage manifest before using a tool. A
+   source failure is not permission to move to a different source or paid API.
+3. Acquire only the approved music. A deliberate no-music choice needs no music
+   file; an unavailable required source must be reported with its reason in
+   `asset_manifest.metadata`, rather than silently omitted.
+4. Register the actual path, measured duration, provider/tool and applicable
+   license/attribution. Do not rename an arbitrary audio format to `.mp3`.
+5. Hand duration limits to edit: choose source ranges, natural looping or other
+   sections as appropriate to the content. Do not silently leave looping to
+   compose or impose a fixed soundtrack duration/model.
+
+If required music cannot be obtained, report the gap at this stage.
 
 ### Step 6: Build Asset Manifest
 

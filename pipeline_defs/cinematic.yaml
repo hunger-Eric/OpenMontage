@@ -180,6 +180,9 @@ stages:
       - archive_org_music
       - freesound_music
       - music_gen
+      - tts_selector
+      - transcriber
+      - audio_mixer
     tools_available:
       - subtitle_gen
       - audio_enhance
@@ -193,12 +196,16 @@ stages:
       - archive_org_music
       - freesound_music
       - music_gen
+      - tts_selector
+      - transcriber
+      - audio_mixer
     checkpoint_required: true
     human_approval_default: true
     review_focus:
       - Source selects and support assets are clearly separated
       - Motion-required beats use actual video clips rather than still-image substitutes
       - Music and ambience plan matches the beat map
+      - Omni pure-Chinese dialogue follows the project redub and phrase-alignment policy
       - Optional generated inserts stay limited and justified
       - Explicit 3D worlds preserve one coherent scene graph across global, regional, and walk views
       - Hero 3D worlds use the production fidelity tier with licensed textured models and PBR terrain layers; primitive-only blockouts cannot pass

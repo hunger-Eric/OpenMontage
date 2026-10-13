@@ -24,6 +24,13 @@ Use overlays only where they help:
 
 Keep pauses where they help emphasis. Do not trim so tightly that the avatar feels rushed or robotic.
 
+When music is part of the accepted plan, follow
+[the music workflow](../../../docs/references/music-workflow.md). Use the final
+presenter audio timing; keep supported music settings in `audio.music` and
+section intent in `metadata.music_plan`. Music entry, reduced levels, silence
+and the CTA ending should support the spoken content. For native Omni
+English/mixed language, keep the existing audio and skip speech/sync specials.
+
 ### 4. Plan Deliverables Clearly
 
 Recommended metadata keys:

@@ -33,6 +33,12 @@ If a look, line, or gesture is doing the work, let it live. Do not over-cover it
 
 Ambience, impacts, dropouts, and music changes should help create momentum between scenes.
 
+Follow [the background music workflow](../../../docs/references/music-workflow.md).
+Record music entry, source/timeline ranges, level changes, silence and ending
+in `metadata.music_plan`, with supported controls in `audio.music`. A coherent
+track can carry several scenes; music changes should follow content rather than
+every cut. Compose must realize these notes using an actual supported path.
+
 ### 4. Use Metadata For Timing Logic
 
 Recommended metadata keys:

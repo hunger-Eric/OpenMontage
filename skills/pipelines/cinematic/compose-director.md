@@ -58,6 +58,11 @@ If Remotion is not in the available render engines, stop and report to the user 
 
 Only use letterbox, 24fps intent, or heavy grading if they help the piece. Do not apply them because the pipeline name says cinematic.
 
+Include [the final-production prompt](../../../docs/references/music-workflow.md#最终制作提示)
+in the final composition instructions. Keep mixing, dubbing, model, engine and
+verification notes outside the picture; inspect captions, corner labels,
+end cards and other overlays for accidental production text.
+
 ### 2. Preserve Audio Dynamics
 
 The mix should allow:
@@ -66,6 +71,15 @@ The mix should allow:
 - impact moments,
 - clear dialogue or narration,
 - controlled music swells.
+
+Follow [the background music workflow](../../../docs/references/music-workflow.md)
+and realize edit's music section plan in the locked runtime. Built-in
+CinematicRenderer fades/fixed volume do not implement speech-dependent ducking.
+Use the existing allowed audio processing path when needed; keep the video
+runtime and avoid replaying stems already included in a prepared mix. Record
+consumed audio, actual mix settings/receipt and unsupported items in
+`render_report.metadata.music_mix`; assess music against the actual film, not
+only a successful tool result.
 
 ### 3. Verify The Final Mood
 

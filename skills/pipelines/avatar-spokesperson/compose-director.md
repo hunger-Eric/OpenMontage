@@ -37,7 +37,19 @@ Prefer one strong master before derivatives. Compose:
 
 Subtitle and CTA placement matter more here than flashy transitions. Leave the face and mouth region unobstructed.
 
+Include [the final-production prompt](../../../docs/references/music-workflow.md#最终制作提示)
+in the final composition instructions. Keep mixing, dubbing, model, engine and
+verification notes outside the picture; inspect captions, corner labels,
+end cards and other overlays for accidental production text.
+
 ### 3. Verify Mouth Timing And Audio
+
+For Omni / Flow native presenter footage, follow
+[the Chinese redub workflow](../../../docs/references/omni-chinese-redub.md).
+Pure Chinese must use the final replacement audio and receive phrase/pause and
+listening review. Pure English and mixed language preserve native audio and
+skip listening, speech-quality and mouth-timing checks here and at the quality
+gate; do not invoke synchronization tools for them. Media/visual checks remain.
 
 If the avatar path used lip sync or audio-driven talking head, check:
 
@@ -48,6 +60,13 @@ If the avatar path used lip sync or audio-driven talking head, check:
 
 ### 4. Verify Every Output
 
+For music, follow [the music workflow](../../../docs/references/music-workflow.md).
+Realize the accepted section plan using the selected composition or allowed
+audio preprocessing; a ducking flag is not implementation evidence. Consume
+any prepared mix once without duplicate stems and record the actual input,
+mixing method/receipt and unsupported settings in `render_report.metadata.music_mix`.
+Music checks do not reopen English/mixed-language speech or mouth review.
+
 Record important findings in:
 
 - `render_report.verification_notes`
@@ -57,7 +76,7 @@ Record important findings in:
 ### 5. Quality Gate
 
 - the output file is valid,
-- speech is clear,
+- speech is clear where listening review applies; skip native Omni English/mixed-language speech checks,
 - subtitles stay readable,
 - the presenter remains visually stable.
 

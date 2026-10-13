@@ -27,7 +27,7 @@ Before authoring title cards, name plates, or SVG overlays, read **`skills/meta/
 |-------|----------|---------|
 | Schema | `schemas/artifacts/asset_manifest.schema.json` | Artifact validation |
 | Prior artifacts | `state.artifacts["scene_plan"]["scene_plan"]`, `state.artifacts["script"]["script"]`, `state.artifacts["proposal"]["proposal_packet"]` | Scene intent and beat plan |
-| Tools | `subtitle_gen`, `audio_enhance`, `image_selector`, `video_selector`, `archive_org_music` (free, default), `freesound_music` (free with key), `music_gen` (ElevenLabs, paid) — selectors auto-discover all available providers from the registry. **Default to `archive_org_music` before reaching for `music_gen`.** | Optional support asset creation |
+| Tools | `subtitle_gen`, `audio_enhance`, `image_selector`, `video_selector`, and music sources allowed by the manifest, such as `archive_org_music`, `freesound_music`, `music_gen`; check current registry availability and reuse the approved choice | Optional support asset creation |
 | Playbook | Active style playbook | Brand and typography consistency |
 
 ## Process
@@ -68,7 +68,12 @@ If `proposal_packet.metadata.motion_required = true`, actual moving footage or g
 Before batch-generating support assets, produce one sample of each expensive generated type and show the user:
 
 1. **Generated insert sample** (if using `image_selector` or `video_selector`): Generate one representative visual. Confirm it complements the source footage before batching.
-2. **Music sample** (try `archive_org_music` first — free, no key, API-backed, and license-filtered; fall back to `freesound_music` for cues and ambience; only reach for `music_gen` when the search tools miss the brief): sample or retrieve a short clip. Confirm mood and energy match the beat plan, and preserve any returned attribution/ShareAlike obligations.
+2. **Music sample** (only when an unresolved music choice needs validation):
+   follow `AGENT_GUIDE.md > Music Plan` and sample only an approved source using
+   a currently available, manifest-allowed tool. Reuse accepted music without
+   another sample; do not automatically fall back to another source or paid
+   generation. Confirm mood and energy match the beat plan and preserve the
+   actual license and attribution obligations.
 
 If `motion_required = true`, the representative visual must be a video clip sample, not a still image sample.
 
@@ -96,6 +101,20 @@ Optional generated assets should fill clear gaps:
 For motion-required jobs, use `video_selector` first for generated shots. `image_selector` may support look development, concept frames, or embedded design layers, but it does not satisfy the motion requirement by itself.
 
 ### 3. Prepare A Real Audio Plan
+
+Follow [the background music workflow](../../../docs/references/music-workflow.md)
+for source choice, rights and handoff. Reuse approved music; unresolved choices
+follow the global Music Plan, not a stage-specific automatic provider fallback.
+Register actual music duration and provenance, and keep music distinct from
+native ambience or dialogue. A unified track can span the film with changes in
+level or silence; there is no requirement to change tracks at every scene.
+
+For Google Omni / Flow generated presenter dialogue, apply
+[the Chinese redub workflow](../../../docs/references/omni-chinese-redub.md) to
+the complete video script: pure Chinese requires replacement TTS and native
+phrase/pause alignment. Pure English and mixed language retain native audio and
+skip dubbing, synchronization and listening-specific checks. Preserve the
+approved music/ambience plan and register the final dialogue audio and receipt.
 
 Store:
 
@@ -153,7 +172,7 @@ the AI model's training data — it may be wrong or outdated.
 ## Common Pitfalls
 
 - Generating extra shots before proving the source edit works.
-- Treating music as a single loop instead of a beat-aware element.
+- Looping music without considering its phrases, section changes or ending.
 - Forgetting rights or provenance notes for supplied assets.
 - Quietly downgrading from video clips to still images because one provider or renderer failed.
 - Quietly switching providers or models after the user approved a generation path.
