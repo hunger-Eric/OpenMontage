@@ -2,6 +2,27 @@
 
 Updated: 2026-10-14
 
+## 2026-10-14 portable Codex checkout setup
+
+- `Codex portable release` is declared for each main push and manual dispatch.
+  Its builder packages committed source only, pins the Flow bridge revision,
+  and verifies the archive/hash manifest before publishing a GitHub Release.
+  Portable setup and packaging checks passed 8 tests. Actual GitHub execution
+  and public release visibility are checked separately during publication.
+
+- New `scripts/codex_setup.py` supports non-overwriting initialization,
+  project-local Python installation and locked Remotion `npm ci`, plus an
+  offline doctor. All paths resolve from the script's checkout, including
+  when invoked from a different working directory; make/Bash is not required.
+- `docs/CODEX_PORTABILITY.md` documents source transfer, local account setup,
+  optional Flow bridge build/login and separate legacy-project continuation.
+  Codex entry links and bundled video skills no longer require the owner's
+  E-drive checkout. Credentials, browser profiles and global Codex state are
+  not transferred. No provider routes or production workflow were changed.
+- Relocated-checkout, non-overwriting init, install command and bridge-locator
+  tests passed. Actual installation, login and generation on a second physical
+  computer remain unverified; the doctor never submits media or proves login.
+
 ## 2026-10-14 optional approved-plan media preparation
 
 - New registered `media_prepare` capability mechanically prepares image/video

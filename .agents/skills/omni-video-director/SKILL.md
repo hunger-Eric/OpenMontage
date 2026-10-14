@@ -15,14 +15,14 @@ description: "用 Codex 统筹故事、口播、角色、表演与剪辑，协�
 - “视频文案”是纯文字交付，不生成图片或视频；即使点名视频技能也不将文案升级为带图方案。用户明确只要文字或先构思时同样尊重文字范围。
 - 视觉方案按实际内容准备产品图、角色图和不同主场景的场景图。真人、动漫和拟人角色都需要可辨认、可复用的身份与造型参考；产品视角、细节和角色／场景图数量按需要设计，不固定两张。方案中的实际图片必须作为对应 Base 记录的附件上传；Base 显示图片不等于图片已经绑定到视频模型，后续以真实适配器传输回执为准。优先复用已有可用图，缺少必要实际图时保留缺口，不能把文字或占位图当作完整视觉方案。
 - 复用已有参考分析、已接受素材、模型选择和创作决定。从用户指定的不满意部分继续，避免每次重新分析或生成整片。
-- 本机视频生产沿用 OpenMontage：`E:/project/OpenMontage/docs/CURRENT_PROJECT_STATE.md`、`AGENT_GUIDE.md` 和选定流程的导演技能。Feishu 是输入和交付入口，不建立另一套生产流程。
+- 本机视频生产沿用包含本技能的 OpenMontage 仓库（从本技能目录向上三级定位根目录）：读取项目内的 `docs/CURRENT_PROJECT_STATE.md`、`AGENT_GUIDE.md` 和选定流程的导演技能，不依赖原电脑盘符。Feishu 是输入和交付入口，不建立另一套生产流程。
 - 飞书自然语言制作与续改先读[统一创作入口](../../../docs/references/feishu-creative-entry.md)。链接、脚本、场景图和实拍素材可以混用；按目标与材料用途组织制作，同话题补素材延续已知作品，保留用户指定的台词和必用素材。
 - 前期脚本、角色、场景和素材工件与视频提供方分离，全自动制作的生成调用沿用 `video_selector` 和[提供方扩展接口](../../../docs/references/video-provider-extension.md)。MCP 与 API 的参数差异由选定适配器处理；本技能的 Omni 表演方法不能被当作其他模型的参数契约。
 - 视觉策划统一遵循[平台中立视觉视频策划流程](../../../docs/references/visual-video-planning.md)：参考资产负责可复用的身份、产品、空间和风格；按镜头需要再准备合成关键画面以固定起始构图或交互状态；完整动态提示词负责时间中的动作与摄影机变化。多参考直接生成和先组成关键画面都是按实际入口能力与控制需求选择，不强制每段首帧、多视角或固定图数。
 - 出方案前先读取与当前请求相关的项目约束和流程文件。全自动视频生成再从实际 registry 与已配置 preferences 解析 effective provider；人工生成方案不要求选择或发现视频提供方。agent 传给 selector 的参数只是路由输入，不能冒充用户显式指定；保留用户或项目已锁定的自动生成 provider，能力缺失时报告缺口，不静默切换。
 - 新作品合成默认锁定 `render_runtime="remotion"`，不向用户展示 Remotion／Hyperframes 选择菜单。角色、表演和镜头仍按创作目标决定；已有作品继续沿用其明确保存的渲染记录，不能在续改时静默换引擎。
 - 在其他环境采用已有项目的权威执行器与工件。工具缺失时说明实际缺口，不自行换模型或创建替代生产系统。
-- 创作提示词按需参考 `E:/project/OpenMontage/docs/references/google-omni-video-prompting.md`。它保存官方方法摘要、多场景模板与 Flow 能力区别；仅读取本次相关部分。此参考不可访问时，可查 [官方提示词指南](https://deepmind.google/models/gemini-omni/prompt-guide/)。
+- 创作提示词按需参考项目内的 `docs/references/google-omni-video-prompting.md`。它保存官方方法摘要、多场景模板与 Flow 能力区别；仅读取本次相关部分。此参考不可访问时，可查 [官方提示词指南](https://deepmind.google/models/gemini-omni/prompt-guide/)。
 
 ## 故事、口播与动作一起设计
 

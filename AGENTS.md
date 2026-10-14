@@ -2,6 +2,11 @@
 
 ## Startup routing
 
+For a fresh checkout on another computer, follow
+`docs/CODEX_PORTABILITY.md` and `scripts/codex_setup.py`; use this checkout's
+`.venv` interpreter. Resolve project-relative paths from this repository, not
+the original owner's drive or global Codex installation.
+
 1. Read `docs/CURRENT_PROJECT_STATE.md` first for the current checkout, active
    worktree evidence, authority links, and unverified boundary.
 2. For any production, pipeline, provider, architecture, tool, or capability

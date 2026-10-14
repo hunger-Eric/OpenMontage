@@ -5,11 +5,11 @@ description: Prefer OpenMontage for visual video plans, text-only product video 
 
 # OpenMontage entrypoint
 
-For video-related requests, first inspect the OpenMontage checkout at
-`E:/project/OpenMontage`: read `docs/CURRENT_PROJECT_STATE.md`, then
-`AGENT_GUIDE.md`. This is the registered local entrypoint, not a directory
-the user must supply. Resolve project-relative files and commands against this
-checkout even when Feishu starts the agent in another workspace. Reading an
+For video-related requests, first inspect the OpenMontage checkout containing
+this skill (the repository root is three directories above this file's directory):
+read `docs/CURRENT_PROJECT_STATE.md`, then `AGENT_GUIDE.md`. Resolve project-relative
+files and commands against that checkout even when Feishu starts the agent in
+another workspace; do not assume a drive letter or the original owner's path. Reading an
 entrypoint does not expand the execution sandbox or filesystem permissions.
 
 Before drafting a proposal, read the project constraints and workflow documents
@@ -25,7 +25,7 @@ analysis-only, reference-driven creation, source-footage editing or new producti
 Use the selected workflow and canonical project artifacts; do not start a parallel
 video implementation in the Feishu default workspace.
 For scripts, scene images, mixed source material or continued edits, read
-`E:/project/OpenMontage/docs/references/feishu-creative-entry.md`. Interpret each
+`docs/references/feishu-creative-entry.md` from that checkout. Interpret each
 input's role and the requested result together; preserve must-use assets, locked
 scripts and known project context. Video-copy requests ("视频文案") deliver
 text only, without images or video; naming this skill does not expand that
@@ -34,7 +34,7 @@ generate media. Ask only for gaps that materially change the result, scope or
 authority.
 For video-plan requests, including "我有个产品叫 X，帮我写一份视频方案" or
 "使用 ai-video-gen 技能，我有个产品叫 X，帮我写一份视频方案", read
-`E:/project/OpenMontage/docs/references/manual-video-handoff.md`. Prepare
+`docs/references/manual-video-handoff.md` from that checkout. Prepare
 the visual parts with the shared [platform-neutral visual planning flow](../../../docs/references/visual-video-planning.md): keep reusable identity,
 product, scene and style references distinct from an optional composed key
 image for the segment's starting composition or interaction state, then write

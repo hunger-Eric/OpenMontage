@@ -1,0 +1,14 @@
+# Copy to config.local.yaml for this computer; no credentials belong here.
+providers:
+  image_provider: auto
+  video_provider: auto
+  tts_provider: auto
+  restrict_to_preferences: false
+  disabled_providers: []
+
+# When choosing Flow, set video_provider: google_flow above.
+# Check the exact model name in this computer's Flow UI before production.
+google_flow:
+  model: Omni 1.1 Flash
+  start_url: https://flow.google.com/
+  max_budget_credits: null

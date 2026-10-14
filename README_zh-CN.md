@@ -112,6 +112,9 @@ OpenMontage 可以从 **YouTube 视频、Short、Reel、TikTok 或本地片段**
 
 ## 快速开始
 
+迁移到另一台电脑的 Codex：见 [Codex 安装与迁移](docs/CODEX_PORTABILITY.md)，
+可直接运行 `python scripts/codex_setup.py install`，无需 make/Bash。
+
 ### 必备条件
 
 - **Python 3.10+** — [python.org](https://www.python.org/downloads/)

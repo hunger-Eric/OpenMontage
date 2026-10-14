@@ -185,6 +185,9 @@ And when a run is done, hit **▶ REPLAY RUN** — the whole production replays 
 
 ## Quick Start
 
+For Codex on another computer, see [portable setup](docs/CODEX_PORTABILITY.md).
+Run `python scripts/codex_setup.py install` without requiring make or Bash.
+
 ### Prerequisites
 
 - **Python 3.10+** — [python.org](https://www.python.org/downloads/)
