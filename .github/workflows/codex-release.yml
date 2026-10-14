@@ -1,16 +1,20 @@
 name: Codex portable release
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (for example 1.0 or 1.1); published versions are not overwritten'
+        required: true
+        default: '1.0'
+        type: string
 
 permissions:
   contents: write
 
 concurrency:
   group: codex-portable-release-main
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   release:
@@ -46,22 +50,26 @@ jobs:
           python -m pytest tests/test_codex_setup.py tests/test_codex_release.py -q
       - name: Build and verify source bundle
         working-directory: OpenMontage
-        run: python scripts/build_codex_release.py --flow-root ../google-flow-mcp-v4 --output ../release-output
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: python scripts/build_codex_release.py --flow-root ../google-flow-mcp-v4 --output ../release-output --version "$RELEASE_VERSION"
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+          RELEASE_VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
-          current=$(gh api "repos/$GH_REPO/git/ref/heads/main" --jq '.object.sha')
-          if [ "$current" != "$GITHUB_SHA" ]; then
-            echo 'A newer main commit exists; it owns the latest release.'
-            exit 0
-          fi
-          tag="codex-${GITHUB_SHA:0:12}"
+          tag="$RELEASE_VERSION"
           if gh release view "$tag" >/dev/null 2>&1; then
+            draft=$(gh release view "$tag" --json isDraft --jq '.isDraft')
+            target=$(gh release view "$tag" --json targetCommitish --jq '.targetCommitish')
+            if [ "$draft" != 'true' ] || [ "$target" != "$GITHUB_SHA" ]; then
+              echo 'Version already exists; choose a new version. Historical releases are not overwritten.'
+              exit 1
+            fi
             gh release upload "$tag" release-output/OpenMontage-Codex.zip release-output/SHA256SUMS.txt release-output/release-receipt.json --clobber
           else
-            gh release create "$tag" release-output/OpenMontage-Codex.zip release-output/SHA256SUMS.txt release-output/release-receipt.json --target "$GITHUB_SHA" --title "Codex portable package ${GITHUB_SHA:0:12}" --notes-file release-output/RELEASE_NOTES.md --draft
+            gh release create "$tag" release-output/OpenMontage-Codex.zip release-output/SHA256SUMS.txt release-output/release-receipt.json --target "$GITHUB_SHA" --title "$RELEASE_VERSION" --notes-file release-output/RELEASE_NOTES.md --draft
           fi
           gh release edit "$tag" --draft=false --latest

@@ -4,10 +4,12 @@ Updated: 2026-10-14
 
 ## 2026-10-14 portable Codex checkout setup
 
-- `Codex portable release` is declared for each main push and manual dispatch.
+- `Codex portable release` uses manual dispatch with an explicit version number
+  (initial version `1.0`); main pushes do not automatically publish and already
+  published versions are not overwritten.
   Its builder packages committed source only, pins the Flow bridge revision,
   and verifies the archive/hash manifest before publishing a GitHub Release.
-  Portable setup and packaging checks passed 8 tests. Actual GitHub execution
+  Portable setup and packaging checks passed. Actual GitHub execution
   and public release visibility are checked separately during publication.
 
 - New `scripts/codex_setup.py` supports non-overwriting initialization,

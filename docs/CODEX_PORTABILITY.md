@@ -5,8 +5,10 @@
 
 发布包入口：[GitHub 最新发布](https://github.com/hunger-Eric/OpenMontage/releases/latest)。
 下载其中的 `OpenMontage-Codex.zip`；该包同时附带固定版本的 Flow 桥接源码。
-每次推送 `main` 后，`Codex portable release` 工作流自动验证、打包并发布最新版本，
-失败时保留此前已成功发布的版本。只有本地修改、尚未推送时不会更新发布包。
+源码提交与发布分开管理：推送 `main` 不自动发布，需在 GitHub Actions 手动运行
+`Codex portable release`，填入版本号（第一版为 `1.0`），由工作流验证、打包并发布。
+已有正式版本不覆盖；发布新版时使用 `1.1`、`1.2` 等新版本号。
+失败时保留此前已成功发布的版本，本地未提交修改不进入发布包。
 Flow 桥版本由 `portable-release.json` 固定，升级桥时更新其中的 SHA 后一起推送。
 
 把完整源码放到任意目录，在 Codex 中打开该目录即可。项目根目录的

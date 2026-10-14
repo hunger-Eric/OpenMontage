@@ -5,6 +5,7 @@ import argparse
 import hashlib
 import io
 import json
+import re
 from pathlib import Path, PurePosixPath
 import subprocess
 import zipfile
@@ -34,7 +35,9 @@ def snapshot(root: Path) -> tuple[str, dict[str, bytes]]:
     return sha, files
 
 
-def build_bundle(root: Path, flow_root: Path, output: Path) -> dict:
+def build_bundle(root: Path, flow_root: Path, output: Path, version: str = '1.0') -> dict:
+    if not re.fullmatch(r'[0-9]+\.[0-9]+(?:\.[0-9]+)?(?:-[A-Za-z0-9.-]+)?', version):
+        raise ValueError('Use a version such as 1.0 or 1.1.0, not a commit ID or shell expression.')
     sha, files = snapshot(root)
     # Pin is read from the release commit, never from uncommitted local changes.
     pin = json.loads(files['portable-release.json'])
@@ -46,7 +49,7 @@ def build_bundle(root: Path, flow_root: Path, output: Path) -> dict:
             raise ValueError(f'Release commit is missing {required}')
     combined = {f'OpenMontage/{name}': data for name, data in files.items()}
     combined.update({f'google-flow-mcp-v4/{name}': data for name, data in flow_files.items()})
-    manifest = {'openmontage_revision': sha, 'flow_repository': pin['flow_repository'],
+    manifest = {'release_version': version, 'openmontage_revision': sha, 'flow_repository': pin['flow_repository'],
                 'flow_revision': flow_sha, 'files': {
                     name: hashlib.sha256(data).hexdigest() for name, data in sorted(combined.items())}}
     output.mkdir(parents=True, exist_ok=True)
@@ -69,7 +72,7 @@ def build_bundle(root: Path, flow_root: Path, output: Path) -> dict:
     (output / 'release-receipt.json').write_text(json.dumps(receipt, indent=2), encoding='utf-8')
     (output / 'SHA256SUMS.txt').write_text(f'{digest}  {target.name}\n', encoding='utf-8')
     (output / 'RELEASE_NOTES.md').write_text(
-        '# Codex 源码安装包\n\n下载 **OpenMontage-Codex.zip**，解压后在 Codex 打开 '
+        f'# OpenMontage {version} — Codex 源码安装包\n\n下载 **OpenMontage-Codex.zip**，解压后在 Codex 打开 '
         '`OpenMontage` 文件夹，将 `INSTALL_FOR_AGENT.md` 交给智能体配置。\n\n'
         '包含 OpenMontage、安装说明和固定版本的 Flow 桥源码；不包含账号、密钥、'
         '浏览器登录、虚拟环境或生成媒体。依赖在接收电脑安装，账号由接收方登录。\n\n'
@@ -83,8 +86,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--flow-root', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--version', required=True, help='Explicit release version, for example 1.0.')
     args = parser.parse_args()
-    result = build_bundle(ROOT, args.flow_root.resolve(), args.output.resolve())
+    result = build_bundle(ROOT, args.flow_root.resolve(), args.output.resolve(), args.version)
     print(json.dumps({k: v for k, v in result.items() if k != 'files'}, indent=2))
 
 

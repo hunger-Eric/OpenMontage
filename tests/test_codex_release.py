@@ -51,6 +51,7 @@ def test_bundle_uses_commits_and_excludes_private_runtime_files(tmp_path):
                        or name.endswith('/config.local.yaml') or 'untracked.secret' in name
                        for name in archive.namelist())
     assert receipt['zip_integrity'] == 'passed'
+    assert receipt['release_version'] == '1.0'
     assert receipt['package_sha256'] in (output / 'SHA256SUMS.txt').read_text()
     with pytest.raises(FileExistsError):
         release.build_bundle(root, flow, output)
@@ -60,3 +61,8 @@ def test_bundle_rejects_wrong_flow_revision(tmp_path):
     root, flow = fixture(tmp_path, pinned=False)
     with pytest.raises(ValueError, match='does not match'):
         release.build_bundle(root, flow, tmp_path / 'release')
+
+
+def test_bundle_requires_plain_version_before_reading_repositories(tmp_path):
+    with pytest.raises(ValueError, match='version'):
+        release.build_bundle(tmp_path, tmp_path, tmp_path / 'out', '1.0; command')
