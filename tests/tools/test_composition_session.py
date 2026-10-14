@@ -21,7 +21,7 @@ def production(tmp_path):
             {"id": str(i), "title": "test", "hook": "test", "narrative_structure": "story",
              "visual_approach": "test", "target_duration_seconds": 2, "why_this_works": "test"}
             for i in range(3)],
-            "selected_concept": {"concept_id": "one", "rationale": "test"},
+            "selected_concept": {"concept_id": "0", "rationale": "test"},
             "production_plan": {"pipeline": "animated-explainer", "stages": [], "render_runtime": "ffmpeg"},
             "cost_estimate": {"total_estimated_usd": 0, "line_items": [], "budget_verdict": "within_budget"},
             "approval": {"status": "approved"}},

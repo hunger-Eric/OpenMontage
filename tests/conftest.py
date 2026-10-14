@@ -134,3 +134,9 @@ def pytest_collection_modifyitems(config, items):
 @pytest.fixture(autouse=True)
 def _isolate_machine_provider_config(monkeypatch, tmp_path):
     monkeypatch.setenv("OPENMONTAGE_LOCAL_CONFIG", str(tmp_path / "absent-local-config.yaml"))
+    # A loopback proxy can relay external requests around the socket guard.
+    # Restore the operator's environment after each test; live opt-in keeps it.
+    if not _network_allowed():
+        for key in tuple(os.environ):
+            if key.lower() in {"http_proxy", "https_proxy", "all_proxy"}:
+                monkeypatch.delenv(key)

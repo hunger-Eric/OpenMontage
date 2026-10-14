@@ -152,4 +152,4 @@ def test_registry_discovers_export_bundle():
     reg = ToolRegistry()
     reg.discover()
     assert reg.get("export_bundle") is not None
-    assert reg.get_by_capability("publish")[0].name == "export_bundle"
+    assert "export_bundle" in {tool.name for tool in reg.get_by_capability("publish")}

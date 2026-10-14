@@ -28,7 +28,7 @@ class TestGuardBlocksOutbound:
 
     def test_requests_cannot_reach_a_provider(self):
         requests = pytest.importorskip("requests")
-        with pytest.raises(Exception):
+        with pytest.raises(Exception, match="Blocked a network connection"):
             requests.get("https://api.atlascloud.ai/api/v1/model/prediction/x", timeout=5)
 
     def test_loopback_still_permitted(self):
