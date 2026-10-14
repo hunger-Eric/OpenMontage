@@ -4,5 +4,7 @@
   "url": "https://my.feishu.cn/base/O930bT6PsaKGP8sE8p7cKUr5ngh",
   "title": "视频方案｜自动化看板模板",
   "page_name": "视频方案看板",
+  "user_entry_mode": "standalone_board",
+  "template_board_url": "https://my.feishu.cn/share/base/webpage/shrcnrNi2OiWbK5paJTVBbli0eg",
   "public_without_credentials": true
 }

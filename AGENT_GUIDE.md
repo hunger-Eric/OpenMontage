@@ -217,10 +217,28 @@ Complete-video requests retain the automatic production workflow. When the user
 asks for a video plan, use the
 [manual generation plan workflow](docs/references/manual-video-handoff.md).
 For example, "I have a product called X; write a video plan for it" is sufficient.
+Deliver Feishu plans through the project's published standalone video-plan webpage,
+without the Base data-table sidebar. Keep the overview, asset and segment tables
+as internal storage; their Base URLs are maintenance evidence, not user delivery
+links. Verify the actual project webpage and preserve its access scope. If this
+entry is unavailable, report the missing standalone entry instead of substituting
+a Base link. Follow the native Base reference for the publishing/readback steps.
 Users may also say "使用 ai-video-gen 技能，我有个产品叫 X，帮我写一份视频方案".
 Video copy ("视频文案") is a separate text-only deliverable: write the requested
 copy without generating images or videos. Naming a video skill does not turn
 a copy request into a visual plan.
+Plan-only requests execute the existing pipeline's pre-production stages; they
+are not permission to skip Rule Zero. Select the matching existing manifest,
+initialize/resume the same project, read each applicable director, and execute
+research -> proposal -> script -> scene_plan -> necessary reference assets in
+the manifest's order. Preserve canonical artifacts, reviews and existing
+approval gates. Reuse valid prior artifacts instead of repeating stages.
+Only after those inputs exist may the executor map them into the Feishu plan.
+Internal stage evidence stays in the project; the final user-facing deliverable
+is the standalone board. Do not generate video, audio or a composition for a
+plan-only request, or mark an entire assets stage complete when only reference
+images are prepared. Missing upstream evidence is an incomplete formal plan,
+not a reason to invent it in a separate board JSON.
 Do not require manual-generation terminology, a deliverable checklist, or a
 model choice. Fill ordinary creative gaps with clearly marked suggestions;
 ask only about gaps that materially affect the requested result.
@@ -235,9 +253,10 @@ Organize the manual plan by generation segment: one necessary reference-image
 group and one complete prompt per segment. Keep short shot/action beats inside
 that prompt rather than automatically making each beat a separate generation
 task; split segments when the content or explicit user requirements call for it.
-Reuse the same planning and image tools. In Feishu, deliver the independent native
-Base defined in [Feishu video-plan Base](docs/references/feishu-video-plan-base.md),
-with the native video-plan board as the sole user-facing entry point. The board's
+Reuse the same planning and image tools. In Feishu, use the independent native
+Base defined in [Feishu video-plan Base](docs/references/feishu-video-plan-base.md)
+as internal storage and deliver its published standalone video-plan board as the
+sole user-facing entry point. The board's
 outer segment card should be a static visual preview with its title, timing,
 necessary image and short summary visible by default, plus one clearly labeled
 “打开操作面板” entry; it has no other expand or content-inspection control.

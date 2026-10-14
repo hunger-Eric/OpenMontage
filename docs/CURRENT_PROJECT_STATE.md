@@ -4,6 +4,19 @@ Updated: 2026-10-14
 
 ## 2026-10-14 reusable native Feishu video-plan board
 
+- Formal plan content follows the selected existing pipeline's research,
+  proposal, script, scene-plan and registered reference assets. The board is a
+  delivery projection, not a second planning pipeline. The live-action two-scene
+  example validated template/UI behavior only; it has no formal research or
+  production checkpoints and must not be cited as pipeline acceptance.
+
+- User delivery now uses the project's standalone published video-plan webpage,
+  without the overview/asset/segment data-table sidebar. The three tables remain
+  internal storage. The template's standalone URL is registered in the template
+  config; project-specific links must come from their own native publish result.
+  The live-action two-scene project provides current single-page UI evidence in
+  `projects/live-action-two-scenes-plan-20261014/artifacts/`.
+
 - Feishu visual video plans now use one independent Base copied from the fixed
   board template per project. The restricted `feishu_video_plan` tool validates
   supplied plan fields, uploads actual project images and links segment records;
