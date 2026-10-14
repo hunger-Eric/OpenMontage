@@ -1614,8 +1614,8 @@ class VideoCompose(BaseTool):
         # Governed production checks deterministic inputs before spending render
         # time. Legacy low-level callers retain their existing minimal contracts.
         if all(inputs.get(key) for key in ("asset_manifest", "proposal_packet", "decision_log")):
-            from tools.video.composition_session import preflight
-            preflight(self, inputs)
+            from tools.video.composition_session import render_preflight
+            render_preflight(self, inputs)
 
         # --- Runtime routing: honor render_runtime locked at proposal ---
         # Silent swaps are forbidden by governance. Resolve this before any

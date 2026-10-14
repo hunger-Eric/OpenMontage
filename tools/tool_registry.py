@@ -276,7 +276,8 @@ class ToolRegistry:
                 menu[cap] = {"available": [], "unavailable": [], "total": 0, "configured": 0}
 
             info = tool.get_info()
-            status = tool.get_status()
+            # get_info() already probes status; use that same observation.
+            status = ToolStatus(info["status"])
             entry = {
                 "name": tool.name,
                 "provider": tool.provider,
@@ -290,6 +291,7 @@ class ToolRegistry:
                 "source_provider_menu",
                 "source_provider_summary",
                 "render_engines",
+                "hyperframes_runtime",
                 "remotion_note",
                 "provider_matrix",
                 "setup_offer",
@@ -357,17 +359,15 @@ class ToolRegistry:
         # they're the signal the runtime-selection contract depends on.
         comp_runtimes: dict[str, bool] = {}
         runtime_warnings: list[str] = []
-        vc = self._tools.get("video_compose")
-        if vc is not None:
-            info = vc.get_info()
-            engines = info.get("render_engines") or {}
+        entries = {e["name"]: e for bucket in menu.values()
+                   for e in bucket["available"] + bucket["unavailable"]}
+        if "video_compose" in entries:
+            engines = entries["video_compose"].get("render_engines") or {}
             comp_runtimes = {k: bool(v) for k, v in engines.items()}
         # If hyperframes_compose is registered, surface its npm-resolve reasons
         # explicitly — those are the "looks available but isn't" failures.
-        hf = self._tools.get("hyperframes_compose")
-        if hf is not None:
-            hf_info = hf.get_info()
-            rc = hf_info.get("hyperframes_runtime") or {}
+        if "hyperframes_compose" in entries:
+            rc = entries["hyperframes_compose"].get("hyperframes_runtime") or {}
             for reason in rc.get("reasons") or []:
                 runtime_warnings.append(f"hyperframes: {reason}")
 

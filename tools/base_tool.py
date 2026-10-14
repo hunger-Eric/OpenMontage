@@ -15,6 +15,7 @@ import platform
 import subprocess
 import shutil
 import time
+from uuid import uuid4
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
@@ -170,7 +171,7 @@ def _instrument_execute(fn: Callable) -> Callable:
     def wrapper(self, inputs: Any, *args: Any, **kwargs: Any):
         # Event layer is fully optional: if it can't import, run untouched.
         try:
-            from lib.events import emit_event, infer_project_dir
+            from lib.events import emit_event, infer_project_dir, activity_category, failure_details
         except Exception:
             return fn(self, inputs, *args, **kwargs)
 
@@ -185,6 +186,9 @@ def _instrument_execute(fn: Callable) -> Callable:
         # Both emit (the ticker wants the provider name too), but depth lets
         # consumers dedupe — e.g. sum cost_usd only at depth 0.
         depth = getattr(depth_state, "value", 0)
+        parent_call_id = getattr(depth_state, "call_id", None)
+        call_id = uuid4().hex
+        depth_state.call_id = call_id
         depth_state.value = depth + 1
         project_dir = infer_project_dir(inputs)
 
@@ -196,6 +200,10 @@ def _instrument_execute(fn: Callable) -> Callable:
             "run_id": run_id,
             "stage_attempt_id": stage_attempt_id,
             "attempt_id": attempt_id,
+            "call_id": call_id,
+            "parent_call_id": parent_call_id,
+            "activity": activity_category(self, operation, inputs.get("workflow_activity")
+                                          if isinstance(inputs, dict) else None),
         }
         if project_dir is not None:
             emit_event(
@@ -217,13 +225,15 @@ def _instrument_execute(fn: Callable) -> Callable:
                     {
                         **base,
                         "event": "error",
-                        "error": str(exc)[:300],
+                        **failure_details(exc),
+                        "error_type": type(exc).__name__,
                         "duration_s": round(time.monotonic() - started, 2),
                     },
                 )
             raise
         finally:
             depth_state.value = depth
+            depth_state.call_id = parent_call_id
 
         if project_dir is None:
             # The tool may have created its own project dir during execute
@@ -237,10 +247,13 @@ def _instrument_execute(fn: Callable) -> Callable:
             emit_event(project_dir, {
                 **base, "event": "finish",
                 "attempt_id": result_data.get("attempt_id") or attempt_id,
-                "provider_task_id": result_data.get("task_id"),
+                "provider_task_id": result_data.get("task_id") or result_data.get("job_id"),
+                "generation_id": result_data.get("generation_id"),
                 "provider_video_id": result_data.get("video_id"),
                 "output_path": str(output_path) if output_path else None,
                 "success": getattr(result, "success", None),
+                **(failure_details(getattr(result, "error", None))
+                   if getattr(result, "success", None) is False else {}),
                 # NOTE: 0.0 is meaningful (ran for free) — only None is dropped.
                 "cost_usd": cost if isinstance(cost, (int, float)) else None,
                 "duration_s": round(time.monotonic() - started, 2),

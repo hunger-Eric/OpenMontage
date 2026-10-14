@@ -8,10 +8,21 @@ from __future__ import annotations
 import hashlib
 import json
 import shutil
+from contextvars import ContextVar
 from pathlib import Path
 
 from schemas.artifacts import validate_artifact
 from tools.base_tool import ToolResult
+
+# Scoped to one synchronous preview call, never accepted from tool inputs or
+# persisted across renders. Direct render calls always validate independently.
+_validated_render = ContextVar("validated_render", default=None)
+
+
+def render_preflight(tool, inputs: dict) -> None:
+    active = _validated_render.get()
+    if active is None or active[0] is not tool or active[1] is not inputs:
+        preflight(tool, inputs)
 
 
 def file_hash(path: Path) -> str:
@@ -118,7 +129,11 @@ def preview(tool, inputs: dict) -> ToolResult:
     receipt_path = output.with_suffix(output.suffix + ".preview.json")
     if output.exists() or receipt_path.exists():
         raise ValueError("Preview already exists; retain it and choose a new revision path")
-    result = tool._render(inputs)
+    token = _validated_render.set((tool, inputs))
+    try:
+        result = tool._render(inputs)
+    finally:
+        _validated_render.reset(token)
     if not result.success:
         return result
     if identity != preflight(tool, inputs):

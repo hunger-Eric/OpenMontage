@@ -22,6 +22,40 @@ from typing import Any, Optional
 from lib.paths import PROJECTS_DIR, REPO_ROOT  # single source of truth
 
 EVENTS_FILENAME = "events.jsonl"
+WORKFLOW_ACTIVITIES = {"generation", "composition", "recovery", "human_wait",
+                       "handoff", "preparation", "tool_execution"}
+
+
+def activity_category(tool, operation: str | None, explicit: str | None = None) -> str:
+    if isinstance(explicit, str) and explicit in WORKFLOW_ACTIVITIES:
+        return explicit
+    if isinstance(operation, str) and operation in {"status", "poll", "recover", "reconcile", "generation_status"}:
+        return "recovery"
+    if operation in ("discover_models", "list_models", "get_info"):
+        return "tool_execution"
+    if getattr(tool, "name", "") == "video_compose":
+        return "composition"
+    if "generation" in getattr(tool, "capability", ""):
+        return "generation"
+    return "tool_execution"
+
+
+def failure_details(error: Any) -> dict[str, str]:
+    """Coarse reason without persisting credentials, prompts or provider bodies.
+
+    Keep the full error in the existing tool result/owning receipt. A timeout
+    classifies the local call only; it does not declare a provider task failed.
+    """
+    message = str(error or "").lower()
+    groups = (
+        ("timeout", ("timeout", "timed out")),
+        ("authentication", ("unauthorized", "authentication", "401", "403")),
+        ("safety_block", ("moderation", "safety block")),
+        ("dependency", ("modulenotfound", "no module named", "executable doesn't exist")),
+        ("invalid_input", ("validation", "required", "missing", "invalid", "preflight")),
+    )
+    category = next((name for name, terms in groups if any(t in message for t in terms)), "unknown")
+    return {"error_category": category, "error": f"Tool call failed ({category}); inspect owning receipt/result"}
 
 # Thread-level serialization only. Cross-PROCESS appends are unsynchronized
 # by design: single-line O_APPEND writes rarely tear, and read_events skips
@@ -116,3 +150,58 @@ def read_events(project_dir: Path | str, limit: Optional[int] = None) -> list[di
     if limit is not None:
         return events[-limit:]
     return events
+
+
+def summarize_timing(entries: list[dict[str, Any]]) -> dict[str, Any]:
+    """Union observed intervals, excluding nested selectors/providers.
+
+    Categories can overlap (preparation during generation); their totals must
+    not be added. Missing terminals and historical gaps remain unattributed.
+    """
+    timestamps, intervals, groups = [], [], {}
+    failures = []
+    starts, terminals = set(), set()
+    for entry in entries:
+        try:
+            stamp = datetime.fromisoformat(entry["ts"]).timestamp()
+            timestamps.append(stamp)
+            if entry.get("call_id"):
+                if entry.get("event") == "start":
+                    starts.add(entry["call_id"])
+                elif entry.get("event") in {"finish", "error"}:
+                    terminals.add(entry["call_id"])
+            if entry.get("depth", 0):
+                continue
+            if entry.get("event") not in {"finish", "error"}:
+                continue
+            duration = float(entry["duration_s"])
+            if not (0 <= duration < float("inf")):
+                continue
+            interval = (stamp - duration, stamp)
+            intervals.append(interval)
+            category = entry.get("activity", "tool_execution")
+            if category not in WORKFLOW_ACTIVITIES:
+                category = "tool_execution"
+            groups.setdefault(category, []).append(interval)
+            if entry.get("success") is False or entry.get("event") == "error":
+                failures.append({k: entry[k] for k in (
+                    "tool", "operation", "call_id", "attempt_id", "error_category", "duration_s") if k in entry})
+        except (KeyError, TypeError, ValueError, OverflowError):
+            continue
+
+    def union_seconds(values):
+        total, end = 0.0, float("-inf")
+        for left, right in sorted(values):
+            total += max(0.0, right - max(left, end))
+            end = max(end, right)
+        return round(total, 2)
+
+    # Finish-only histories still include the duration preceding the first ts.
+    timestamps.extend(left for left, _ in intervals)
+    span = round(max(timestamps) - min(timestamps), 2) if timestamps else 0.0
+    covered = union_seconds(intervals)
+    return {"observed_span_s": span, "covered_s": covered,
+            "unattributed_s": round(max(0.0, span - covered), 2),
+            "by_activity_s": {k: union_seconds(v) for k, v in sorted(groups.items())},
+            "categories_may_overlap": True, "open_call_ids": sorted(starts - terminals),
+            "failed_calls": failures}
