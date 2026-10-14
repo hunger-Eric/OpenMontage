@@ -25,6 +25,7 @@ output/
 outputs/
 pipeline/
 tests/qa/output/
+/artifacts/
 
 # Project workspaces (generated assets, renders — all regenerable)
 projects/
