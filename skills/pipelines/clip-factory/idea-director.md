@@ -1,5 +1,14 @@
 # Idea Director - Clip Factory Pipeline
 
+## Direction selection before detailed design
+
+Follow [creative intake](../../meta/creative-intake.md)'s brief text choice rule:
+when a direction is not selected, present concise text options and wait for the
+user. Required multi-concept work starts as text choices, not several full plans.
+Expand only the chosen direction; reuse existing explicit selections. This early
+choice does not replace complete scene-plan production confirmation. This rule
+qualifies older descriptions below that continue internally or compare full plans.
+
 ## When To Use
 
 Use this pipeline when the source is long-form footage and the goal is multiple short-form deliverables: webinar clips, interview cuts, livestream highlights, keynote excerpts, or presentation snippets.

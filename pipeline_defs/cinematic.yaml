@@ -98,7 +98,8 @@ stages:
       - Music plan is resolved
     success_criteria:
       - Schema-valid proposal_packet artifact
-      - At least 3 concept options with different emotional arcs
+      - Multiple cinematic directions are presented in brief text for user selection before detailed design
+      - Complete proposal develops the user-selected direction; no unselected full-plan padding
       - Delivery promise present with motion_required flag
       - Cost estimate includes per-item breakdown
   - name: script
@@ -215,7 +216,8 @@ stages:
       - script
     produces:
       - edit_decisions
-    tools_available: []
+    tools_available:
+      - media_prepare
     checkpoint_required: true
     human_approval_default: false
     review_focus:

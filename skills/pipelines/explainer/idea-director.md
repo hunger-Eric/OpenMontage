@@ -1,5 +1,14 @@
 # Idea Director — Explainer Pipeline
 
+## Direction selection before detailed design
+
+Follow [creative intake](../../meta/creative-intake.md)'s brief text choice rule:
+when a direction is not selected, present concise text options and wait for the
+user. Required multi-concept work starts as text choices, not several full plans.
+Expand only the chosen direction; reuse existing explicit selections. This early
+choice does not replace complete scene-plan production confirmation. This rule
+qualifies older descriptions below that continue internally or compare full plans.
+
 ## When to Use
 
 You are the Idea Explorer for a generated explainer video. The user has provided a **topic or idea** (not raw footage). Your job is to research the topic, generate multiple compelling angle options, and produce a `brief` artifact that becomes the creative foundation for the entire pipeline.

@@ -1,12 +1,22 @@
 # Proposal Director — Explainer Pipeline
 
+## Direction selection before detailed design
+
+Follow [creative intake](../../meta/creative-intake.md)'s brief text choice rule:
+when a direction is not selected, present concise text options and wait for the
+user. Required multi-concept work starts as text choices, not several full plans.
+Expand only the chosen direction; reuse existing explicit selections. This early
+choice does not replace complete scene-plan production confirmation. This rule
+qualifies older descriptions below that continue internally or compare full plans.
+
 ## When to Use
 
 You are the **Proposal Director** for a generated explainer video. You sit between the Research Director and the Script Director. You receive a `research_brief` full of raw findings and transform it into a concrete proposal for internal review, carried into the complete scene-plan board for human confirmation before video/audio production.
 
 This stage prepares the proposal internally. Human production approval occurs on the complete scene-plan board.
 
-Think of yourself as a creative agency pitching to a client: you present concepts backed by research, show what it'll cost, explain the tradeoffs, and let the client choose.
+Develop the user's direction into one grounded, executable plan. Do not turn a
+short reference adaptation into an unsolicited creative-agency pitch.
 
 For reference-driven work, read `skills/meta/reference-production-handoff.md`
 and the source's story/edit map before developing the concepts. Translate that
@@ -111,6 +121,11 @@ This directly affects what you can promise in the production plan. **Do not prop
 
 ### Step 2c: Mood Board (Before Concepts)
 
+For an established user direction or reference adaptation, reuse the supplied
+reference and its analyzed visual language. Skip a separate mood-board round,
+palette alternatives and music references. Prepare only the actual references
+needed by the scene plan. The expanded steps below apply to requested exploration.
+
 Before developing full concepts, prepare a quick mood board to catch direction mismatches early:
 
 - **3-5 reference images** (from web search, stock, or quick generations)
@@ -126,7 +141,15 @@ Proceed after internal review. Human confirmation remains at the complete scene-
 
 ### Step 3: Design Concept Options
 
-Build **at least 3 genuinely different concepts.** Start from the `angles_discovered` in the research brief, but elevate them into full production concepts.
+Build one concept from the user's confirmed direction. If the user has not
+specified the intended subject, audience, language or brand treatment and these
+would change the plan, ask one compact direction question before drafting it.
+Do not choose a Chinese, unbranded demonstration or a different topic on the
+user's behalf. Reuse an explicit answer without asking again. Multiple concepts
+are first presented as brief text when requested or required by the selected
+pipeline. Wait for the user's choice before expanding the selected full concept;
+use the requested count where supplied. Record the answer/source in the
+existing proposal metadata or decision log, not a new approval mechanism.
 
 For each concept, specify all fields in the `proposal_packet.concept_options` schema:
 
@@ -457,7 +480,15 @@ separate concept, script, sample or assets approval.
 
 ### Step 8: Submit
 
-Validate the `proposal_packet` artifact against `schemas/artifacts/proposal_packet.schema.json` and submit.
+Persist proposal_packet through the canonical checkpoint writer, which validates
+the required fields once. Use one technical handoff check: selected_concept
+references the intended concept, required content is present and text is readable.
+Reuse the existing research and capability evidence, rather than auditing them
+again. Do not score creativity, persuasiveness, taste or comparative quality;
+the user judges those on the complete board. A missing field or real unavailable
+requirement is a concrete defect; repair it locally, not with a full pitch rewrite.
+Do not add separate schema commands, review reports or another reviewing agent
+for unchanged material. Original research requirements remain unchanged.
 
 ## How This Connects Downstream
 
@@ -478,7 +509,7 @@ The `selected_concept` in the proposal_packet effectively replaces what the old 
 - **Over-promising tool availability**: If the preflight shows only Piper TTS available, don't design a concept that depends on expressive voice acting. Design around constraints.
 - **Three versions of the same concept**: "Kubernetes Explained", "Understanding Kubernetes", and "Kubernetes Guide" are not three concepts. They're one concept with three titles. Structural diversity means different narrative structures, different hooks, different audiences.
 - **Skipping complete-plan confirmation**: Human approval is required at scene_plan before production.
-- **Not showing alternatives**: The user should always see at least 2 production paths at different price points. Let them make an informed choice.
+- **Unrequested alternatives**: Do not add concepts, palettes or production routes after the user has settled the direction. Discuss alternatives only when requested or when a real constraint changes the approved approach.
 
 ## Example: Full Proposal Flow
 
@@ -560,7 +591,7 @@ Do not rely on stale knowledge. When in doubt, search first.
 
 ## Stage review
 
-Run the existing internal review and write the stage checkpoint using the current
+Reuse the technical handoff check above and write the stage checkpoint using the current
 manifest. Complete-plan human confirmation belongs to scene_plan; this stage
 does not request a second human approval. Preserve an explicitly locked legacy
 run policy and any new user-requested gate.

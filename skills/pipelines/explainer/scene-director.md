@@ -20,6 +20,14 @@ You are the Scene Planner for a generated explainer video. You have a `script` a
 
 This is where words become visuals. A great script with a bad scene plan produces a confusing video.
 
+For walking, turning, side/back views, prop interaction or location changes,
+apply the shared visual planning flow's action/spatial complexity reference
+rules. Design the necessary full-body/views/action states and actual scene
+paths/positions before handing off prompts; one front-facing standing image
+does not define unseen clothing, body angles or another location. Reuse stable
+character/scene identities, provide only needed additional views, and record
+their role per shot. This is detailed design, not an extra review or approval.
+
 ## Prerequisites
 
 | Layer | Resource | Purpose |
@@ -195,6 +203,12 @@ to match a provider's generated duration.
 
 ### Step 5: Validate Against Playbook
 
+Use the guidance in Steps 5-6 while drafting the detailed plan, not as another
+post-draft creative review or send-back gate. Resolve creative choices from the
+user's direction before design. Do not revise a completed plan merely because
+the owner prefers another palette, scene variety or pacing; those choices belong
+to the user's plan review. Step 7 is the only internal delivery check.
+
 The style playbook constrains your visual choices:
 
 | Playbook Field | Scene Impact |
@@ -232,25 +246,21 @@ The style playbook constrains your visual choices:
 - [ ] Image descriptions are specific enough for FLUX/GPT Image prompt engineering
 - [ ] No scene requires tools that aren't in the tool registry
 
-### Step 7: Self-Evaluate
+### Step 7: Self-Evaluate — Technical Delivery Only
 
-Score (1-5):
-
-| Criterion | Question |
-|-----------|----------|
-| **Visual storytelling** | Does each scene advance understanding, not just decorate? |
-| **Script alignment** | Does every scene match what the narrator is saying at that moment? |
-| **Technique variety** | Did you use multiple visual techniques, not just one? |
-| **Playbook fidelity** | Would every scene look like it belongs to the same video? |
-| **Asset feasibility** | Can every required_asset actually be generated with available tools? |
-| **Pacing** | Does the visual rhythm feel natural? High-info scenes balanced with breathing room? |
-
-If any dimension scores below 3, revise.
+Check the completed board once for garbled or missing text, actual image loading
+and preserved display aspect ratio, required plan content, and working project
+link and prompt/image controls. Reuse the adapter readback and canonical schema
+validation; do not create another full-field/hash audit or repeat passed checks.
+Inspect only a changed or failed item again. Do not score visual storytelling,
+pacing, technique variety or taste, and do not iterate creative polishing on the
+user's behalf. The user evaluates and approves the complete plan. Keep necessary
+research and real post-generation media checks; this narrows planning review only.
 
 ### Step 8: Submit
 
 Validate `scene_plan_json` against the canonical scene-plan schema, persist it
-through the checkpoint protocol, and attach the stage review. There is no
+through the checkpoint protocol, and record the technical check outcome. There is no
 separate explainer submit function.
 
 ## Common Pitfalls

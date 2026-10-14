@@ -1,5 +1,14 @@
 # Proposal Director — Animation Pipeline
 
+## Direction selection before detailed design
+
+Follow [creative intake](../../meta/creative-intake.md)'s brief text choice rule:
+when a direction is not selected, present concise text options and wait for the
+user. Required multi-concept work starts as text choices, not several full plans.
+Expand only the chosen direction; reuse existing explicit selections. This early
+choice does not replace complete scene-plan production confirmation. This rule
+qualifies older descriptions below that continue internally or compare full plans.
+
 ## When to Use
 
 You are the **Proposal Director** for a generated animation video. You sit between the Research Director and the Script Director. You receive a `research_brief` full of raw findings — both topic data and animation technique research — and transform it into a concrete proposal for internal review, carried into the complete scene-plan board for human confirmation before video/audio production.
@@ -244,7 +253,11 @@ Develop the proposal step by step internally. Progress updates may collect feedb
 5. **Production plan for selected concept** (tools, cost, timeline):
    → User approves budget and approach.
 
-Build **at least 3 genuinely different concepts.** Start from the `angles_discovered` in the research brief and the animation mode analysis.
+Present **at least 3 genuinely different concepts as brief text options** when
+no direction has been selected, using the research and animation-mode analysis.
+Wait for the user's choice before detailed design. Expand only the selected
+concept; do not prepare several full scripts/reference sets or repeat a choice
+the user has already made.
 
 For each concept, specify:
 

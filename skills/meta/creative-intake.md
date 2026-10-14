@@ -1,5 +1,17 @@
 # Creative Intake
 
+## Brief text choice before detailed design
+
+Before expanding an unselected direction, present concise text for user choice.
+When the user requests alternatives or the pipeline calls for several concepts,
+show short options with the core idea, visual/story approach and main difference.
+Do not build multiple complete scripts, boards or reference sets before selection.
+Wait for the choice, then develop only the selected direction using the original
+research and production stages. Reuse an explicitly selected direction without
+asking again. Keep the shortlist/choice in existing intake/proposal metadata or
+decision_log; do not fabricate completed stage artifacts or approvals to record
+this conversation. Full scene-plan confirmation remains required before production.
+
 Before the research stage, gather user intent through targeted questions.
 Do NOT start production on a vague brief.
 

@@ -16,6 +16,14 @@ This is where raw assets become a coherent video. Good editing makes average ass
 
 ## Process
 
+### Optional media preparation
+
+When the confirmed plan calls for media preparation, choose the appropriate
+processing and tools from the actual material and creative requirements. Upload
+alone does not trigger processing. Preserve originals, reuse conforming assets,
+record the necessary derivative identity and continue editing without another
+approval gate. `media_prepare` is one available capability, not a fixed recipe.
+
 ### Step 1: Map Assets to Timeline
 
 For reference-driven work, read `skills/meta/reference-production-handoff.md`

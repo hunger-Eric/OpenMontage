@@ -1,5 +1,14 @@
 # Executive Producer — Explainer Pipeline
 
+## Direction selection before detailed design
+
+Follow [creative intake](../../meta/creative-intake.md)'s brief text choice rule:
+when a direction is not selected, present concise text options and wait for the
+user. Required multi-concept work starts as text choices, not several full plans.
+Expand only the chosen direction; reuse existing explicit selections. This early
+choice does not replace complete scene-plan production confirmation. This rule
+qualifies older descriptions below that continue internally or compare full plans.
+
 ## Current confirmation policy
 
 Read AGENT_GUIDE.md > Complete-plan confirmation and the current manifest.
@@ -14,7 +23,13 @@ authorized. Older per-stage approval descriptions below do not create gates.
 
 ## When to Use
 
-You are the **Executive Producer (EP)** for a generated explainer video. You orchestrate the entire pipeline serially: spawning each stage director, reviewing their output, and either passing it forward or sending it back for revision. You are the stateful brain; the directors are stateless workers.
+You are the **Executive Producer (EP)** for a generated explainer video. Execute
+the existing stages in order, preserve their artifacts and review the result.
+For ordinary short-video planning, the same owner performs research, proposal,
+script and scene planning continuously. Director skills are stage instructions,
+not a requirement to spawn an agent for each stage. Delegate only an independent
+task with a concrete benefit and when applicable instructions permit it; do not
+delegate this dependency chain to one worker and repeatedly poll/correct it.
 
 **You replace the default parallel/sequential execution model.** Instead of running all stages blindly, you exercise judgment at every gate.
 
@@ -34,8 +49,8 @@ The EP solves all of these by maintaining cumulative state and applying judgment
 | Layer | Resource | Purpose |
 |-------|----------|---------|
 | Pipeline | `pipeline_defs/animated-explainer.yaml` | Stage definitions, review focus, success criteria |
-| Skills | All 7 director skills + `meta/reviewer` | Stage execution knowledge |
-| Schemas | All artifact schemas | Validation |
+| Skills | Current stage director plus relevant prior instructions | Stage execution knowledge; reuse already read instructions |
+| Schemas | Current artifact schema | Validate once after drafting; revalidate only after a change |
 | Playbook | Active style playbook | Quality constraints |
 | Tools | Full tool registry | Available capabilities |
 
@@ -119,8 +134,8 @@ EXECUTE_STAGE(stage_name):
      - Inject EP_STATE as context (prior artifacts, observed usage, style anchors)
      - Inject any EP feedback from previous revision attempts
 
-  2. SPAWN DIRECTOR
-     - The director executes its full process (as defined in its skill MD)
+  2. EXECUTE CURRENT STAGE
+     - The owner executes the relevant process from the director skill, reusing known context
      - Director produces an artifact
 
   3. REVIEW (EP performs this, not a separate reviewer)
@@ -141,7 +156,7 @@ EXECUTE_STAGE(stage_name):
        - Increment revision_counts[stage_name]
        - Compose specific feedback for the director
        - At max_revisions_per_stage (default 3), stop revisions, preserve artifacts and report unresolved issues
-       - Otherwise re-run SPAWN DIRECTOR with changed feedback injected
+       - Otherwise repair only the failed fields in the current artifact with concrete feedback
        - Re-run REVIEW
        - Do not convert an unresolved delivery failure into PASS because a retry count was reached
 
@@ -208,48 +223,33 @@ CHECK: Research depth
 ```
 
 ### After PROPOSAL stage:
-```
-CHECK: Approval gate (CRITICAL — the entire point of pre-production)
-  - Is the proposal schema-valid and ready to carry into the complete plan?
-  - If "rejected": stop for user direction. If "pending": continue internal script and scene planning; approval occurs at scene_plan.
-  - If "approved_with_changes": apply modifications to selected_concept before proceeding
-  - Extract: target_duration_seconds, playbook, billing mode, tool selections
-  - Initialize a cap only from an explicit approved_budget_usd; otherwise remain completion-driven
 
-CHECK: Production feasibility
-  - Does the production plan reference tools that are actually available?
-  - Cross-check production_plan.stages[].tools[].available against registry
-  - If any required tool is unavailable: alert user, offer alternatives
-```
+Reuse the Proposal Director's technical handoff check and canonical persistence
+validation. Carry the selected concept, duration and production choices forward.
+Do not rescore concepts, reread research, query the unchanged capability catalog
+or run another schema command. Creative judgment belongs to the user on the full
+board; pending approval does not block internal preparation. Report and repair
+only a missing required field, changed input or concrete execution blocker.
 
 ### After SCRIPT stage:
-```
-CHECK: Word count vs. duration target
-  - Calculate: total_words / 150 = estimated_minutes (at 150 WPM speaking rate)
-  - If estimated_minutes > target_duration * 1.15:
-      REVISE script: "Script is {X} words. At 150 WPM, that's {Y} minutes.
-      Target is {Z} minutes. Cut {N} words."
-  - If estimated_minutes < target_duration * 0.7:
-      REVISE script: "Script is too short. Add {N} words of content."
-```
+
+Reuse the Script Director's one combined content/timing/handoff review and the
+schema validation performed by the checkpoint writer. Do not repeat word-count,
+source-hash, playbook or scored reviews of unchanged text. Investigate only a
+specific failed requirement or changed upstream input. Estimate timing using the
+actual language and performance; do not force every language through 150 WPM or
+send back a script merely to pad a rough word target. Actual audio duration is
+still checked during assets, and final A/V validation remains unchanged.
 
 ### After SCENE_PLAN stage:
-```
-CHECK: Total scene duration covers full script
-  - Sum all scene durations
-  - Compare to script's total duration
-  - If gaps > 1 second: REVISE scene_plan
-  - If overlaps: REVISE scene_plan
 
-CHECK: Visual variety
-  - Count consecutive same-type scenes
-  - If > 3 consecutive: REVISE scene_plan
-
-CHECK: Asset feasibility
-  - For each required_asset, verify the tool exists in registry
-  - If any asset requires a tool that's unavailable:
-      REVISE scene_plan: "Tool {X} is unavailable. Use {alternative} instead."
-```
+Reuse one technical board-delivery verification: readable text, actual images
+loaded without layout distortion, complete required content and working project
+link and prompt/image controls. The user judges narrative, visual taste and
+creative quality at the existing complete-plan confirmation gate. Do not add
+subjective scoring, a second creative reviewer, repeated field/hash audits or
+extra planning reports after the technical checks pass. Original research and
+post-generation actual-media acceptance remain unchanged.
 
 ### After ASSETS stage:
 ```
@@ -341,9 +341,9 @@ Actual: {what was produced}
 | Gate | After Stage | What's Checked | Fail Action |
 |------|-------------|---------------|-------------|
 | G1 | research | Data depth, source quality, angle diversity | Revise research |
-| G2 | proposal | Concept quality and cost accuracy | Revise internally and continue to scene_plan |
-| G3 | script | Word count vs duration, narrative arc, research integration | Revise script |
-| G4 | scene_plan | Coverage, variety, feasibility against production plan | Revise scene_plan |
+| G2 | proposal | Reuse technical fields and reference checks | Repair the concrete missing field |
+| G3 | script | Reuse one content/timing/handoff review and canonical validation | Repair a specific failed requirement |
+| G4 | scene_plan | Technical board display and link usability | Repair the concrete delivery defect; user judges the plan |
 | G5 | assets | File existence, narration duration, budget, style | Revise assets OR send-back to script |
 | G6 | edit | Timeline completeness, A/V pre-sync | Revise edit |
 | G7 | compose | Output probe, duration, audio quality | Revise compose OR send-back to edit/assets |

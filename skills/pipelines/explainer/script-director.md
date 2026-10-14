@@ -202,34 +202,30 @@ For technical terms, acronyms, and non-English words:
 {"word": "cosine", "phonetic": "CO-sign"}
 ```
 
-### Step 5: Validate Against Playbook
+### Step 5: Self-Evaluate — One Combined Review
 
-Read the active style playbook and verify:
+After the complete draft, perform one combined review and reuse it for the stage
+checkpoint. The script writer and EP are the same owner for ordinary short work;
+do not run another scoring review or delegate the unchanged script for approval.
 
-| Playbook Field | Script Impact |
-|----------------|---------------|
-| `identity.pace` | Match word density. `contemplative` = fewer words, longer pauses |
-| `audio.voice_style` | Shape tone of speaker directions |
-| `voice_performance` | Confirm pacing, pauses, and energy curve are explicit enough for TTS |
-| `motion.pacing_rules` | E.g., "hold establishing shots for 2s minimum" affects section timing |
-| `identity.mood` | Word choice: `warm` uses casual language; `professional` uses precise language |
+Check only:
+- Content: follows the user's direction and selected proposal; coherent spoken
+  progression, no obvious repetition, and factual claims traceable to the research.
+- Timing: estimate once for the actual language and performance, including pauses.
+  Treat word/character counts as a rough warning, not a mandatory universal 150 WPM
+  formula. Do not pad useful short wording or repeatedly trim it solely to match a
+  count; real generated speech timing is checked later against actual audio.
+- Handoff: required schema fields, section times and references are present and
+  consistent, with usable visual and delivery cues. Use the existing playbook
+  guidance already read rather than rereading it for a separate checklist.
 
-### Step 6: Self-Evaluate
-
-Score your script (1-5):
-
-| Criterion | Question |
-|-----------|----------|
-| **Hook power** | Would someone stop scrolling in the first 3 seconds? |
-| **Word count accuracy** | Within ±10% of target for the duration? |
-| **Narrative flow** | Does each section build on the last? "Therefore/but" not "and then"? |
-| **Enhancement density** | At least one cue every 8-10 seconds? |
-| **Voice performance** | Are pauses, emphasis, pace, and sample section explicit? |
-| **Jargon management** | Technical terms explained or have pronunciation guides? |
-| **Climax payoff** | Does the aha moment deliver on the hook's promise? |
-| **CTA relevance** | Is the call to action specific and actionable? |
-
-If any dimension scores below 3, revise before submitting.
+Validate the schema once when persisting the stage. The checkpoint writer's
+validation is sufficient; do not add duplicate standalone validation commands.
+After a concrete failure or content change, recheck only the affected points and
+let persistence validate the changed artifact. Existing source/version identity
+requirements remain, but unchanged hashes and references are not rechecked in a
+loop. Record a brief review outcome; no eight-dimension scores, separate review
+report or speculative polishing cycle is required. Repair actual defects only.
 
 ### Step 7: Submit
 
@@ -245,12 +241,14 @@ If you encounter uncertainty during script writing:
 - Log verification in the decision log: `category="visual_accuracy_check"`
 
 Every factual claim in the script should be traceable to the `research_brief`.
+Reuse its verified sources; do not repeat completed research as a script checklist.
+Only a new or unresolved claim requires additional verification.
 If you make a claim that isn't in the research, do additional research and
 add the source. Do not invent statistics, dates, or attributions.
 
 ## Common Pitfalls
 
-- **Writing too many words**: The #1 failure. TTS pacing is fixed. If you write 250 words for a 60-second video, either the audio will be rushed or the video will be 100 seconds. Count your words.
+- **Clearly infeasible speech length**: Estimate for the chosen language and delivery once; shorten actual excess without repeatedly enforcing a generic word quota. Confirm exact timing against generated audio later.
 - **Front-loading information**: The hook should create curiosity, not dump information. "HTTPS uses TLS 1.3 with AEAD ciphers" is a terrible opening. "The padlock icon doesn't mean what you think it means" is compelling.
 - **Missing enhancement cues**: A script without visual direction is a podcast script. Every section needs at least one cue telling the visual team what to show.
 - **Generic speaker directions**: "Read naturally" is useless. "Start measured and precise, then accelerate through the list to convey scale" is actionable.
@@ -289,7 +287,7 @@ add the source. Do not invent statistics, dates, or attributions.
 
 ## Stage review
 
-Run the existing internal review and write the stage checkpoint using the current
+Reuse the combined review above and write the stage checkpoint using the current
 manifest. Complete-plan human confirmation belongs to scene_plan; this stage
 does not request a second human approval. Preserve an explicitly locked legacy
 run policy and any new user-requested gate.

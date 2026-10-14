@@ -101,7 +101,7 @@ stages:
       - "Provider choice presented as comparison table with costs — agent recommends but user decides"
       - "render_runtime defaults to remotion for all new productions after availability check. Preserve an existing explicit lock or a user-explicit runtime request; do not expose a technical runtime menu. If remotion is unavailable, report the gap and do not switch. See skills/meta/animation-runtime-selector.md and record the selected runtime in decision_log where required."
     success_criteria:
-      - Schema-valid proposal_packet with at least 3 concept_options
+      - Schema-valid proposal_packet for the user-selected direction; confirm multiple directions in brief text before detailed design
       - selected_concept includes animation_mode and reuse_strategy
       - selected_concept includes audio_architecture (single_narrator | character_dialogue | narrator_plus_characters)
       - cost_estimate has itemized line_items with per-tool costs
@@ -223,7 +223,8 @@ stages:
       - script
     produces:
       - edit_decisions
-    tools_available: []
+    tools_available:
+      - media_prepare
     checkpoint_required: true
     human_approval_default: false
     review_focus:

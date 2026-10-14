@@ -88,15 +88,11 @@ stages:
     checkpoint_required: true
     human_approval_default: false
     review_focus:
-      - Concept options are genuinely different (structure, hook, audience)
-      - Each concept is grounded in research findings, not generic
-      - Production plan reflects actual tool availability from preflight
-      - Provider billing/usage estimate is itemized and honest; unknown Token Plan usage is null, never zero
-      - Quality/cost tradeoffs are clearly presented
-      - Alternative production paths shown at different price points
-      - "Concept differentiation from reference (if reference-driven)"
+      - Reuse one technical handoff check; required fields and selected concept reference are valid
+      - Text is readable; existing research and capability evidence are reused without another audit
+      - No subjective concept scoring or comparative quality review; the user evaluates the complete plan board
     success_criteria:
-      - Schema-valid proposal_packet with at least 3 concept_options
+      - Schema-valid proposal_packet with at least one concept; multiple options only when requested
       - selected_concept references a valid concept_id
       - cost_estimate has itemized line_items with per-tool billing/usage and no invented zero-dollar plan usage
       - Proposal approval may remain pending until complete-plan confirmation at scene_plan
@@ -114,12 +110,9 @@ stages:
     checkpoint_required: true
     human_approval_default: false
     review_focus:
-      - "Word count within +/-10% of duration target from selected concept"
-      - "Enhancement cue density: 1 per 8-10 seconds"
-      - "Narrative arc: hook -> setup -> build -> climax -> landing"
-      - Speaker directions present for TTS
-      - Voice performance plan includes concrete pacing, pause, emphasis, and sample cues
-      - Script incorporates research data points and cited facts
+      - One combined review reused by the owner and checkpoint; no repeated scoring of unchanged text
+      - Content follows the user's direction, has coherent spoken progression and research-backed claims
+      - Timing estimated for the actual language and delivery; useful visual and speaker cues are present
     success_criteria:
       - Schema-valid script with enhancement_cues per section
       - Total duration matches selected concept target within 10%
@@ -139,9 +132,9 @@ stages:
     checkpoint_required: true
     human_approval_default: true
     review_focus:
-      - Full script duration covered with no gaps
-      - "Visual variety: no 3+ consecutive scenes of same type"
-      - Asset feasibility - every required_asset uses a tool from the production plan
+      - "Technical delivery only: readable text, real images loaded with preserved aspect ratio, required plan fields present"
+      - Published project board link and required prompt/image controls work; reuse one verification result
+      - The user judges creative quality on the complete board; no separate internal creative scoring
       - Playbook adherence - transitions, colors, pacing rules
     success_criteria:
       - Complete video plan and necessary actual references are presented before generation
@@ -198,7 +191,8 @@ stages:
       - script
     produces:
       - edit_decisions
-    tools_available: []
+    tools_available:
+      - media_prepare
     checkpoint_required: true
     human_approval_default: false
     review_focus:

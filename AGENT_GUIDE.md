@@ -948,6 +948,12 @@ change at every cut. Metadata plans and `ducking` flags do not prove execution.
 
 ## Pipeline Asset Expectations
 
+Media preparation is optional. Include its intent in the production plan when
+needed, then let the agent choose the processing and tools after customer
+approval. Upload alone does not trigger it; keep originals and necessary records,
+reuse conforming media and add no separate gate. `media_prepare` is available as
+a basic capability, not a mandatory processing sequence.
+
 Each pipeline manifest's `tools_available` field declares what tools a stage can use. Use selectors for multi-provider capabilities — the selector handles routing to whatever is available. Read the pipeline manifest for the authoritative list per stage.
 
 ## Stage Agents
@@ -985,10 +991,34 @@ The reviewer is a meta skill (`skills/meta/reviewer.md`) — advisory, never dir
 
 ### Complete-plan confirmation (current production default)
 
+Before detailed design, use the user's actual direction. When subject, audience,
+language or brand treatment is missing and would materially change the plan,
+ask one compact clarification question and wait for that answer. Do not silently
+default to a new topic, Chinese narration or unbranded content. An already
+specified direction needs no repeat confirmation. When the user requests options
+or a pipeline develops multiple directions, first present concise text summaries
+and wait for the user's selection. Do not prepare several complete scripts,
+reference sets or boards first. Deepen only the selected direction and record its
+choice in existing intake/proposal metadata. This early creative choice does not
+replace complete-plan production confirmation. For ordinary short reference adaptations, the same
+owner executes the existing early stages continuously, reuses the analysis and
+known contracts, and prepares one plan rather than a serial agent pitch cycle.
+After direction is determined, preserve the original research logic, evidence
+requirements and research review; reduced concept design is not reduced research.
+Resolve material creative requirements with the user before detailed design,
+then document them fully in the proposal/script/scene plan. For these planning
+stages, internal review is technical delivery verification only: no subjective
+creative scoring or repeated polishing/send-backs. Check readable text, complete
+required content, loaded images with preserved display aspect ratio, and working
+board link/controls once. The user judges and approves creative quality on the
+complete board. Reuse passed checks for unchanged content. This exception does
+not remove original research or post-generation real-media acceptance checks.
+
 All non-test production manifests use the existing `scene_plan` stage as the
 single human production-confirmation gate. Research, proposal/idea, script and
-other design stages still execute, review and checkpoint in order, but proceed
-internally without separate approval prompts. During scene_plan, prepare/reuse
+other design stages still execute, review and checkpoint in order. Confirm an
+unselected direction in brief text first, then proceed internally without repeated
+stage approval prompts. During scene_plan, prepare/reuse
 the necessary actual reference images and publish the complete standalone plan
 board: full story/script, shot actions, timing, image roles and complete prompts.
 No video, TTS, music generation or sample render occurs before this gate.

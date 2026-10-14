@@ -224,6 +224,7 @@ stages:
       - edit_decisions
       - action_timeline
     tools_available:
+      - media_prepare
       - action_timeline_compiler
     checkpoint_required: true
     human_approval_default: false

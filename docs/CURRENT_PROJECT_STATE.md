@@ -2,6 +2,66 @@
 
 Updated: 2026-10-14
 
+## 2026-10-14 optional approved-plan media preparation
+
+- New registered `media_prepare` capability mechanically prepares image/video
+  derivatives: target dimensions, contain padding or explicit center cover crop,
+  brightness/contrast/saturation and optional video fps. Original bytes remain;
+  a source/plan-bound receipt records parameters and before/after probes.
+- Agent decides whether preparation is needed and includes its intent in the
+  plan; execution follows approval. Workflow guidance does not prescribe fixed
+  steps, parameters or formats, or require every operation to use media_prepare.
+  Upload alone does not execute it; conforming assets are reused.
+- Code does not select creative framing/color or silently convert HDR to SDR;
+  the caller provides approved parameters. No new pipeline or approval gate.
+- The capability is declared at the existing edit stage of all 12 production
+  manifests; declaration does not run it on upload. Validation: 17 preparation
+  and pipeline checks passed, including real FFmpeg image/video transforms,
+  geometry, color, fps/audio preservation and unapproved/invalid-input rejection.
+  Customer-media integration and real creative color/framing acceptance remain
+  unverified; tests used local synthetic media, not regenerated customer footage.
+
+## 2026-10-14 compact reference planning
+
+- Before detailed design, an unselected direction is presented in concise text
+  for user choice. Requested or pipeline-generated alternatives are lightweight
+  text options, not several complete plans. After selection, original research
+  continues and only the chosen direction is expanded into the complete board.
+  Existing explicit selections are reused; complete-plan production approval stays.
+- Reference design depth follows actual action and spatial complexity. Walking,
+  turns, side/back views, prop interaction and location changes require the
+  necessary character views/body states and scene paths/layouts, preserving one
+  identity across shots. Fixed standing dialogue retains minimal sufficient
+  references. This adds design detail, not another review or approval gate.
+- Creative requirements are resolved with the user before detailed design.
+  Proposal/scene-plan review is reduced to one technical delivery check: readable
+  text, complete fields, loaded images with preserved aspect ratio, and working
+  board link/controls. The user reviews creative quality; no internal subjective
+  scoring or repeated creative send-backs. Research and real-media review remain.
+- Script drafting uses one combined content/timing/handoff review, reused by the
+  owner and checkpoint. Removed duplicate eight-dimension scoring and EP word-
+  count send-backs based on universal 150 WPM. Canonical schema persistence,
+  actual-audio timing and final media checks remain; research is unchanged.
+- Ordinary short-video planning uses the user's direction and one concept.
+  Missing material direction requires one intake clarification. Requested or
+  pipeline-generated alternatives first require a brief text choice, not several
+  complete designs. Research/proposal/script/
+  scene-plan artifacts and the complete-plan production gate remain in place.
+- Removed mandatory three-concept design from the proposal schema and manifest.
+  Cinematic/animation candidate counts now apply to early text choices; their
+  complete proposals expand only the chosen direction.
+  After the user determines the direction, the original research process,
+  source/finding/angle requirements and research review remain unchanged.
+- The same owner executes the dependent planning stages, reusing instructions
+  and capability evidence. Director skills no longer require serial spawning.
+  One review after each draft, with targeted rechecks only for changed/failing
+  fields, replaces repeated polling and whole-artifact handbacks.
+- Real planning latency after this change remains unverified; no existing run,
+  user direction, checkpoint or accepted media was rewritten by this repair.
+- Validation: the single-concept schema case failed before the repair and
+  passed after it. Regression checks also retain the original research minima.
+  Real end-to-end planning latency remains separately unverified.
+
 ## 2026-10-14 approved-plan music execution alignment
 
 - Flow music now shares the approved production's optional credit-cap policy:

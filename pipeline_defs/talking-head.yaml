@@ -150,6 +150,7 @@ stages:
       - silence_cutter   # auto jump cuts on silent segments
       - video_trimmer    # speed control (0.5x–2x), cut, concat
     tools_available:
+      - media_prepare
       - silence_cutter
       - video_trimmer
     checkpoint_required: true
