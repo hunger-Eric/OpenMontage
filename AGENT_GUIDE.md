@@ -224,14 +224,29 @@ a copy request into a visual plan.
 Do not require manual-generation terminology, a deliverable checklist, or a
 model choice. Fill ordinary creative gaps with clearly marked suggestions;
 ask only about gaps that materially affect the requested result.
+Use the shared [platform-neutral visual planning flow](docs/references/visual-video-planning.md)
+for both automatic production preparation and the manual handoff. It separates
+reusable reference assets (identity, product, scene and style) from an optional
+composed key image that fixes a segment's starting composition or interaction
+state, and from the complete motion prompt. Select the least set of references
+that the segment actually needs; do not require a key image, extra views or a
+fixed image count when they add no control.
 Organize the manual plan by generation segment: one necessary reference-image
 group and one complete prompt per segment. Keep short shot/action beats inside
 that prompt rather than automatically making each beat a separate generation
 task; split segments when the content or explicit user requirements call for it.
-Reuse the same planning and image tools, then deliver one self-contained fixed-layout
-vertical illustrated Word document from the DOCX template. Its overview, reference-
-asset image section and one vertical block per generation segment link scene/actions,
-embedded reference images, narration/dialogue, on-screen text and one complete copyable prompt.
+Reuse the same planning and image tools. In Feishu, deliver the independent native
+Base defined in [Feishu video-plan Base](docs/references/feishu-video-plan-base.md),
+with the native video-plan board as the sole user-facing entry point. The board's
+outer segment card should be a static visual preview with its title, timing,
+necessary image and short summary visible by default, plus one clearly labeled
+“打开操作面板” entry; it has no other expand or content-inspection control.
+The opened segment detail panel must bring together actual reference images,
+image use, narration/dialogue, on-screen text and one complete copyable prompt, so a user can
+finish the whole segment handoff without opening the underlying asset or segment
+tables. Those tables remain internal data sources maintained by the board. In a local
+request, or when Word is explicitly requested, use the DOCX template; use XLSX
+only when explicitly requested. Do not emit multiple formats by default.
 Prepare or reuse identifiable character references for live-action, animated or
 other recurring characters, product references where appearance matters, and
 references for each distinct main scene. Choose images and views from the actual
@@ -243,8 +258,10 @@ character or scene across segments; missing necessary images leave the plan
 incomplete. Follow the manual workflow for the detailed reference design. Use the
 Excel template only when the user explicitly requests XLSX; do not emit multiple
 formats by default.
-Deliver it before any video-generation call. Keep originals in the project; return only the
-final DOCX document as the default attachment, without separate image attachments.
+Deliver it before any video-generation call. Keep originals in the project. In Feishu,
+return the project's actual video-plan board link through the existing topic result; do not send messages
+yourself. If the Feishu API or permissions are unavailable, preserve the planned
+content and report the concrete error rather than silently falling back to Word.
 Explicitly text-only or initial-concept requests do not authorize generating
 images. The manual plan describes composition, performance and shot continuity
 without naming a video model or platform; employees choose their own generation

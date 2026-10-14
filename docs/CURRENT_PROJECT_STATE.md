@@ -1,6 +1,31 @@
 # OpenMontage Current Project State
 
-Updated: 2026-10-13
+Updated: 2026-10-14
+
+## 2026-10-14 reusable native Feishu video-plan board
+
+- Feishu visual video plans now use one independent Base copied from the fixed
+  board template per project. The restricted `feishu_video_plan` tool validates
+  supplied plan fields, uploads actual project images and links segment records;
+  creative decisions remain with the existing executor. Follow
+  [the native plan handoff](references/feishu-video-plan-base.md) and
+  [the shared visual planning flow](references/visual-video-planning.md).
+- The board is the sole user-facing entry. Outer cards show static previews and
+  one “打开操作面板” button. The panel brings together actual references, actions,
+  display-only narration and the full prompt. Selecting the prompt highlights
+  its existing text; no duplicate textbox is added.
+- A real empty template copy was filled and read back with three segments,
+  three asset records and the copied board's own linked tables. The published
+  master v6 was checked in the in-app browser and independent Chrome: narration
+  has no selection/copy button and native Ctrl+C preserves the 364-character
+  G01 prompt. Evidence: `projects/video-plan-template-20261014/artifacts/` and
+  `projects/video-plan-template-validation-20261014/artifacts/`.
+- User-identity copy and template sharing were verified. Bot-identity sharing
+  and future project access remain separately unverified; structure initialization
+  does not establish native page visibility or sharing permissions.
+- The 27 focused adapter tests and 215 related instruction-contract tests passed.
+  The contract run logged one Windows subprocess GBK decoding warning; all
+  assertions passed. These checks do not replace the separate UI evidence above.
 
 ## 2026-10-13 unified creative entry and provider extension
 

@@ -34,24 +34,39 @@ generate media. Ask only for gaps that materially change the result, scope or
 authority.
 For video-plan requests, including "我有个产品叫 X，帮我写一份视频方案" or
 "使用 ai-video-gen 技能，我有个产品叫 X，帮我写一份视频方案", read
-`E:/project/OpenMontage/docs/references/manual-video-handoff.md`. Prepare the
-plan by generation segment, with one necessary reference-image group and one
+`E:/project/OpenMontage/docs/references/manual-video-handoff.md`. Prepare
+the visual parts with the shared [platform-neutral visual planning flow](../../../docs/references/visual-video-planning.md): keep reusable identity,
+product, scene and style references distinct from an optional composed key
+image for the segment's starting composition or interaction state, then write
+the motion prompt for what changes over time. Choose only the references the
+segment needs; a key image or extra character views are conditional, not
+mandatory.
+Organize the plan by generation segment, with one necessary reference-image group and one
 complete copyable prompt per segment. Keep short shot/action beats inside the
 segment's prompt; do not automatically split each beat into a generation task.
 Users need not list these outputs or name a manual workflow. Explicit text-only
-limits take precedence. Use the existing project workflow and deliver one
-self-contained fixed-layout vertical illustrated Word document from the DOCX template.
-Its overview, reference-asset image section and one vertical block per segment link
-scene/actions, embedded reference-image group, narration/dialogue, on-screen text and
-complete copyable prompt. Prepare or reuse actual product, character and main-scene images
+limits take precedence. In Feishu, use the project's independent native Base
+handoff described in [Feishu video-plan Base](../../../docs/references/feishu-video-plan-base.md):
+create the overview, reference-asset and generation-segment tables, upload actual
+reference images as attachment fields, and link each segment to its asset records,
+image order and purpose, narration and complete prompt. In a local request, or
+when the user explicitly asks for Word, use the existing self-contained fixed-layout
+DOCX; when the user explicitly asks for Excel, use XLSX. Do not emit multiple
+formats by default.
+Only the DOCX route uses an overview, reference-asset image section and one vertical
+block per segment with embedded reference images. Base uses asset attachments and
+linked segment records. Both connect scene/actions, narration/dialogue, on-screen
+text and complete copyable prompts. Prepare or reuse actual product, character and main-scene images
 as needed, including animated characters; text descriptions and image placeholders
 do not complete the required visual references. Design the necessary views and
-details without fixing the image count. In the document, the reference-asset image
-section records image IDs, visual settings, purpose and related segments. Each
+details without fixing the image count. Reference-asset records, or the DOCX image
+section, record image IDs, visual settings, purpose and related segments. Each
 segment states its selected IDs, local image order and uses, with matching
 references in its full prompt. Reuse accepted images across segments. Retain
-originals in the project; the default output attachment
-is only the final document, without separate image attachments. End the task before
+originals in the project. For Feishu, the Base is the default plan handoff and its
+link is returned through the existing topic result; do not send messages yourself.
+If the Feishu API or permissions are unavailable, retain the planned content and
+report the concrete error rather than silently falling back to a document. End the task before
 calling a video provider. Later supplied videos use the existing continuation
 path. Complete-video requests retain automatic
 production.
@@ -68,8 +83,9 @@ contracts. Use only the exact supplied or explicitly referenced trusted media;
 return new local artifacts for Worker registration and delivery. Video-sample approval
 requests must include the validated sample video as an output artifact, even
 when production is waiting for approval; a local-only link is insufficient.
-Do not send or
-upload Feishu results yourself. Do not ask users for a project path. If the project
+Do not send Feishu messages or upload chat-delivery attachments yourself; return
+them through Worker. The native plan's Base records and image attachments use only
+the restricted Base tool described above. Do not ask users for a project path. If the project
 or a required capability is unavailable, identify the concrete blocker and retain
 the request and existing evidence; respect explicit user choices and permissions.
 This skill is only an entrypoint: it contains no provider, model, budget,

@@ -15,6 +15,12 @@ You are deciding how each cinematic beat will look and transition. This is where
 
 ## Process
 
+For generated visuals, follow the shared [platform-neutral visual planning flow](../../../docs/references/visual-video-planning.md).
+Distinguish reusable reference assets from optional shot key images and motion
+prompts. Map narrative beats and scene-plan shots to continuous generation
+segments; neither every beat nor every hero frame implies a separate image or
+video generation call. Keep the existing scene-plan artifact and gate.
+
 ### 1. Make Hero Frames Explicit
 
 Every cinematic piece needs a few memorable frames. Define them directly:

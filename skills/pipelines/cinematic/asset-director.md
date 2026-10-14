@@ -107,6 +107,13 @@ Optional generated assets should fill clear gaps:
 
 For motion-required jobs, use `video_selector` first for generated shots. `image_selector` may support look development, concept frames, or embedded design layers, but it does not satisfy the motion requirement by itself.
 
+Prepare generated-shot references with the shared [platform-neutral visual planning flow](../../../docs/references/visual-video-planning.md):
+reuse accepted product, character and scene assets, and compose an actual start
+image only when the planned framing or interaction needs it. Preserve asset
+lineage and input roles, and verify the selected tool actually receives the
+required references or frames; plan images and IDs alone do not prove binding.
+Keep the approved provider path and existing sample/batch gate.
+
 ### 3. Prepare A Real Audio Plan
 
 Follow [the background music workflow](../../../docs/references/music-workflow.md)
