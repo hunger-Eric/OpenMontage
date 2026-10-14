@@ -372,7 +372,7 @@ class TestPipelineManifests:
         assert "video_analyzer" in get_required_tools(manifest)
 
         all_units = get_stage_order(manifest, include_sub_stages=True)
-        assert "proposal.sample" in all_units
+        assert "proposal.sample" not in all_units
 
         active_sub_stages = get_stage_sub_stages(
             manifest,
@@ -380,7 +380,7 @@ class TestPipelineManifests:
             context={"video_analysis_brief_exists": True},
             include_inactive=False,
         )
-        assert any(s["name"] == "sample" for s in active_sub_stages)
+        assert not any(s["name"] == "sample" for s in active_sub_stages)
 
 
 # ---- BaseTool ----

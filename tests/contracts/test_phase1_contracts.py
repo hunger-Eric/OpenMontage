@@ -326,10 +326,10 @@ class TestTalkingHeadManifest:
         assert any("reviewer" in s for s in skills)
         assert any("checkpoint-protocol" in s for s in skills)
 
-    def test_idea_and_publish_require_approval(self):
+    def test_complete_plan_and_publish_require_approval(self):
         manifest = load_pipeline("talking-head")
         for stage in manifest["stages"]:
-            if stage["name"] in ("idea", "publish"):
+            if stage["name"] in ("scene_plan", "publish"):
                 assert stage.get("human_approval_default") is True
 
 

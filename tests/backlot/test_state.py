@@ -99,21 +99,21 @@ class TestBoardState:
         p = _make_project(projects_root, "sneaky")
         # completed on a gated stage with no awaiting_human history and no
         # human_approved -> gate_skipped flag
-        _write(p / "checkpoint_script.json", {
+        _write(p / "checkpoint_scene_plan.json", {
             "version": "1.0", "project_id": "sneaky", "pipeline_type": "cinematic",
-            "stage": "script", "status": "completed",
+            "stage": "scene_plan", "status": "completed",
             "timestamp": "2026-01-01T01:00:00Z", "artifacts": {},
         })
         s = load_board_state(p)
-        script_stage = next(x for x in s["stages"] if x["name"] == "script")
+        script_stage = next(x for x in s["stages"] if x["name"] == "scene_plan")
         assert script_stage["gate_skipped"] is True
 
         # with an archived awaiting_human version, the gate was honored
-        _write(p / "history" / "checkpoint_script_20260101.json", {
-            "stage": "script", "status": "awaiting_human",
+        _write(p / "history" / "checkpoint_scene_plan_20260101.json", {
+            "stage": "scene_plan", "status": "awaiting_human",
         })
         s2 = load_board_state(p)
-        script_stage2 = next(x for x in s2["stages"] if x["name"] == "script")
+        script_stage2 = next(x for x in s2["stages"] if x["name"] == "scene_plan")
         assert script_stage2["gate_skipped"] is False
 
     def test_generating_state_from_events(self, projects_root):

@@ -53,9 +53,9 @@ def test_completed_gated_stage_without_approval_is_rejected(tmp_path):
         write_checkpoint(
             tmp_path,
             "film",
-            "script",
+            "scene_plan",
             "completed",
-            {"script": _script_artifact()},
+            {"scene_plan": {"version": "1.0", "scenes": [{"id": "sc1", "type": "generated", "description": "Gate fixture", "start_seconds": 0, "end_seconds": 5}]}},
             pipeline_type="cinematic",
         )
 
@@ -65,9 +65,9 @@ def test_typo_pipeline_type_fails_closed(tmp_path):
         write_checkpoint(
             tmp_path,
             "film",
-            "script",
+            "scene_plan",
             "completed",
-            {"script": _script_artifact()},
+            {"scene_plan": {"version": "1.0", "scenes": [{"id": "sc1", "type": "generated", "description": "Gate fixture", "start_seconds": 0, "end_seconds": 5}]}},
             pipeline_type="cinemtaic",
             human_approved=True,
         )
@@ -76,19 +76,19 @@ def test_typo_pipeline_type_fails_closed(tmp_path):
 def test_handwritten_completed_checkpoint_surfaces_gate_skip(tmp_path, monkeypatch):
     monkeypatch.setattr(state_mod, "PROJECTS_DIR", tmp_path)
     project = tmp_path / "film"
-    _write(project / "checkpoint_script.json", {
+    _write(project / "checkpoint_scene_plan.json", {
         "version": "1.0",
         "project_id": "film",
         "pipeline_type": "cinematic",
-        "stage": "script",
+        "stage": "scene_plan",
         "status": "completed",
         "timestamp": "2026-07-02T00:00:00Z",
-        "artifacts": {"script": _script_artifact()},
+        "artifacts": {"scene_plan": {"version": "1.0", "scenes": [{"id": "sc1", "type": "generated", "description": "Gate fixture", "start_seconds": 0, "end_seconds": 5}]}},
     })
 
     state = load_board_state(project)
 
-    script = next(stage for stage in state["stages"] if stage["name"] == "script")
+    script = next(stage for stage in state["stages"] if stage["name"] == "scene_plan")
     assert script["gate_skipped"] is True
 
 

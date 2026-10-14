@@ -28,6 +28,10 @@ def _minimal_script() -> dict:
     }
 
 
+def _minimal_scene_plan() -> dict:
+    return {"version": "1.0", "scenes": [{"id": "sc1", "type": "generated", "description": "Plan fixture", "start_seconds": 0, "end_seconds": 10}]}
+
+
 def _approve_predecessors(tmp_path, project_id, pipeline_type, *stages) -> None:
     from tests.contracts.test_phase0_contracts import sample_artifact
 
@@ -50,18 +54,18 @@ class TestGateEnforcement:
     def test_completed_without_approval_raises(self, tmp_path):
         with pytest.raises(CheckpointValidationError, match="GATE VIOLATION"):
             write_checkpoint(
-                tmp_path, "proj", "script", "completed",
-                artifacts={"script": _minimal_script()},
+                tmp_path, "proj", "scene_plan", "completed",
+                artifacts={"scene_plan": _minimal_scene_plan()},
                 pipeline_type="animated-explainer",
             )
 
     def test_awaiting_human_is_the_correct_gate_state(self, tmp_path):
         _approve_predecessors(
-            tmp_path, "proj", "animated-explainer", "research", "proposal"
+            tmp_path, "proj", "animated-explainer", "research", "proposal", "script"
         )
         path = write_checkpoint(
-            tmp_path, "proj", "script", "awaiting_human",
-            artifacts={"script": _minimal_script()},
+            tmp_path, "proj", "scene_plan", "awaiting_human",
+            artifacts={"scene_plan": _minimal_scene_plan()},
             pipeline_type="animated-explainer",
         )
         cp = json.loads(path.read_text())
@@ -82,15 +86,12 @@ class TestGateEnforcement:
         )
         assert path.exists()
 
-    def test_assets_stage_now_gates(self, tmp_path):
-        """The assets gate flip: every pipeline's assets stage requires approval."""
+    def test_assets_stage_proceeds_after_complete_plan_approval(self, tmp_path):
+        """Assets retain prerequisites but do not ask for another approval."""
         manifest_assets = {"version": "1.0", "assets": [], "total_cost_usd": 0.0}
-        with pytest.raises(CheckpointValidationError, match="GATE VIOLATION"):
-            write_checkpoint(
-                tmp_path, "proj", "assets", "completed",
-                artifacts={"asset_manifest": manifest_assets},
-                pipeline_type="cinematic",
-            )
+        _approve_predecessors(tmp_path, "proj", "cinematic", "research", "proposal", "script", "scene_plan")
+        path = write_checkpoint(tmp_path, "proj", "assets", "completed", artifacts={"asset_manifest": manifest_assets}, pipeline_type="cinematic")
+        assert json.loads(path.read_text())["human_approval_required"] is False
 
     def test_ungated_stage_unaffected(self, tmp_path):
         from tests.contracts.test_phase0_contracts import sample_artifact

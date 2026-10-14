@@ -755,9 +755,9 @@ class TestAnimatedExplainerManifest:
         for t in expected:
             assert t in tools, f"Missing required tool: {t}"
 
-    def test_creative_stages_require_human_approval(self):
+    def test_complete_plan_is_the_production_approval_gate(self):
         manifest = load_pipeline("animated-explainer")
-        approval_stages = {"proposal", "script", "scene_plan", "publish"}
+        approval_stages = {"scene_plan", "publish"}
         for stage in manifest["stages"]:
             if stage["name"] in approval_stages:
                 assert stage.get("human_approval_default") is True, (
