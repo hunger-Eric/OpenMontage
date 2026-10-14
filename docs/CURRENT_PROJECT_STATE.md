@@ -2,6 +2,19 @@
 
 Updated: 2026-10-14
 
+## 2026-10-14 approved-plan music execution alignment
+
+- Flow music now shares the approved production's optional credit-cap policy:
+  omitted/null means no cap, explicit user caps remain validated, and the
+  transport still requires authorized generation. The former mandatory music
+  cap and extra fee-approval report conflicted with complete-plan confirmation.
+- The explainer asset director keeps first-shot review internal and forbids
+  silently dropping planned music or changing providers to avoid a constraint.
+- Validation: 56 Flow adapter/session tests and two instruction-integrity checks
+  passed without media submission.
+  Existing running tasks were not restarted or resent; actual music generation
+  and the current task's continued execution remain unverified.
+
 ## 2026-10-14 workflow efficiency changes
 
 - Proposal/mood-board reviews continue internally; human production confirmation

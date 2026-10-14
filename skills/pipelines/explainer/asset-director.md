@@ -87,19 +87,24 @@ Also create tasks for:
 ### Step 2: Check Budget
 
 Before generating anything:
-1. Sum all estimated costs from the asset tasks
-2. Compare against the cost tracker's remaining budget
-3. If over budget:
-  - Switch expensive tools to cheaper alternatives (use `tts_selector` with `preferred_provider` to route to cheaper TTS; use `image_selector` to route to cheaper image providers)
-   - Reduce image count (combine similar scenes)
-   - Skip optional assets (SFX, B-roll)
-4. Get cost approval via cost tracker before proceeding
+1. Record available cost estimates; keep unknown credit prices as unknown.
+2. Check only explicit user caps and real provider/account constraints. An absent
+   cap is not a blocker and must not trigger another fee-confirmation question.
+3. Music already included in the approved full plan is authorized with that plan.
+   For Flow, pass `confirm_paid_generation=true` and omit the credit cap (or use
+   null) unless the user specified one; retain the transport authorization check.
+4. If a real explicit cap or provider constraint blocks execution, record it and
+   request direction for the affected item. Do not silently remove planned music,
+   reduce shots or switch providers to work around it.
 
 ### Generate the approved full plan
 
 After the complete scene-plan board is approved for automatic production,
 generate the planned assets and continue internal review and post-production.
 Do not create a separate approval sample or wait for another assets approval.
+The first planned shot may be reviewed internally before continuing with the
+remaining shots. It is part of the full film, not an extra sample or human gate;
+approval of the complete plan remains sufficient for unchanged production.
 For manual production, preserve the plan and wait for trusted returned clips;
 for plan-only delivery, stop without video/audio generation. Review each real
 asset and repair only failed leaves; changes outside the approved plan require

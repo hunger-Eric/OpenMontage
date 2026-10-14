@@ -48,7 +48,9 @@ approval; another provider or spending outside that authorization still does.
 For Google Flow, use `google_flow_mcp_video` through the configured local MCP
 bridge and authenticated browser subscription. `google_flow` configuration
 supplies the UI model and homepage. Credit ceilings default to `null` (no cap);
-only use a numeric ceiling when the user explicitly requests one. A video
+only use a numeric ceiling when the user explicitly requests one. This applies
+to both video and the music included in the approved production plan; music
+must not introduce another cap or fee-confirmation gate. A production
 generation request authorizes its normal subscription-credit use: give one
 brief cost notice when useful, then continue without a separate fee approval
 or repeated reminders. Set `confirm_paid_generation=true` for that authorized

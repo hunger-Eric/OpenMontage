@@ -6,6 +6,7 @@ import time
 from pathlib import Path
 from typing import Any
 
+from lib.config_model import OpenMontageConfig
 from tools._google_flow_mcp.client import google_flow_root
 from tools._google_flow_mcp.provider import probe_media, provider_status, run_generation
 from tools.base_tool import (
@@ -45,23 +46,26 @@ class GoogleFlowMCPMusic(BaseTool):
         "style_control": True,
         "long_form": True,
         "browser_subscription": True,
-        "explicit_credit_approval": True,
+        "explicit_credit_approval": False,
+        "optional_credit_cap": True,
     }
     best_for = [
         "original cinematic music through the authenticated Flow Music browser workspace",
         "precisely directed instrumentation and emotional arcs",
     ]
-    not_good_for = ["unattended generation without a confirmed credit budget"]
+    not_good_for = ["generation outside the user-authorized production plan"]
     input_schema = {
         "type": "object",
-        "required": ["prompt", "output_path", "confirm_paid_generation", "max_budget_credits"],
+        "required": ["prompt", "output_path", "confirm_paid_generation"],
         "properties": {
             "prompt": {"type": "string", "description": "Original music direction without artist imitation"},
             "output_path": {"type": "string", "description": "Absolute .m4a output path"},
             "duration_seconds": {"type": "number", "minimum": 5, "maximum": 184, "default": 60},
             "instrumental": {"type": "boolean", "default": True},
-            "confirm_paid_generation": {"type": "boolean", "default": False},
-            "max_budget_credits": {"type": "number", "exclusiveMinimum": 0},
+            "confirm_paid_generation": {"type": "boolean", "default": False,
+                "description": "Set true for music included in the user-authorized production plan; this is not a separate fee approval."},
+            "max_budget_credits": {"type": ["number", "null"], "exclusiveMinimum": 0,
+                "description": "Optional user-specified cap; omitted/null defaults to no credit ceiling unless configured by the user."},
             "timeout_seconds": {"type": "integer", "minimum": 30, "maximum": 900, "default": 180},
         },
     }
@@ -83,11 +87,14 @@ class GoogleFlowMCPMusic(BaseTool):
         return float(inputs.get("timeout_seconds", 180))
 
     def dry_run(self, inputs: dict[str, Any]) -> dict[str, Any]:
+        config = OpenMontageConfig.load().google_flow
         return {
             "tool": self.name,
             "status": self.get_status().value,
             "mcp_root": str(google_flow_root()),
-            "requires_explicit_credit_approval": True,
+            "max_budget_credits": inputs.get("max_budget_credits", config.max_budget_credits),
+            "requires_explicit_credit_approval": False,
+            "cost_notice": "Uses Flow subscription credits; report available pricing once and continue the authorized production.",
             "would_execute": False,
             "fallback_used": False,
         }
@@ -112,6 +119,14 @@ class GoogleFlowMCPMusic(BaseTool):
                 data={"error_code": "output_exists", "fallback_used": False},
             )
 
+        budget = inputs.get("max_budget_credits", OpenMontageConfig.load().google_flow.max_budget_credits)
+        try:
+            max_budget_credits = float(budget) if budget is not None else None
+        except (TypeError, ValueError):
+            return ToolResult(success=False, error="Flow credit budget must be finite and positive")
+        if max_budget_credits is not None and not 0 < max_budget_credits < float("inf"):
+            return ToolResult(success=False, error="Flow credit budget must be finite and positive")
+
         duration = float(inputs.get("duration_seconds", 60))
         instrumental = bool(inputs.get("instrumental", True))
         full_prompt = (
@@ -124,7 +139,7 @@ class GoogleFlowMCPMusic(BaseTool):
                 prompt=full_prompt,
                 output_path=output_path,
                 expected_media_type="audio",
-                max_budget_credits=float(inputs["max_budget_credits"]),
+                max_budget_credits=max_budget_credits,
                 timeout_seconds=int(inputs.get("timeout_seconds", 180)),
                 music=True,
             )
@@ -156,7 +171,7 @@ class GoogleFlowMCPMusic(BaseTool):
             "output_path": str(output_path),
             "sha256": downloaded.get("sha256"),
             "billing_mode": "subscription_credits",
-            "max_budget_credits": float(inputs["max_budget_credits"]),
+            "max_budget_credits": max_budget_credits,
             "fallback_used": False,
             **probe,
         }

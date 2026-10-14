@@ -595,3 +595,53 @@ def test_provider_contracts_are_discoverable():
     assert video.is_operation_available("references_to_video")
     assert image.is_operation_available("text_to_image")
     assert not video.is_operation_available("video_edit")
+
+
+@pytest.mark.parametrize("inputs_cap, configured_cap, expected", [
+    ({}, None, None),
+    ({"max_budget_credits": None}, 15, None),
+    ({"max_budget_credits": 25}, None, 25),
+    ({}, 15, 15),
+])
+def test_approved_music_uses_optional_credit_cap(monkeypatch, tmp_path, inputs_cap, configured_cap, expected):
+    from lib.config_model import OpenMontageConfig
+
+    config = OpenMontageConfig.model_validate({"google_flow": {"max_budget_credits": configured_cap}})
+    monkeypatch.setattr(music_module.OpenMontageConfig, "load", lambda: config)
+    monkeypatch.setattr(music_module, "provider_status", lambda: ToolStatus.AVAILABLE)
+    seen = []
+
+    def generate(**kwargs):
+        seen.append(kwargs)
+        return _receipt(tmp_path / "score.m4a", "audio")
+
+    monkeypatch.setattr(music_module, "run_generation", generate)
+    monkeypatch.setattr(music_module, "probe_media", lambda *args: {})
+    inputs = {"prompt": "quiet instrumental under the presenter", "output_path": str(tmp_path / "score.m4a"),
+              "confirm_paid_generation": True, **inputs_cap}
+    tool = GoogleFlowMCPMusic()
+    import jsonschema
+    jsonschema.validate(inputs, tool.input_schema)
+    result = tool.execute(inputs)
+    assert result.success and len(seen) == 1
+    assert seen[0]["max_budget_credits"] == expected and seen[0]["music"] is True
+    assert result.data["max_budget_credits"] == expected
+    preview = tool.dry_run(inputs)
+    assert preview["max_budget_credits"] == expected
+    assert preview["requires_explicit_credit_approval"] is False
+
+
+@pytest.mark.parametrize("budget", [0, -1, float("inf"), float("nan"), "invalid"])
+def test_music_invalid_cap_never_submits(monkeypatch, tmp_path, budget):
+    monkeypatch.setattr(music_module, "provider_status", lambda: ToolStatus.AVAILABLE)
+    monkeypatch.setattr(music_module, "run_generation", lambda **kwargs: pytest.fail("invalid cap submitted"))
+    result = GoogleFlowMCPMusic().execute({"prompt": "instrumental", "output_path": str(tmp_path / "score.m4a"),
+                                         "confirm_paid_generation": True, "max_budget_credits": budget})
+    assert not result.success and "finite and positive" in result.error
+
+
+def test_music_still_requires_authorized_generation(monkeypatch, tmp_path):
+    monkeypatch.setattr(music_module, "provider_status", lambda: ToolStatus.AVAILABLE)
+    monkeypatch.setattr(music_module, "run_generation", lambda **kwargs: pytest.fail("unauthorized music submitted"))
+    result = GoogleFlowMCPMusic().execute({"prompt": "instrumental", "output_path": str(tmp_path / "score.m4a")})
+    assert not result.success and result.data["error_code"] == "approval_required"
