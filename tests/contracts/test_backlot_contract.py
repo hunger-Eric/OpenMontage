@@ -230,7 +230,11 @@ class TestBaseToolInstrumentation:
             BoomTool().execute({"output_path": str(project / "a.png")})
         events = read_events(project)
         assert [e["event"] for e in events] == ["start", "error"]
-        assert "kaput" in events[1]["error"]
+        # Keep the exception intact above; the board log stores safe metadata,
+        # not arbitrary exception text which may contain provider credentials.
+        assert events[1]["error_type"] == "RuntimeError"
+        assert events[1]["error_category"] == "unknown"
+        assert "owning receipt/result" in events[1]["error"]
 
     def test_unattributable_call_emits_nothing_and_works(self, tmp_path):
         from tools.base_tool import BaseTool, ToolResult

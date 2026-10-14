@@ -132,3 +132,52 @@ def test_failed_preview_never_writes_acceptance_receipt(production, monkeypatch)
     result = tool.execute(dict(production, operation="preview"))
     assert not result.success
     assert not Path(production["output_path"] + ".preview.json").exists()
+
+
+def test_preview_reuses_inner_preflight_but_direct_render_remains_checked(production, monkeypatch):
+    from tools.video import composition_session as session
+    original = session.preflight
+    calls = []
+    def preflight(tool, inputs):
+        calls.append("preflight")
+        return original(tool, inputs)
+    def render(**kwargs):
+        Path(kwargs["output_path"]).write_bytes(b"reviewed-video")
+        return ToolResult(success=True, data={"final_review": {"status": "pass"}})
+    tool = VideoCompose()
+    monkeypatch.setattr(session, "preflight", preflight)
+    monkeypatch.setattr(tool, "_pre_compose_validation", lambda *args: None)
+    monkeypatch.setattr(tool, "_render_via_ffmpeg", render)
+    monkeypatch.setattr(tool, "run_command", lambda *a, **kw: None)
+    assert tool.execute(dict(production, operation="preview")).success
+    assert calls == ["preflight", "preflight"]  # before + after, not three
+    Path(production["asset_manifest"]["assets"][0]["path"]).unlink()
+    result = tool.execute(dict(production, operation="render", _validated_render=True))
+    assert not result.success  # callers cannot smuggle a cached approval
+    assert len(calls) == 3
+
+
+def test_preview_detects_inputs_changed_during_render(production, monkeypatch):
+    tool = VideoCompose()
+    def render(inputs):
+        Path(inputs["output_path"]).write_bytes(b"video")
+        Path(inputs["asset_manifest"]["assets"][0]["path"]).write_bytes(b"changed-media")
+        return ToolResult(success=True, data={"final_review": {"status": "pass"}})
+    monkeypatch.setattr(tool, "_render", render)
+    result = tool.execute(dict(production, operation="preview"))
+    assert not result.success
+    assert "changed while rendering" in result.error
+    assert not Path(production["output_path"] + ".preview.json").exists()
+
+
+def test_exception_cannot_leave_render_preflight_bypassed(production, monkeypatch):
+    from tools.video import composition_session as session
+    tool = VideoCompose()
+    def crash(inputs):
+        raise RuntimeError("render failed")
+    monkeypatch.setattr(tool, "_render", crash)
+    with pytest.raises(RuntimeError):
+        session.preview(tool, production)
+    Path(production["asset_manifest"]["assets"][0]["path"]).unlink()
+    with pytest.raises(ValueError, match="missing or empty"):
+        session.render_preflight(tool, production)
