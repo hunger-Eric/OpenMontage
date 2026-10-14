@@ -85,6 +85,8 @@ files may acknowledge the upload-rights notice for that action. The adapter
 requires a verified completed upload/association before typing or submitting;
 an uploading placeholder is not a usable reference.
 
+视频编辑：将用户指定的原视频作为素材上传并确认关联完成，写明修改要求和需要保留的内容，沿用现有 Flow 入口调用模型编辑，保留原片并将结果另存为新版本；上传素材后加入走动人物已通过咖啡视频实测，其他编辑效果按实际结果验收。
+
 For Omni generation and conversational-edit prompting across different use
 cases, consult `docs/references/google-omni-video-prompting.md`. It summarizes
 the official guide, separates Flow capabilities from older API preview
