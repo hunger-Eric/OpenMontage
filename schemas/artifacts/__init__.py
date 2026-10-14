@@ -47,6 +47,13 @@ def validate_artifact(name: str, data: dict[str, Any]) -> None:
     """Validate artifact data against its schema. Raises on failure."""
     schema = load_schema(name)
     jsonschema.validate(instance=data, schema=schema)
+    if name == "proposal_packet":
+        selected = data["selected_concept"]["concept_id"]
+        if sum(option["id"] == selected for option in data["concept_options"]) != 1:
+            raise jsonschema.ValidationError(
+                "selected_concept must reference exactly one concept_options entry",
+                path=["selected_concept", "concept_id"],
+            )
 
 
 def list_schemas() -> list[str]:
