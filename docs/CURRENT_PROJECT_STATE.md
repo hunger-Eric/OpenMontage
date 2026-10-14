@@ -24,6 +24,10 @@ Updated: 2026-10-14
   The broader compatibility run passed 393 tests and failed 12 Google-provider
   tests because this Python environment lacks `google.genai`; it also logged
   a Windows GBK subprocess decoding warning. No real generation was performed.
+  The failed run used global `D:/Python/python.exe`; the project's `.venv`
+  already contains google-genai 2.29.0. All 15 tests in the three affected
+  Google test groups passed with `.venv/Scripts/python.exe`. Use the project
+  interpreter (or Makefile test entry) for future validation.
 
 ## 2026-10-14 reusable native Feishu video-plan board
 
