@@ -3,7 +3,7 @@
 This is deliberately a small mechanical adapter.  It does not invent a plan,
 choose a video model, or replace the existing Feishu bridge.  The caller first
 creates a complete plan, then this tool creates (once) and fills its three
-tables using the authenticated ``lark-cli base`` v3 shortcuts.
+tables through the Python Base v3 HTTP client.
 """
 
 from __future__ import annotations
@@ -12,11 +12,11 @@ import hashlib
 import json
 import os
 import re
-import shutil
-import subprocess
 import time
 from pathlib import Path
 from typing import Any
+
+from tools.feishu_base_client import FeishuApiError, FeishuBaseClient
 
 from tools.base_tool import (
     BaseTool,
@@ -31,14 +31,6 @@ from tools.base_tool import (
 )
 
 
-class FeishuCliError(RuntimeError):
-    """A sanitized lark-cli failure safe to persist in a local receipt."""
-
-    def __init__(self, detail: dict[str, Any]) -> None:
-        self.detail = detail
-        super().__init__(detail.get("message") or "lark-cli request failed")
-
-
 class FeishuVideoPlan(BaseTool):
     """Create and publish an OpenMontage video-plan Base without silent retries."""
 
@@ -51,8 +43,8 @@ class FeishuVideoPlan(BaseTool):
     execution_mode = ExecutionMode.SYNC
     determinism = Determinism.DETERMINISTIC
     runtime = ToolRuntime.API
-    dependencies = ["cmd:lark-cli"]
-    install_instructions = "Install and authorize lark-cli for Base v3 operations."
+    dependencies = ["python:requests", "python:keyring"]
+    install_instructions = "Authorize the Python Feishu client for the same application and user, or inject explicit identity-bound credentials."
     agent_skills = ["ai-video-gen"]
     capabilities = ["initialize_video_plan_base", "publish_video_plan"]
     supports = {"operations": ["initialize", "publish"], "isolated_project_base": True}
@@ -97,9 +89,17 @@ class FeishuVideoPlan(BaseTool):
         },
     }
 
+    def __init__(self, client: FeishuBaseClient | None = None) -> None:
+        self._client = client or FeishuBaseClient()
+
     def get_status(self) -> ToolStatus:
         # Status is local-only: it must not issue a Base read or write request.
-        return ToolStatus.AVAILABLE if shutil.which("lark-cli") or shutil.which("lark-cli.cmd") else ToolStatus.UNAVAILABLE
+        return ToolStatus.AVAILABLE if self._client.available() else ToolStatus.UNAVAILABLE
+
+    def _prepare(self, identity: str) -> None:
+        credentials = self._client.prepare(identity)
+        if identity == "bot" and not credentials.user_open_id:
+            raise FeishuApiError({"type": "configuration", "message": "bot Base copy requires an explicitly bound user recipient"})
 
     def execute(self, inputs: dict[str, Any]) -> ToolResult:
         started = time.monotonic()
@@ -116,9 +116,12 @@ class FeishuVideoPlan(BaseTool):
             project = Path(raw_project).expanduser().resolve()
             if not project.is_dir():
                 return self._failure("project_dir must be an existing directory")
-            if self.get_status() is not ToolStatus.AVAILABLE:
-                return self._failure("lark-cli is unavailable")
+            # Credential/configuration failures are local and must not create an
+            # ambiguous write receipt. Never discover or launch a CLI fallback.
+            self._prepare(identity)
             return self._with_lock(project, operation, identity, inputs, started)
+        except FeishuApiError as exc:
+            return self._failure(exc.detail["message"])
         except Exception as exc:  # do not expose command arguments or credentials
             return self._failure(f"feishu video plan failed: {type(exc).__name__}")
 
@@ -158,6 +161,9 @@ class FeishuVideoPlan(BaseTool):
         if receipt.get("base_token") and set(receipt.get("tables", {})) == {self.OVERVIEW, self.ASSETS, self.SEGMENTS}:
             if receipt.get("identity") != identity:
                 return self._failure("existing project Base uses a different locked identity")
+            granted = self._grant_user_access(project, receipt_path, receipt, identity)
+            if isinstance(granted, ToolResult):
+                return granted
             verified = self._verify_fields(project, receipt_path, receipt, identity, copy_read_deadline)
             if isinstance(verified, ToolResult):
                 return verified
@@ -185,10 +191,9 @@ class FeishuVideoPlan(BaseTool):
                 receipt.setdefault("title", title)
                 receipt.setdefault("steps", {})
                 receipt.setdefault("template", template)
-            response = self._effect(receipt_path, receipt, "base-copy", project, [
-                "base", "+base-copy", "--base-token", template["base_token"], "--name", title,
-                "--without-content", "--time-zone", "Asia/Shanghai", "--as", identity,
-            ])
+            response = self._effect(receipt_path, receipt, "base-copy", project, "copy_base", {
+                "base_token": template["base_token"], "name": title, "identity": identity,
+            })
             if isinstance(response, ToolResult):
                 return response
             base_token, url = self._parse_base_copy(response)
@@ -197,6 +202,9 @@ class FeishuVideoPlan(BaseTool):
             receipt.update({"base_token": base_token, "url": url})
             self._save_receipt(receipt_path, receipt)
             copy_read_deadline = time.monotonic() + self.COPY_READ_TIMEOUT_SECONDS
+        granted = self._grant_user_access(project, receipt_path, receipt, identity)
+        if isinstance(granted, ToolResult):
+            return granted
         if set(receipt.get("tables", {})) != {self.OVERVIEW, self.ASSETS, self.SEGMENTS}:
             tables = self._discover_template_tables(project, receipt, identity, copy_read_deadline)
             if isinstance(tables, ToolResult):
@@ -214,6 +222,13 @@ class FeishuVideoPlan(BaseTool):
         """One total readiness budget belongs to a copied template initialization."""
         if receipt.get("base_token") and isinstance(receipt.get("template"), dict):
             return time.monotonic() + self.COPY_READ_TIMEOUT_SECONDS
+        return None
+
+    def _grant_user_access(self, project: Path, receipt_path: Path, receipt: dict[str, Any], identity: str):
+        if identity == "bot":
+            return self._effect(receipt_path, receipt, "grant-user-access", project, "grant_user_access", {
+                "base_token": receipt["base_token"], "identity": identity,
+            })
         return None
 
     def _restore_legacy_base_create(self, receipt_path: Path, receipt: dict[str, Any]) -> None | ToolResult:
@@ -248,10 +263,9 @@ class FeishuVideoPlan(BaseTool):
             if kind == "link":
                 item["link_table"] = link_table
             schema.append(item)
-        response = self._effect(receipt_path, receipt, f"table-create:{name}", project, [
-            "base", "+table-create", "--base-token", receipt["base_token"], "--name", name,
-            "--fields", json.dumps(schema, ensure_ascii=False), "--as", identity,
-        ])
+        response = self._effect(receipt_path, receipt, f"table-create:{name}", project, "create_table", {
+            "base_token": receipt["base_token"], "name": name, "fields": schema, "identity": identity,
+        })
         if isinstance(response, ToolResult):
             return response
         table_id = self._parse_table_create(response)
@@ -280,7 +294,7 @@ class FeishuVideoPlan(BaseTool):
         return {"version": 1, "base_token": token, "title": value["title"], "page_name": value["page_name"]}
 
     def _discover_template_tables(self, project: Path, receipt: dict[str, Any], identity: str, copy_read_deadline: float | None) -> dict[str, str] | ToolResult:
-        data = self._read_after_copy(project, ["base", "+table-list", "--base-token", receipt["base_token"], "--as", identity], copy_read_deadline)
+        data = self._read_after_copy(project, "list_tables", {"base_token": receipt["base_token"], "identity": identity}, copy_read_deadline)
         if isinstance(data, ToolResult):
             return data
         rows = self._list_value(data, "items", "tables")
@@ -336,10 +350,11 @@ class FeishuVideoPlan(BaseTool):
                 frozen_image = self._freeze_image(project, asset)
             except ValueError as exc:
                 return self._failure(str(exc))
-            upload = self._effect(receipt_path, receipt, f"attachment:{asset['id']}", project, [
-                "base", "+record-upload-attachment", "--base-token", receipt["base_token"], "--table-id", receipt["tables"][self.ASSETS],
-                "--record-id", asset_ids[asset["id"]], "--field-id", fields[self.ASSETS]["实际图片"], "--file", str(frozen_image.relative_to(project)), "--as", identity,
-            ])
+            upload = self._effect(receipt_path, receipt, f"attachment:{asset['id']}", project, "upload_attachment", {
+                "base_token": receipt["base_token"], "table_id": receipt["tables"][self.ASSETS],
+                "record_id": asset_ids[asset["id"]], "field_id": fields[self.ASSETS]["实际图片"],
+                "file": str(frozen_image.relative_to(project)), "identity": identity,
+            })
             if isinstance(upload, ToolResult):
                 return upload
         segments = self._create_records(project, receipt_path, receipt, self.SEGMENTS, [self._segment_row(segment, asset_ids) for segment in normalized["segments"]], identity)
@@ -353,7 +368,7 @@ class FeishuVideoPlan(BaseTool):
         wanted = {self.OVERVIEW: self._overview_fields, self.ASSETS: self._asset_fields, self.SEGMENTS: self._segment_fields + [("参考资产", "link")]}
         found: dict[str, dict[str, str]] = {}
         for table, expected in wanted.items():
-            data = self._read_after_copy(project, ["base", "+field-list", "--base-token", receipt["base_token"], "--table-id", receipt["tables"][table], "--as", identity], copy_read_deadline)
+            data = self._read_after_copy(project, "list_fields", {"base_token": receipt["base_token"], "table_id": receipt["tables"][table], "identity": identity}, copy_read_deadline)
             if isinstance(data, ToolResult):
                 return data
             rows = self._list_value(data, "items", "fields")
@@ -394,10 +409,10 @@ class FeishuVideoPlan(BaseTool):
             batch = rows[index:index + 200]
             payload_path = project / "artifacts" / f".feishu-video-plan-{self._safe_name(table)}-{index // 200}.json"
             self._write_json_atomic(payload_path, {"create_records": batch})
-            response = self._effect(receipt_path, receipt, f"records:{table}:{index // 200}", project, [
-                "base", "+record-batch-create", "--base-token", receipt["base_token"], "--table-id", receipt["tables"][table],
-                "--json", "@" + str(payload_path.relative_to(project)), "--as", identity,
-            ])
+            response = self._effect(receipt_path, receipt, f"records:{table}:{index // 200}", project, "create_records", {
+                "base_token": receipt["base_token"], "table_id": receipt["tables"][table],
+                "records": batch, "identity": identity,
+            })
             if isinstance(response, ToolResult):
                 return response
             ids = self._list_value(response, "record_id_list")
@@ -516,6 +531,8 @@ class FeishuVideoPlan(BaseTool):
     def _verify_image(path: Path, label: str) -> None:
         if not path.is_file():
             raise ValueError(f"{label} does not exist")
+        if not 0 < path.stat().st_size <= FeishuBaseClient.MAX_ATTACHMENT_BYTES:
+            raise ValueError(f"{label} must be non-empty and at most 2 GiB")
         if path.suffix.lower() not in {".png", ".jpg", ".jpeg", ".webp"}:
             raise ValueError(f"{label} must be PNG, JPEG, or WebP")
         try:
@@ -557,18 +574,18 @@ class FeishuVideoPlan(BaseTool):
     def _is_openable_base_url(value: str | None) -> bool:
         return isinstance(value, str) and value.startswith("https://") and len(value) > len("https://")
 
-    def _effect(self, receipt_path: Path, receipt: dict[str, Any], step: str, project: Path, args: list[str]) -> dict[str, Any] | ToolResult:
+    def _effect(self, receipt_path: Path, receipt: dict[str, Any], step: str, project: Path, operation: str, params: dict[str, Any]) -> dict[str, Any] | ToolResult:
         prior = receipt.get("steps", {}).get(step)
         if isinstance(prior, dict) and prior.get("complete") and isinstance(prior.get("response"), dict):
             return prior["response"]
         receipt["inflight"] = {"step": step}
         self._save_receipt(receipt_path, receipt)
         try:
-            result = self._run_cli(args, project)
+            result = self._request(operation, params, project)
         except Exception as exc:
             # A network timeout, process interruption, or malformed response can have
             # reached Feishu.  Keep inflight so no follow-up call duplicates it.
-            detail = exc.detail if isinstance(exc, FeishuCliError) else {"type": type(exc).__name__, "message": "request did not return a trustworthy result"}
+            detail = exc.detail if isinstance(exc, FeishuApiError) else {"type": type(exc).__name__, "message": "request did not return a trustworthy result"}
             receipt["inflight"] = {"step": step, "error": detail}
             self._save_receipt(receipt_path, receipt)
             return self._failure(f"Base request outcome is unknown at {step}; its receipt is locked against retry: {detail['message']}")
@@ -577,22 +594,22 @@ class FeishuVideoPlan(BaseTool):
         self._save_receipt(receipt_path, receipt)
         return result
 
-    def _read(self, project: Path, args: list[str]) -> dict[str, Any] | ToolResult:
+    def _read(self, project: Path, operation: str, params: dict[str, Any]) -> dict[str, Any] | ToolResult:
         try:
-            return self._run_cli(args, project)
-        except FeishuCliError as exc:
+            return self._request(operation, params, project)
+        except FeishuApiError as exc:
             return self._failure(f"could not verify Base fields: {exc.detail['message']}")
         except Exception:
             return self._failure("could not verify Base fields")
 
-    def _read_after_copy(self, project: Path, args: list[str], deadline: float | None) -> dict[str, Any] | ToolResult:
+    def _read_after_copy(self, project: Path, operation: str, params: dict[str, Any], deadline: float | None) -> dict[str, Any] | ToolResult:
         """Re-read only the documented transient Base-copying server state."""
         if deadline is None:
-            return self._read(project, args)
+            return self._read(project, operation, params)
         while True:
             try:
-                return self._run_cli(args, project)
-            except FeishuCliError as exc:
+                return self._request(operation, params, project)
+            except FeishuApiError as exc:
                 if not self._is_copying_error(exc.detail):
                     return self._failure(f"could not verify copied Base: {exc.detail['message']}")
                 remaining = deadline - time.monotonic()
@@ -616,58 +633,8 @@ class FeishuVideoPlan(BaseTool):
         self._save_receipt(receipt_path, receipt)
         return self._failure(message)
 
-    def _run_cli(self, args: list[str], project: Path) -> dict[str, Any]:
-        command = self._cli_prefix() + args
-        completed = subprocess.run(command, cwd=project, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60, check=False)
-        if completed.returncode != 0:
-            raise FeishuCliError(self._error_detail(completed.stderr))
-        try:
-            envelope = json.loads(completed.stdout)
-        except json.JSONDecodeError as exc:
-            raise FeishuCliError({"type": "protocol", "message": "lark-cli returned non-JSON"}) from exc
-        if not isinstance(envelope, dict) or envelope.get("ok") is not True or not isinstance(envelope.get("data"), dict):
-            raise FeishuCliError(self._error_detail(completed.stdout))
-        return envelope["data"]
-
-    @staticmethod
-    def _cli_prefix() -> list[str]:
-        """Resolve the official npm cmd shim into node + package bin, never a shell."""
-        shim = shutil.which("lark-cli.cmd")
-        if os.name == "nt" and shim:
-            parent = Path(shim).parent
-            package = parent / "node_modules" / "@larksuite" / "cli" / "package.json"
-            try:
-                package_data = json.loads(package.read_text(encoding="utf-8"))
-                entry = package_data.get("bin", {}).get("lark-cli")
-            except (OSError, json.JSONDecodeError, AttributeError):
-                entry = None
-            script = (package.parent / entry).resolve() if isinstance(entry, str) else None
-            node = parent / "node.exe"
-            if script and script.is_file() and node.is_file():
-                return [str(node), str(script)]
-            if script and script.is_file() and shutil.which("node"):
-                return [str(shutil.which("node")), str(script)]
-            raise RuntimeError("unsupported lark-cli executable: official npm entry could not be resolved")
-        binary = shutil.which("lark-cli") or shim
-        if not binary:
-            raise RuntimeError("lark-cli unavailable")
-        return [binary]
-
-    @staticmethod
-    def _error_detail(raw: str) -> dict[str, Any]:
-        try:
-            envelope = json.loads(raw)
-            error = envelope.get("error", {}) if isinstance(envelope, dict) else {}
-            if isinstance(error, dict):
-                detail = {key: error[key] for key in ("type", "subtype", "code", "message", "hint", "missing_scopes") if key in error}
-                for key in ("message", "hint"):
-                    if isinstance(detail.get(key), str):
-                        detail[key] = re.sub(r"(?i)(access[_ -]?token|app[_ -]?secret|secret|authorization)\s*[:=]\s*\S+", r"\1=[redacted]", detail[key])
-                if isinstance(detail.get("message"), str):
-                    return detail
-        except json.JSONDecodeError:
-            pass
-        return {"type": "cli", "message": "lark-cli request failed without a structured error"}
+    def _request(self, operation: str, params: dict[str, Any], project: Path) -> dict[str, Any]:
+        return self._client.call(operation, params, project)
 
     @staticmethod
     def _parse_base_create(value: dict[str, Any]) -> tuple[str | None, str | None, str | None]:

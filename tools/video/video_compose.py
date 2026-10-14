@@ -354,6 +354,7 @@ class VideoCompose(BaseTool):
             if inputs.get("script_path") and not inputs.get("script_text"):
                 inputs["script_text"] = self._read_text_file(inputs["script_path"])
             if operation in {"preflight", "preview", "finalize"}:
+                self._validate_presenter_handoff_inputs(inputs)
                 self._raise_if_declared_final_review_inputs_fail(inputs)
                 from tools.video.composition_session import preflight, preview, finalize
                 if operation == "preflight":
@@ -959,7 +960,7 @@ class VideoCompose(BaseTool):
         """
 
         staged_by_source: dict[Path, str] = {}
-        media_keys = {"source", "src", "backgroundSrc"}
+        media_keys = {"source", "src", "backgroundSrc", "videoSrc"}
 
         def visit(node: Any, parent_key: str | None = None) -> Any:
             if isinstance(node, dict):
@@ -1579,6 +1580,111 @@ class VideoCompose(BaseTool):
 
         return None
 
+    @staticmethod
+    def _presenter_props_from_metadata(
+        edit_decisions: dict[str, Any],
+        asset_manifest: dict[str, Any],
+        narration_transcript_path: str | None,
+    ) -> dict[str, Any]:
+        """Build the registered TalkingHead props from bound production inputs.
+
+        The formal artifact schema deliberately leaves ``metadata`` open for
+        renderer-specific handoff data.  Keeping the source asset IDs there
+        means composition_session's input snapshot binds the mapping and the
+        asset manifest binds the concrete files, without adding a parallel
+        presentation schema.
+        """
+        handoff = (edit_decisions.get("metadata") or {}).get("presenter_handoff")
+        if not isinstance(handoff, dict):
+            raise ValueError("presenter requires metadata.presenter_handoff")
+        video_asset_id = handoff.get("video_asset_id")
+        caption_asset_id = handoff.get("caption_asset_id")
+        if not isinstance(video_asset_id, str) or not video_asset_id:
+            raise ValueError("presenter_handoff.video_asset_id is required")
+        if not isinstance(caption_asset_id, str) or not caption_asset_id:
+            raise ValueError("presenter_handoff.caption_asset_id is required")
+        assets = {asset.get("id"): asset for asset in asset_manifest.get("assets", [])}
+        video_asset = assets.get(video_asset_id)
+        caption_asset = assets.get(caption_asset_id)
+        if not isinstance(video_asset, dict) or video_asset.get("type") != "video":
+            raise ValueError("presenter_handoff.video_asset_id must reference a video asset")
+        if not isinstance(caption_asset, dict) or caption_asset.get("type") != "subtitle":
+            raise ValueError("presenter_handoff.caption_asset_id must reference a subtitle asset")
+        video_path = Path(str(video_asset.get("path") or "")).resolve()
+        caption_path = Path(str(caption_asset.get("path") or "")).resolve()
+        if not video_path.is_file() or not video_path.stat().st_size:
+            raise ValueError(f"Presenter video asset missing or empty: {video_path}")
+        if not caption_path.is_file() or not caption_path.stat().st_size:
+            raise ValueError(f"Presenter caption asset missing or empty: {caption_path}")
+        if not narration_transcript_path:
+            raise ValueError("presenter requires narration_transcript_path bound to caption_asset_id")
+        if Path(narration_transcript_path).resolve() != caption_path:
+            raise ValueError("presenter caption asset must match narration_transcript_path")
+        subtitle_source = (edit_decisions.get("subtitles") or {}).get("source")
+        if subtitle_source != caption_asset_id:
+            raise ValueError("presenter caption_asset_id must match edit_decisions.subtitles.source")
+        try:
+            transcript = json.loads(caption_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise ValueError(f"Presenter caption asset is not valid transcript JSON: {exc}") from exc
+        words = transcript.get("word_timestamps") if isinstance(transcript, dict) else None
+        if not isinstance(words, list) or not words:
+            raise ValueError("Presenter transcript requires non-empty word_timestamps")
+        captions: list[dict[str, Any]] = []
+        for index, word in enumerate(words):
+            if not isinstance(word, dict) or not isinstance(word.get("word"), str):
+                raise ValueError(f"Presenter transcript word_timestamps[{index}] is invalid")
+            try:
+                start_ms = int(float(word["start"]) * 1000)
+                end_ms = int(float(word["end"]) * 1000)
+            except (KeyError, TypeError, ValueError) as exc:
+                raise ValueError(f"Presenter transcript word_timestamps[{index}] lacks timings") from exc
+            if not word["word"].strip() or end_ms <= start_ms:
+                raise ValueError(f"Presenter transcript word_timestamps[{index}] has an invalid interval")
+            captions.append({"word": word["word"].strip(), "startMs": start_ms, "endMs": end_ms})
+        overlays = handoff.get("overlays", [])
+        if not isinstance(overlays, list):
+            raise ValueError("presenter_handoff.overlays must be an array")
+        # These are the actual dispatch branches in TalkingHead.tsx. Reject
+        # props that would silently produce a blank overlay in that renderer.
+        overlay_fields = {
+            "text_card": ("text",), "stat_card": ("stat",), "callout": ("text",),
+            "comparison": ("leftLabel", "rightLabel"), "bar_chart": ("chartData",),
+            "line_chart": ("chartSeries",), "pie_chart": ("chartData",),
+            "kpi_grid": ("chartData",), "hero_title": ("text",),
+            "section_title": ("text",), "stat_reveal": ("text",),
+        }
+        for index, overlay in enumerate(overlays):
+            if not isinstance(overlay, dict) or overlay.get("type") not in overlay_fields:
+                raise ValueError(f"presenter_handoff.overlays[{index}] must name a TalkingHead overlay type")
+            try:
+                starts = float(overlay["in_seconds"])
+                ends = float(overlay["out_seconds"])
+            except (KeyError, TypeError, ValueError) as exc:
+                raise ValueError(f"presenter_handoff.overlays[{index}] lacks a valid interval") from exc
+            if not math.isfinite(starts) or not math.isfinite(ends) or starts < 0 or ends <= starts:
+                raise ValueError(f"presenter_handoff.overlays[{index}] has an invalid interval")
+            for field in overlay_fields[overlay["type"]]:
+                value = overlay.get(field)
+                valid = isinstance(value, list) and bool(value) if field in {"chartData", "chartSeries"} else isinstance(value, str) and bool(value.strip())
+                if not valid:
+                    raise ValueError(f"presenter_handoff.overlays[{index}] {overlay['type']} requires {field}")
+        return {"videoSrc": str(video_path), "captions": captions, "overlays": overlays}
+
+    def _validate_presenter_handoff_inputs(self, inputs: dict[str, Any]) -> None:
+        """Fail formal session preflight before rendering a malformed presenter handoff."""
+        edit_decisions = inputs.get("edit_decisions")
+        if not isinstance(edit_decisions, dict):
+            return
+        if (edit_decisions.get("render_runtime") == "remotion"
+                and edit_decisions.get("renderer_family") == "presenter"):
+            asset_manifest = inputs.get("asset_manifest")
+            if not isinstance(asset_manifest, dict):
+                raise ValueError("presenter formal session requires asset_manifest")
+            self._presenter_props_from_metadata(
+                edit_decisions, asset_manifest, inputs.get("narration_transcript_path")
+            )
+
     def _render(self, inputs: dict[str, Any]) -> ToolResult:
         """High-level render: assemble edit decisions + asset manifest into final video.
 
@@ -1739,9 +1845,20 @@ class VideoCompose(BaseTool):
                 profile=profile,
             )
         # --- Explicit Remotion path (render_runtime == 'remotion') ---
-        if self._needs_remotion(resolved_cuts):
+        use_remotion = self._needs_remotion(resolved_cuts)
+        if edit_decisions.get("renderer_family") == "presenter" and not use_remotion:
+            return ToolResult(
+                success=False,
+                error="Presenter composition requires an available Remotion runtime; captions and overlays cannot fall back to FFmpeg.",
+            )
+        if use_remotion:
+            remotion_edit_decisions = dict(edit_decisions, cuts=resolved_cuts)
+            if edit_decisions.get("renderer_family") == "presenter":
+                remotion_edit_decisions.update(self._presenter_props_from_metadata(
+                    edit_decisions, asset_manifest, inputs.get("narration_transcript_path")
+                ))
             remotion_inputs: dict[str, Any] = {
-                "edit_decisions": dict(edit_decisions, cuts=resolved_cuts),
+                "edit_decisions": remotion_edit_decisions,
                 "output_path": str(output_path),
             }
             if profile:

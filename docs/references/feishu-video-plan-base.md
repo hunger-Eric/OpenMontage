@@ -41,10 +41,28 @@
 具体关系见[既有阶段衔接](visual-video-planning.md#与现有项目阶段衔接)。缺少内容时回所属阶段补齐；
 适配器不负责运行研究、推断阶段通过或自动把参考图交付记为整个素材阶段完成。
 
-适配器通过已安装的 `lark-cli base +...` 官方客户端调用飞书 OpenAPI，沿用其受控认证与刷新。
+适配器通过 `tools/feishu_base_client.py` 的 Python HTTP 封装调用官方 Base v3 和 Drive 媒体接口。
+不调用原生 CLI、npm shim 或 shell，不按操作系统寻找可执行文件，也不回退到桌面 CLI 配置。
 不从 Bridge 读取密钥，不暴露通用 raw API，不新增 Bridge 业务端点，不重启或部署 Bridge。
-调用必须明确 `user` 或 `bot` 身份并全程保持；安装状态不证明授权可用，实际权限与资源访问以
+调用必须明确 `user` 或 `bot` 身份并全程保持；本地配置状态不证明授权可用，实际权限与资源访问以
 原身份接口结果为准。当前入口使用已授权身份，缺权限时报告具体缺口，不静默换身份。
+
+用户身份默认通过 `tools/feishu_auth.py` 的 Python 设备授权流程建立，固定应用和原用户 open_id。
+首次安装由可信宿主调用 `python -m tools.feishu_auth configure`，通过标准输入传入
+`app_id`、`app_secret`、`user_open_id` 和可选 `brand`；命令参数不接收密钥，输出仅包含公开绑定。
+随后 `begin` 返回原样授权链接，用户完成授权后 `finish` 核对身份并激活；`status` 不输出令牌。
+授权完成前用 `user_info` 核对同一用户；令牌与应用凭据保存在 Python keyring 的系统安全存储中，
+公开绑定配置默认位于 `~/.config/openmontage/feishu-auth.json`，可用 `FEISHU_AUTH_CONFIG` 指定。
+过期前由 Python 刷新；刷新结果不明时保留刷新锁，停止重放。Windows 长令牌按安全存储限长分片，
+各片写完后才激活清单，失败时保留旧凭据；不把令牌和密钥写入配置文件。
+执行环境也可通过 `FEISHU_APP_ID` 和所选身份对应的 `FEISHU_USER_ACCESS_TOKEN` 或
+`FEISHU_TENANT_ACCESS_TOKEN` 显式注入授权；`FEISHU_BRAND` 默认为 `feishu`，国际版使用 `lark`。
+宿主也可向 `FeishuBaseClient` 注入返回 `FeishuCredentials` 的 Python provider。
+bot 创建副本必须绑定明确的 `user_open_id`（环境配置为 `FEISHU_USER_OPEN_ID`）；复制与用户授权分别登记回执。
+无法确认受让人时在复制前停止，用户授权失败时保留副本与具体步骤，不再复制第二份。
+凭据不进入模型输入、项目回执或版本库；不从原生 CLI 的私有存储导出令牌。
+缺少所选身份凭据时在创建项目写入回执之前失败，不把本地配置错误登记成已提交、结果不明的写操作。
+已有桌面 CLI 登录不代表 Python 路径已经接通；没有同身份授权与真实接口读回时，验收保持未验证。
 
 接口分两步，均由既有制作执行器调用，不让用户手工运行命令：
 
@@ -58,14 +76,14 @@
 
 模板身份由 [`feishu-video-plan-base.json`](../templates/feishu-video-plan-base.json) 登记，
 执行器默认复用这一份模板。换产品时只生成或更新创意内容和所需参考图，不再次调用页面 AI 设计排版。
-模板中的咖啡方案是样式示例；新项目使用官方 `+base-copy --without-content` 只复制结构，再填入自己的内容。
+模板中的咖啡方案是样式示例；新项目通过 Python `copy_base` 的 `without_content=true` 只复制结构，再填入自己的内容。
 产品、角色、场景和片段数量由实际方案决定，不固定为四段、两张图或某个示例品牌。
 
-复制后通过 `+table-list` 与 `+field-list` 读取副本身份，并检查片段的关联字段指向副本资产表。
+复制后通过 Python `list_tables` 与 `list_fields` 读取副本身份，并检查片段的关联字段指向副本资产表。
 不把模板表 ID、旧 record ID 或旧图片链接写到新项目。模板不可用、结构不完整或复制结果不明时停止，
 不能悄悄创建没有看板的普通 Base。已有项目沿用自己的回执，不强制迁移或重建。
 配置中的 `page_name` 用于指明用户查看的看板；结构检查不替代实际页面显示验收。
-当前 `+table-list` 只枚举数据表，不返回原生看板的 `wbp` 页面 ID。浏览器可用时，打开副本，
+当前 `list_tables` 只枚举数据表，不返回看板的 `wbp` 页面 ID。浏览器可用时，打开副本，
 点击其 `page_name` 对应的侧栏页面，登记后台看板 URL；再使用页面原生发布入口，读取本项目真实的
 `/share/base/webpage/` 链接，打开后检查无数据表侧栏、图片和完整提示词可用，才作为用户交付入口。
 不猜页面 ID，不沿用模板自己的页面 ID 或独立网页链接。默认沿用当前项目的组织内访问范围，
@@ -122,7 +140,7 @@ if not published.success:
 base_url = published.data["url"]
 ```
 
-随后以返回的真实表／record ID，通过同身份 `lark-cli base +record-get` 检查正文、图片附件与片段
+随后以返回的真实表／record ID，通过同身份 Python HTTP 读回检查正文、图片附件与片段
 关联，并打开 Base 检查实际图片。`published` 只表示写入步骤完成，不单独证明 UI 可见或视频可用。
 接口读回通过后，按上面的页面入口步骤获取本项目真实独立看板网页 URL，与方案完成范围放入原执行器的最终回复文本，
 由既有 Worker 返回原话题；`base_url` 只留作后台维护证据，不作为用户交付入口。
@@ -155,7 +173,7 @@ API 不支持的列宽、行高等界面外观不伪造参数；本次接口交�
 
 ## 官方接口依据
 
-使用已安装 CLI 的命令帮助及随附 Base 字段／记录协议核对当前 `base/v3` 接口形状，
+使用官方接口和官方实现核对当前 `base/v3` 接口形状，
 不混用历史 `bitable/v1` 的数字字段类型或附件 CellValue 格式。
 官方客户端与 API 入口：[飞书官方 CLI](https://github.com/larksuite/cli)、
 [飞书多维表格文档](https://open.feishu.cn/document/server-docs/docs/bitable-v1/bitable-overview)。

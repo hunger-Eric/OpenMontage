@@ -1,11 +1,13 @@
 import {
   AbsoluteFill,
+  CalculateMetadataFunction,
   OffthreadVideo,
   Sequence,
   interpolate,
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
+import { getVideoMetadata } from "@remotion/media-utils";
 import { CaptionOverlay, WordCaption } from "./components/CaptionOverlay";
 import { resolveAsset } from "./lib/resolveAsset";
 import { TextCard } from "./components/TextCard";
@@ -309,6 +311,20 @@ export interface TalkingHeadProps {
   // Pass "" for CJK captions (no inter-word spacing); defaults to " ".
   captionWordSeparator?: string;
 }
+
+export const calculateTalkingHeadMetadata: CalculateMetadataFunction<TalkingHeadProps> = async ({ props, isRendering }) => {
+  if (!props.videoSrc && !isRendering) {
+    return { durationInFrames: 30, fps: 30 };
+  }
+  if (!props.videoSrc) {
+    throw new Error("TalkingHead requires videoSrc");
+  }
+  const metadata = await getVideoMetadata(resolveAsset(props.videoSrc));
+  if (!Number.isFinite(metadata.durationInSeconds) || metadata.durationInSeconds <= 0) {
+    throw new Error("TalkingHead source video must have a finite positive duration");
+  }
+  return { durationInFrames: Math.max(1, Math.ceil(metadata.durationInSeconds * 30)), fps: 30 };
+};
 
 export const TalkingHead: React.FC<TalkingHeadProps> = ({
   videoSrc,
