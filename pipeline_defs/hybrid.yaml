@@ -53,7 +53,7 @@ stages:
       - decision_log
     tools_available: []
     checkpoint_required: true
-    human_approval_default: true
+    human_approval_default: false
     review_focus:
       - Anchor medium is clearly identified
       - Support layers are justified and realistic
@@ -77,7 +77,7 @@ stages:
       - scene_detect
       - audio_enhance
     checkpoint_required: true
-    human_approval_default: true
+    human_approval_default: false
     review_focus:
       - Source-led beats and support-led beats are clearly separated
       - Narration or dialogue plan is realistic
@@ -98,6 +98,8 @@ stages:
       - frame_sampler
       - scene_detect
     tools_available:
+      - image_selector
+      - feishu_video_plan
       - frame_sampler
       - scene_detect
     checkpoint_required: true
@@ -107,6 +109,8 @@ stages:
       - Overlay and support layers do not overload the frame
       - Platform or aspect-ratio variants are planned deliberately
     success_criteria:
+      - Complete video plan and necessary actual references are presented before generation
+      - Human approval binds the exact plan revision and automatic or manual execution choice
       - Schema-valid scene_plan artifact
       - Every scene has a defined source/support treatment
 
@@ -138,7 +142,7 @@ stages:
       - music_gen
       - audio_enhance
     checkpoint_required: true
-    human_approval_default: true
+    human_approval_default: false
     review_focus:
       - Support assets clearly map to real narrative gaps
       - Shared template assets are reused

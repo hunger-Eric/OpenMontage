@@ -49,7 +49,7 @@ stages:
       - decision_log
     tools_available: []
     checkpoint_required: true
-    human_approval_default: true
+    human_approval_default: false
     review_focus:
       - Source language and target languages are explicit
       - Deliverable mode is clear per language
@@ -71,7 +71,7 @@ stages:
     tools_available:
       - transcriber
     checkpoint_required: true
-    human_approval_default: true
+    human_approval_default: false
     review_focus:
       - Transcript truth is strong enough for downstream localization
       - Glossary and protected terms are preserved
@@ -92,6 +92,8 @@ stages:
       - frame_sampler
       - scene_detect
     tools_available:
+      - image_selector
+      - feishu_video_plan
       - frame_sampler
       - scene_detect
     checkpoint_required: true
@@ -101,6 +103,8 @@ stages:
       - Timing drift and on-screen text risks are mapped
       - Lip-sync use is limited to shots that can support it
     success_criteria:
+      - Complete video plan and necessary actual references are presented before generation
+      - Human approval binds the exact plan revision and automatic or manual execution choice
       - Schema-valid scene_plan artifact
       - Every deliverable has a defined localization treatment
 
@@ -125,7 +129,7 @@ stages:
       - lip_sync
       - audio_enhance
     checkpoint_required: true
-    human_approval_default: true
+    human_approval_default: false
     review_focus:
       - Subtitle and dubbed-audio assets exist for each language
       - Timing and pronunciation risks are recorded

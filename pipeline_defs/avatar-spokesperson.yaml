@@ -50,7 +50,7 @@ stages:
       - decision_log
     tools_available: []
     checkpoint_required: true
-    human_approval_default: true
+    human_approval_default: false
     review_focus:
       - Avatar path and source reality are explicit
       - CTA and audience fit the spokesperson format
@@ -70,7 +70,7 @@ stages:
     tools_available:
       - transcriber
     checkpoint_required: true
-    human_approval_default: true
+    human_approval_default: false
     review_focus:
       - Spoken copy is concise and natural
       - Scene breaks are realistic for avatar delivery
@@ -87,7 +87,9 @@ stages:
       - brief
     produces:
       - scene_plan
-    tools_available: []
+    tools_available:
+      - image_selector
+      - feishu_video_plan
     checkpoint_required: true
     human_approval_default: true
     review_focus:
@@ -95,6 +97,8 @@ stages:
       - Support overlays remain secondary to the presenter
       - Aspect-ratio variants are planned realistically
     success_criteria:
+      - Complete video plan and necessary actual references are presented before generation
+      - Human approval binds the exact plan revision and automatic or manual execution choice
       - Schema-valid scene_plan artifact
       - Every scene has a defined speaker and support treatment
 
@@ -130,7 +134,7 @@ stages:
       - transcriber
       - audio_mixer
     checkpoint_required: true
-    human_approval_default: true
+    human_approval_default: false
     review_focus:
       - Avatar generation path is explicit and honest (including no-avatar pivot if applicable)
       - Narration, subtitle, and background assets are aligned

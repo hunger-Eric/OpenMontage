@@ -87,7 +87,7 @@ stages:
       - decision_log
     tools_available: []
     checkpoint_required: true
-    human_approval_default: true
+    human_approval_default: false
     review_focus:
       - Source mode and emotional arc are clear
       - Motion-required delivery is explicitly identified when applicable
@@ -101,17 +101,6 @@ stages:
       - At least 3 concept options with different emotional arcs
       - Delivery promise present with motion_required flag
       - Cost estimate includes per-item breakdown
-    sub_stages:
-      - name: sample
-        description: "10-15 second cinematic preview for reference-driven productions"
-        condition: "video_analysis_brief_exists"
-        human_approval_default: true
-        tools_available: [tts_selector, image_selector, video_selector, video_compose, audio_mixer, color_grade]
-        review_focus:
-          - "Sample captures the approved emotional tone"
-          - "Color palette and lighting match approved direction"
-          - "Music mood matches approved cinematic treatment"
-
   - name: script
     skill: pipelines/cinematic/script-director
     required_artifacts_in:
@@ -125,7 +114,7 @@ stages:
       - transcriber
       - scene_detect
     checkpoint_required: true
-    human_approval_default: true
+    human_approval_default: false
     review_focus:
       - Beat map escalates cleanly
       - Dialogue or title-card usage is sparse and purposeful
@@ -146,6 +135,8 @@ stages:
       - frame_sampler
       - scene_detect
     tools_available:
+      - image_selector
+      - feishu_video_plan
       - frame_sampler
       - scene_detect
     checkpoint_required: true
@@ -155,6 +146,8 @@ stages:
       - Source-led scenes remain primary when source media exists
       - Transition and aspect-ratio choices support the mood
     success_criteria:
+      - Complete video plan and necessary actual references are presented before generation
+      - Human approval binds the exact plan revision and automatic or manual execution choice
       - Schema-valid scene_plan artifact
       - Every beat has a scene treatment and asset path
 
@@ -200,7 +193,7 @@ stages:
       - transcriber
       - audio_mixer
     checkpoint_required: true
-    human_approval_default: true
+    human_approval_default: false
     review_focus:
       - Source selects and support assets are clearly separated
       - Motion-required beats use actual video clips rather than still-image substitutes

@@ -83,33 +83,17 @@ stages:
       - decision_log
     tools_available: []
     checkpoint_required: true
-    human_approval_default: true
+    human_approval_default: false
     review_focus:
       - Concepts are differentiated and not a carbon copy of any reference
       - Character count, action complexity, and reuse strategy are explicit
       - New productions use Remotion after availability check; retain only an explicit historical or user-requested runtime
       - Motion requirement is preserved; FFmpeg-only fallback is not proposed for character acting
-      - Sample-first plan is included before full production
+      - Complete scene-plan board is prepared before full production
     success_criteria:
       - Schema-valid proposal_packet
       - Selected concept includes character_count, rig_complexity, reuse_strategy, and render_runtime
-      - User approval is recorded before character assets are generated
-    sub_stages:
-      - name: sample
-        description: "10-15 second character-animation proof before full production"
-        condition: "approved_concept_exists"
-        human_approval_default: true
-        tools_available:
-          - character_spec_generator
-          - svg_rig_builder
-          - pose_library_builder
-          - action_timeline_compiler
-          - character_rig_renderer
-          - character_animation_reviewer
-          - video_compose
-        review_focus:
-          - Sample proves character style, rig integrity, pose readability, and motion timing
-
+      - Selected concept and reference design are carried to complete-plan confirmation
   - name: script
     skill: pipelines/character-animation/script-director
     required_artifacts_in:
@@ -122,7 +106,7 @@ stages:
     tools_available:
       - transcriber
     checkpoint_required: true
-    human_approval_default: true
+    human_approval_default: false
     review_focus:
       - Script is written as action beats, not only narration
       - Dialogue/narration architecture is locked
@@ -142,7 +126,7 @@ stages:
       - character_spec_generator
       - image_selector
     checkpoint_required: true
-    human_approval_default: true
+    human_approval_default: false
     review_focus:
       - Each character has a distinct role, silhouette, emotional range, and action list
       - Character count is realistic for local rigging
@@ -183,14 +167,18 @@ stages:
       - proposal_packet
     produces:
       - scene_plan
-    tools_available: []
+    tools_available:
+      - image_selector
+      - feishu_video_plan
     checkpoint_required: true
     human_approval_default: true
     review_focus:
       - Scenes use character_scene or animation types with timed actions
       - Each scene has characters, actions, camera/framing, background, and effects
-      - Scene complexity fits the approved sample and budget
+      - Scene complexity fits the complete plan and budget
     success_criteria:
+      - Complete video plan and necessary actual references are presented before generation
+      - Human approval binds the exact plan revision and automatic or manual execution choice
       - Schema-valid scene_plan
       - Every scene maps to rigged characters and required assets
 
@@ -212,7 +200,7 @@ stages:
       - music_gen
       - character_rig_renderer
     checkpoint_required: true
-    human_approval_default: true
+    human_approval_default: false
     review_focus:
       - Character parts, backgrounds, props, audio, and effects are linked to scenes
       - Layer 3 skills are read for every generation or animation-runtime tool

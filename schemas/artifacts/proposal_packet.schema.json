@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "openmontage/artifacts/proposal_packet",
   "title": "Proposal Packet",
-  "description": "Pre-production proposal containing concept options, production plan, cost estimate, and approval gate. The user reviews and approves this before any assets are generated or money is spent.",
+  "description": "Pre-production proposal containing concept options, production plan and cost estimate. It may remain pending during internal script and scene planning; human production approval occurs on the complete scene-plan board before video generation.",
   "type": "object",
   "required": ["version", "concept_options", "selected_concept", "production_plan", "cost_estimate", "approval"],
   "properties": {

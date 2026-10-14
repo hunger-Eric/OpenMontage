@@ -53,7 +53,7 @@ stages:
       - decision_log
     tools_available: []
     checkpoint_required: true
-    human_approval_default: true
+    human_approval_default: false
     review_focus:
       - Source podcast format identified (solo, interview, panel)
       - Output types specified (audiogram clips, quote-led clips, companion video)
@@ -76,7 +76,7 @@ stages:
       - transcriber
       - audio_enhance
     checkpoint_required: true
-    human_approval_default: true
+    human_approval_default: false
     review_focus:
       - Full episode transcribed with speaker diarization
       - Quotable moments and highlight segments identified
@@ -97,6 +97,8 @@ stages:
     optional_tools:
       - frame_sampler
     tools_available:
+      - image_selector
+      - feishu_video_plan
       - frame_sampler
     checkpoint_required: true
     human_approval_default: true
@@ -105,6 +107,8 @@ stages:
       - Highlight clips have strong standalone hooks
       - Full episode companion stays feasible with available source assets
     success_criteria:
+      - Complete video plan and necessary actual references are presented before generation
+      - Human approval binds the exact plan revision and automatic or manual execution choice
       - Schema-valid scene_plan artifact
       - Every deliverable (clips + full episode) has a scene plan
 
@@ -131,7 +135,7 @@ stages:
       - music_gen
       - audio_enhance
     checkpoint_required: true
-    human_approval_default: true
+    human_approval_default: false
     review_focus:
       - Subtitles generated for all clips and full episode
       - Quote card / speaker-card assets match playbook style

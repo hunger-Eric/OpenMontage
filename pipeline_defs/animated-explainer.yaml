@@ -86,7 +86,7 @@ stages:
       - decision_log
     tools_available: []
     checkpoint_required: true
-    human_approval_default: true
+    human_approval_default: false
     review_focus:
       - Concept options are genuinely different (structure, hook, audience)
       - Each concept is grounded in research findings, not generic
@@ -99,18 +99,7 @@ stages:
       - Schema-valid proposal_packet with at least 3 concept_options
       - selected_concept references a valid concept_id
       - cost_estimate has itemized line_items with per-tool billing/usage and no invented zero-dollar plan usage
-      - approval.status is "approved" or "approved_with_changes" before proceeding
-    sub_stages:
-      - name: sample
-        description: "10-15 second preview clip for reference-driven productions"
-        condition: "video_analysis_brief_exists"
-        human_approval_default: true
-        tools_available: [tts_selector, image_selector, video_selector, video_compose, audio_mixer]
-        review_focus:
-          - "Sample represents the approved concept faithfully"
-          - "Audio levels and voice match approved direction"
-          - "Visual style matches approved playbook"
-
+      - Proposal approval may remain pending until complete-plan confirmation at scene_plan
   # ── Production ──────────────────────────────────────────────────
 
   - name: script
@@ -123,7 +112,7 @@ stages:
       - script
     tools_available: []
     checkpoint_required: true
-    human_approval_default: true
+    human_approval_default: false
     review_focus:
       - "Word count within +/-10% of duration target from selected concept"
       - "Enhancement cue density: 1 per 8-10 seconds"
@@ -144,7 +133,9 @@ stages:
       - decision_log
     produces:
       - scene_plan
-    tools_available: []
+    tools_available:
+      - image_selector
+      - feishu_video_plan
     checkpoint_required: true
     human_approval_default: true
     review_focus:
@@ -153,6 +144,8 @@ stages:
       - Asset feasibility - every required_asset uses a tool from the production plan
       - Playbook adherence - transitions, colors, pacing rules
     success_criteria:
+      - Complete video plan and necessary actual references are presented before generation
+      - Human approval binds the exact plan revision and automatic or manual execution choice
       - Schema-valid scene_plan with required_assets per scene
       - At least 3 different scene types used
 
@@ -184,7 +177,7 @@ stages:
       - music_gen
       - math_animate
     checkpoint_required: true
-    human_approval_default: true
+    human_approval_default: false
     review_focus:
       - All asset files exist on disk
       - Narration covers all script sections
