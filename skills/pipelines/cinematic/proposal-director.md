@@ -2,7 +2,7 @@
 
 ## When to Use
 
-You are the **Proposal Director** for a cinematic video (trailers, brand films, montages, dramatic edits). You sit between the Research Director and the Script Director. You receive a `research_brief` full of visual references, mood research, and cinematic direction options, and transform it into a concrete, reviewable proposal that the user approves before any money is spent.
+You are the **Proposal Director** for a cinematic video (trailers, brand films, montages, dramatic edits). You sit between the Research Director and the Script Director. You receive a `research_brief` full of visual references, mood research, and cinematic direction options, and transform it into a concrete proposal for internal review, carried into the complete scene-plan board for human confirmation before video/audio production.
 
 This stage prepares the proposal internally. Human production approval occurs on the complete scene-plan board.
 
@@ -12,7 +12,7 @@ Cinematic proposals must lock **both** a `renderer_family` (creative grammar: `c
 
 **Default workflow:**
 
-1. Query `video_compose.get_info()["render_engines"]` and confirm Remotion is available.
+1. Confirm Remotion availability from the current run capability snapshot. Query `video_compose.get_info()["render_engines"]` only when that selected runtime needs refreshed availability.
 2. For new work, record `render_runtime: "remotion"` and the single valid choice where the schema requires a selection. Do not show a technical runtime menu or ask for another confirmation.
 3. Preserve an explicit historical runtime or an explicit user request for that runtime. FFmpeg is reserved for editing, audio, subtitles, and packaging.
 4. If Remotion is unavailable, report the gap and stop. Do not silently substitute another runtime.
@@ -39,7 +39,7 @@ runtime. If a new Remotion production lacks the handoff, report the gap.
 | Schema | `schemas/artifacts/proposal_packet.schema.json` | Artifact validation |
 | Prior artifact | `research_brief` from Research Director | Visual references, mood research, cinematic directions |
 | Pipeline manifest | `pipeline_defs/cinematic.yaml` | Stage and tool definitions |
-| Tool registry | `support_envelope()` output | What's actually available right now |
+| Tool registry | Current run capability snapshot from `provider_menu_summary()` | What's actually available right now |
 | Cost tracker | `tools/cost_tracker.py` | Cost estimation data |
 | Style playbooks | `styles/*.yaml` | Available visual styles |
 | User input | Subject, footage, preferences | Creative direction |
@@ -84,10 +84,10 @@ Read the `research_brief` thoroughly. Extract:
 
 ### Step 2: Run Preflight
 
-Before designing concepts, know what tools are available:
+Before designing concepts, reuse the current run capability snapshot. Run the command below only when that snapshot is absent or configuration has changed; keep its result with the run evidence. Inspect only the selected tools via `registry.get(name).get_info()` when a route fails or needs refreshed availability. A full support envelope is a debugging tool, not a routine stage input:
 
 ```bash
-python -c "from tools.tool_registry import registry; import json; registry.discover(); print(json.dumps(registry.support_envelope(), indent=2))"
+python -c "from tools.tool_registry import registry; import json; registry.discover(); print(json.dumps(registry.provider_menu_summary(), indent=2))"
 ```
 
 Record:
@@ -102,14 +102,14 @@ Record:
 
 ### Step 2c: Mood Board (Before Concepts)
 
-Before developing full concepts, present a quick mood board to catch direction mismatches early. Cinematic work is especially susceptible to tone misalignment, so this step is critical:
+Before developing full concepts, prepare a quick mood board to catch direction mismatches early. Cinematic work is especially susceptible to tone misalignment, so this step is critical:
 
 - **3-5 reference images** (from web search — real film stills, not generic stock)
 - **Color palette direction** (2-3 palettes: e.g. desaturated cold vs warm golden vs high-contrast noir)
 - **Tone references** ("Think: Terrence Malick meets National Geographic" or "Think: David Fincher trailer pacing")
 - **1-2 music mood references** (genre + energy + emotional arc, e.g. "ambient synth building to orchestral crescendo")
 
-Ask: **"Does this FEEL like what you're imagining? Any of these off-track?"**
+Review the mood board internally against the brief and carry it into the complete scene-plan board. Continue without a separate mood-board approval; incorporate any user feedback already received.
 
 This is cheaper than building 3 full cinematic directions and catches tone mismatches before they're embedded in concept design. If the user says "less moody, more energetic," you've saved a concept round.
 
@@ -185,7 +185,7 @@ Choose the renderer family and lock it in the proposal:
 
 #### 4a: Progressive Reveal
 
-Don't dump the full proposal at once. Build understanding step by step:
+Develop the proposal step by step internally. Progress updates may collect feedback, but do not pause for another approval before the complete scene-plan board:
 
 1. **Research summary** (2-3 sentences): "Here's what I found about the subject and its visual potential..."
    → User reacts, course-corrects if needed.

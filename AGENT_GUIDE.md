@@ -182,6 +182,40 @@ Within the same task, reuse already-read unchanged director skills and current
 run evidence. Re-reading large guides, repeating one-off probes, or rendering
 drafts solely to discover schema/entrypoint mistakes is not progress.
 
+Keep one capability snapshot from `provider_menu_summary()` with current run
+evidence and pass it through research/proposal/director handoffs. Refresh the
+snapshot when configuration changes; after a route failure inspect only the
+selected tool with `registry.get(name).get_info()`. A snapshot is planning
+evidence, never a substitute for the adapter's live pre-submit checks. Do not
+repeat a full support-envelope dump at each stage or for each shot.
+
+At the approved assets-stage entry, prepare the project-local composition and
+edit skeleton once while provider jobs run. Reuse that workspace at edit and
+compose; keep pending assets explicit and block acceptance until real reviewed
+media replaces them. This preparation does not advance downstream checkpoints,
+remove semantic review, or permit concurrent submissions to Flow's shared profile.
+
+Use the existing `events.jsonl` for timing evidence. Tool calls record unique
+call/parent identities, activity and coarse failure reasons without logging
+provider bodies or credentials. Pass the current authoritative `run_id` and
+`stage_attempt_id` on project tool calls so the report can isolate that run.
+On recovery, retain the original attempt/task
+identity and inspect its owning receipt before any further submission. Record
+explicit non-tool intervals locally with:
+
+```bash
+python scripts/workflow_timing.py begin projects/<id> --run-id <current-run-id> --activity human_wait
+python scripts/workflow_timing.py end projects/<id> --activity-id <returned-activity-id>
+python scripts/workflow_timing.py report projects/<id> --run-id <current-run-id>
+```
+
+Use `handoff`, `recovery` or `preparation` for those observed intervals. Begin
+the marker when entering the activity and end it on resumption; do not invent
+historical waits. Event writes are best-effort observability, not production
+gates. The report excludes nested provider durations from selector totals and
+unions overlapping intervals. Category totals may overlap; missing terminals
+and gaps stay unattributed rather than being labelled human/provider waiting.
+
 
 Start here. This is the complete operating guide and agent contract for OpenMontage.
 

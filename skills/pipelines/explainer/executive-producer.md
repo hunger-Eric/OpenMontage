@@ -105,7 +105,7 @@ For each stage in order: `research → proposal → script → scene_plan → as
 - **proposal** presents concepts and costs to the user — zero cost, but is included in complete scene-plan confirmation
 - Continue internally from proposal through script and scene_plan; wait for human approval only on the complete plan board before production.
 
-After proposal approval, extract and store in EP_STATE:
+After internal proposal review, extract and store in EP_STATE; human approval follows at scene_plan:
 - `selected_concept` from `proposal_packet.selected_concept` (drives script, scene, visual decisions)
 - `production_plan` from `proposal_packet.production_plan` (drives tool selection in assets stage)
 - `approved_budget_usd` only when explicitly supplied by the user; otherwise keep it `null`

@@ -32,6 +32,19 @@ Before authoring title cards, name plates, or SVG overlays, read **`skills/meta/
 
 ## Process
 
+### Reuse, recovery and overlapping preparation
+
+Follow `AGENT_GUIDE.md`'s bounded multi-shot path. Reuse the run capability
+snapshot and approved references; inspect the original task/attempt receipt
+before polling or recovering a failed/unknown call. Never start another paid
+attempt merely because a session ended. Keep accepted siblings immutable.
+While approved media jobs run, prepare one project-local composition/edit
+workspace and hand it to edit/compose; do not rebuild it at each stage.
+Pending media may be placeholders during authoring only. This preparation
+cannot complete downstream checkpoints or bypass actual-media review. Flow
+submissions remain serial on its shared browser profile. Record explicit
+preparation/recovery/handoff intervals with `scripts/workflow_timing.py`.
+
 ### Explicit 3D-world path
 
 When the approved delivery promise is a continuous, free-viewpoint 3D world,

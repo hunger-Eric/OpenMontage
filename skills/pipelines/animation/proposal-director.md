@@ -2,7 +2,7 @@
 
 ## When to Use
 
-You are the **Proposal Director** for a generated animation video. You sit between the Research Director and the Script Director. You receive a `research_brief` full of raw findings — both topic data and animation technique research — and transform it into a concrete, reviewable proposal that the user approves before any money is spent.
+You are the **Proposal Director** for a generated animation video. You sit between the Research Director and the Script Director. You receive a `research_brief` full of raw findings — both topic data and animation technique research — and transform it into a concrete proposal for internal review, carried into the complete scene-plan board for human confirmation before video/audio production.
 
 This stage prepares the proposal internally. Human production approval occurs on the complete scene-plan board.
 
@@ -40,7 +40,7 @@ Authoring guidance within the Remotion default:
 | Schema | `schemas/artifacts/proposal_packet.schema.json` | Artifact validation |
 | Prior artifact | `research_brief` from Research Director | Raw findings + technique research |
 | Pipeline manifest | `pipeline_defs/animation.yaml` | Stage and tool definitions |
-| Tool registry | `support_envelope()` output | What's actually available right now |
+| Tool registry | Current run capability snapshot from `provider_menu_summary()` | What's actually available right now |
 | Cost tracker | `tools/cost_tracker.py` | Cost estimation data |
 | Style playbooks | `styles/*.yaml` | Available visual styles |
 | Meta skill | `skills/meta/taste-direction.md` | Design read, taste dials, reference strategy |
@@ -90,17 +90,13 @@ Do not generate a separate 10-15 second sample or wait for sample approval.
 
 ### Step 2: Run Preflight
 
-Before designing concepts, know what tools are available:
+Before designing concepts, reuse the current run capability snapshot. Run the command below only when that snapshot is absent or configuration has changed; keep its result with the run evidence. Inspect only the selected tools via `registry.get(name).get_info()` when a route fails or needs refreshed availability. A full support envelope is a debugging tool, not a routine stage input:
 
 ```bash
-python -c "from tools.tool_registry import registry; import json; registry.discover(); print(json.dumps(registry.support_envelope(), indent=2))"
+python -c "from tools.tool_registry import registry; import json; registry.discover(); print(json.dumps(registry.provider_menu_summary(), indent=2))"
 ```
 
-Also check the capability catalog:
-
-```bash
-python -c "from tools.tool_registry import registry; import json; registry.discover(); print(json.dumps(registry.capability_catalog(), indent=2))"
-```
+Use the same capability snapshot for the checks below. Query only a selected tool when its detailed contract is needed; do not dump a second full capability catalog.
 
 **Animation-specific preflight checks:**
 
@@ -123,13 +119,9 @@ Before locking animation mode or visual identity, read `skills/meta/taste-direct
 
 #### Step 3a: Tool Availability Scan
 
-Before designing concepts, scan what's available and present it honestly. **Do NOT hardcode provider names, costs, or key names in this output** — they drift. Read them live from the registry:
+Before designing concepts, scan what's available and present it honestly. **Do NOT hardcode provider names, costs, or key names in this output** — they drift. Reuse the Step 2 snapshot; refresh only when its configuration or selected route changes:
 
-```python
-from tools.tool_registry import registry
-registry.discover()
-summary = registry.provider_menu_summary()  # see AGENT_GUIDE.md > Mandatory Preflight
-```
+`summary` is the current run snapshot obtained at Step 2, not another registry scan.
 
 Then render the scan from `summary`, grouping by capability. Example shape you should **generate from the registry**, not copy:
 
@@ -227,20 +219,20 @@ Note: This approach is not yet proven in the OpenMontage pipeline.
 
 ### Step 3d: Mood Board (Before Concepts)
 
-Before developing full concepts, present a quick mood board to catch direction mismatches early:
+Before developing full concepts, prepare a quick mood board to catch direction mismatches early:
 
 - **3-5 reference images** (animation style examples from web search — show what each approach LOOKS like)
 - **Color palette direction** (2-3 options, e.g. clean data-viz vs vibrant motion graphics vs sketchy hand-drawn)
 - **Tone references** ("Think: 3Blue1Brown meets Kurzgesagt" or "Think: Pixar short meets infographic")
 - **1-2 animation style samples** (if Manim: mathematical elegance; if Remotion: smooth data transitions; if AI video: cinematic motion)
 
-Ask: **"Does this FEEL like what you're imagining? Any of these off-track?"**
+Review the mood board internally against the brief and carry it into the complete scene-plan board. Continue without a separate mood-board approval; incorporate any user feedback already received.
 
 This catches style misalignment before concept design. If the user expected hand-drawn and you're heading toward data-viz, better to know now.
 
 ### Step 4: Progressive Reveal and Concept Design
 
-Don't dump the full proposal at once. Build understanding step by step:
+Develop the proposal step by step internally. Progress updates may collect feedback, but do not pause for another approval before the complete scene-plan board:
 
 1. **Research summary** (2-3 sentences): "Here's what I found..."
    → User reacts, course-corrects if needed.

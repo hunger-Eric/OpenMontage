@@ -116,7 +116,7 @@ For each stage in order: `research → proposal → script → scene_plan → as
 - **proposal** presents concepts with animation mode selection and costs to the user — zero cost, but is included in complete scene-plan confirmation
 - Continue internally from proposal through script and scene_plan; wait for human approval only on the complete plan board before production.
 
-After proposal approval, extract and store in EP_STATE:
+After internal proposal review, extract and store in EP_STATE; human approval follows at scene_plan:
 - `selected_concept` from `proposal_packet.selected_concept`
 - `animation_mode` from `selected_concept.animation_mode`
 - `reuse_strategy` from `selected_concept.reuse_strategy`
@@ -400,7 +400,7 @@ Actual: {what was produced}
 | Gate | After Stage | What's Checked | Fail Action |
 |------|-------------|---------------|-------------|
 | G1 | research | Data depth, technique references, angle diversity | Revise research |
-| G2 | proposal | Concept quality, mode feasibility, user approval | Revise proposal OR wait for user |
+| G2 | proposal | Concept quality, mode feasibility, internal review | Revise proposal |
 | G3 | script | Word count, beat structure, math accuracy | Revise script |
 | G4 | scene_plan | Coverage, mode adherence, reuse strategy, variety | Revise scene_plan |
 | G5 | assets | Narration duration, budget, style, asset integrity | Revise assets OR send-back to script |

@@ -2,7 +2,7 @@
 
 ## When to Use
 
-You are the **Proposal Director** for a generated explainer video. You sit between the Research Director and the Script Director. You receive a `research_brief` full of raw findings and transform it into a concrete, reviewable proposal that the user approves before any money is spent.
+You are the **Proposal Director** for a generated explainer video. You sit between the Research Director and the Script Director. You receive a `research_brief` full of raw findings and transform it into a concrete proposal for internal review, carried into the complete scene-plan board for human confirmation before video/audio production.
 
 This stage prepares the proposal internally. Human production approval occurs on the complete scene-plan board.
 
@@ -24,10 +24,10 @@ Explainer proposals must lock **both** a `renderer_family` (creative grammar) an
 
 **Default workflow:**
 
-1. Query `video_compose.get_info()["render_engines"]` and confirm Remotion is available.
+1. Confirm Remotion availability from the current run capability snapshot. Query `video_compose.get_info()["render_engines"]` only when that selected runtime needs refreshed availability.
 2. For new work, record `render_runtime: "remotion"` and the single valid choice where the schema requires a selection. Do not show a technical runtime menu or ask for another confirmation.
 3. Log the Remotion choice in `decision_log` where the schema requires a runtime selection. Preserve an explicit historical lock or an explicit user request for that runtime.
-4. If Remotion is unavailable, report the gap and stop; do not silently substitute another runtime. Existing creative proposal approval remains unchanged.
+4. If Remotion is unavailable, report the gap and stop; do not silently substitute another runtime. Human confirmation remains at the complete scene-plan board.
 
 Authoring guidance within the Remotion default:
 
@@ -43,7 +43,7 @@ Authoring guidance within the Remotion default:
 | Schema | `schemas/artifacts/proposal_packet.schema.json` | Artifact validation |
 | Prior artifact | `research_brief` from Research Director | Raw research findings |
 | Pipeline manifest | `pipeline_defs/animated-explainer.yaml` | Stage and tool definitions |
-| Tool registry | `support_envelope()` output | What's actually available right now |
+| Tool registry | Current run capability snapshot from `provider_menu_summary()` | What's actually available right now |
 | Cost tracker | `tools/cost_tracker.py` | Cost estimation data |
 | Style playbooks | `styles/*.yaml` | Available visual styles |
 | Meta skill | `skills/meta/taste-direction.md` | Design read, taste dials, reference strategy |
@@ -90,17 +90,13 @@ Read the `research_brief` thoroughly. Extract:
 
 ### Step 2: Run Preflight
 
-Before designing concepts, know what tools are available:
+Before designing concepts, reuse the current run capability snapshot. Run the command below only when that snapshot is absent or configuration has changed; keep its result with the run evidence. Inspect only the selected tools via `registry.get(name).get_info()` when a route fails or needs refreshed availability. A full support envelope is a debugging tool, not a routine stage input:
 
 ```bash
-python -c "from tools.tool_registry import registry; import json; registry.discover(); print(json.dumps(registry.support_envelope(), indent=2))"
+python -c "from tools.tool_registry import registry; import json; registry.discover(); print(json.dumps(registry.provider_menu_summary(), indent=2))"
 ```
 
-Also check the capability catalog:
-
-```bash
-python -c "from tools.tool_registry import registry; import json; registry.discover(); print(json.dumps(registry.capability_catalog(), indent=2))"
-```
+Use the same capability snapshot for the checks below. Query only a selected tool when its detailed contract is needed; do not dump a second full capability catalog.
 
 Record:
 - Which TTS providers are available — run `registry.get_by_capability("tts")` and check status
@@ -115,18 +111,18 @@ This directly affects what you can promise in the production plan. **Do not prop
 
 ### Step 2c: Mood Board (Before Concepts)
 
-Before developing full concepts, present a quick mood board to catch direction mismatches early:
+Before developing full concepts, prepare a quick mood board to catch direction mismatches early:
 
 - **3-5 reference images** (from web search, stock, or quick generations)
 - **Color palette direction** (2-3 options derived from playbook candidates)
 - **Tone references** ("Think: Kurzgesagt meets Vice" or "Think: Apple product video meets TED-Ed")
 - **1-2 music mood references** (genre + energy level, not specific tracks)
 
-Ask: **"Does this FEEL like what you're imagining? Any of these off-track?"**
+Review the mood board internally against the brief and carry it into the complete scene-plan board. Continue without a separate mood-board approval; incorporate any user feedback already received.
 
 This is cheaper than generating 3 full concepts and catches direction mismatches before they become expensive. If the user says "too corporate" or "more playful," you've saved an entire concept round.
 
-If the user confirms the direction, proceed. If they redirect, adjust your concept design to match.
+Proceed after internal review. Human confirmation remains at the complete scene-plan board.
 
 ### Step 3: Design Concept Options
 
@@ -278,7 +274,7 @@ Surface the voice/TTS decision at proposal time:
 
 ### Step 4: Progressive Reveal and Concept Selection
 
-Don't dump the full proposal at once. Build understanding step by step:
+Develop the proposal step by step internally. Progress updates may collect feedback, but do not pause for another approval before the complete scene-plan board:
 
 **4a. Research summary** (2-3 sentences): "Here's what I found..."
 → User reacts, course-corrects if needed.

@@ -16,7 +16,7 @@ authorized. Older per-stage approval descriptions below do not create gates.
 
 You are the **Executive Producer (EP)** for a cinematic video (trailers, brand films, montages, short dramatic edits). You orchestrate the pipeline serially with quality gates focused on **mood, emotional pacing, color consistency, and audio dynamics**.
 
-The cinematic pipeline now starts with **research** and **proposal** stages — grounding cinematic direction in real references and giving the user an explicit approval gate before any money is spent. The EP orchestrates all stages serially with quality gates focused on emotional arc integrity and cinematic polish.
+The cinematic pipeline now starts with **research** and **proposal** stages — grounding cinematic direction in real references and carrying that work into the complete scene-plan board for human confirmation before video/audio production. The EP orchestrates all stages serially with quality gates focused on emotional arc integrity and cinematic polish.
 
 ## Prerequisites
 
@@ -108,7 +108,7 @@ CHECK: Delivery promise
   - Is the renderer_family selected and locked?
   - Is the music plan resolved (source chosen or explicitly deferred)?
   - Is the cost estimate honest and per-item?
-  - Has the user approved the proposal?
+  - Has the proposal passed internal review and been carried into the complete plan?
 ```
 
 ### After SCRIPT stage:
@@ -174,7 +174,7 @@ CHECK: Output validation
 | Gate | After Stage | What's Checked | Fail Action |
 |------|-------------|---------------|-------------|
 | G0 | research | Visual references, mood grounding | Revise |
-| G1 | proposal | Delivery promise, renderer family, music plan, user approval | Revise |
+| G1 | proposal | Delivery promise, renderer family, music plan, internal review | Revise |
 | G2 | script | Beat escalation, duration | Revise |
 | G3 | scene_plan | Hero moments, visual consistency | Revise |
 | G4 | assets | Music alignment, source quality, budget | Revise |

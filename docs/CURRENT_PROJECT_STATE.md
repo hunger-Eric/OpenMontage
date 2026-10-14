@@ -2,6 +2,29 @@
 
 Updated: 2026-10-14
 
+## 2026-10-14 workflow efficiency changes
+
+- Proposal/mood-board reviews continue internally; human production confirmation
+  remains at the complete scene-plan board. Proposal directors reuse one run
+  capability snapshot rather than requesting repeated full registry reports.
+- Capability menus reuse each tool's observed status and runtime metadata in
+  the same query. A requested new query remains live; no hidden persistent
+  availability cache replaces provider pre-submit checks.
+- Preview reuses its initial preflight inside the renderer, while retaining
+  independent pre/post-render identity checks and direct-render validation.
+  Finalization still verifies inputs and copies accepted bytes.
+- Existing project events now carry call/parent identities, activity and coarse
+  failure reasons. `scripts/workflow_timing.py` records observed wait/handoff/
+  recovery/preparation intervals and reports interval unions without double
+  counting nested calls. Historical gaps remain unattributed.
+- Asset directors prepare and hand off one composition workspace while approved
+  media jobs run. Flow remains serial; checkpoints, real-media review and the
+  complete-plan gate are unchanged. Actual end-to-end speedup is unverified.
+- Validation: 73 focused event/timing/composition/checkpoint/Backlot tests passed.
+  The broader compatibility run passed 393 tests and failed 12 Google-provider
+  tests because this Python environment lacks `google.genai`; it also logged
+  a Windows GBK subprocess decoding warning. No real generation was performed.
+
 ## 2026-10-14 reusable native Feishu video-plan board
 
 - New production uses complete-plan confirmation at the existing scene-plan
