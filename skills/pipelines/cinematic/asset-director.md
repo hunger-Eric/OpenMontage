@@ -63,38 +63,15 @@ If `proposal_packet.metadata.motion_required = true`, actual moving footage or g
 - stills may not replace the planned motion shots,
 - a still-image teaser is not an acceptable fallback unless the user explicitly approves an animatic.
 
-### 1b. Sample Preview (Prevents Wasted Spend)
+### Generate the approved full plan
 
-Before batch-generating support assets, produce one sample of each expensive generated type and show the user:
-
-1. **Generated insert sample** (if using `image_selector` or `video_selector`): Generate one representative visual. Confirm it complements the source footage before batching.
-2. **Music sample** (only when an unresolved music choice needs validation):
-   follow `AGENT_GUIDE.md > Music Plan` and sample only an approved source using
-   a currently available, manifest-allowed tool. Reuse accepted music without
-   another sample; do not automatically fall back to another source or paid
-   generation. Confirm mood and energy match the beat plan and preserve the
-   actual license and attribution obligations.
-
-If `motion_required = true`, the representative visual must be a video clip sample, not a still image sample.
-
-Before requesting approval, validate the actual sample and include its playable
-media file in the current deliverable artifacts. For video samples in Feishu,
-return the MP4 to Worker for registration and delivery to the original topic; a localhost
-preview or Backlot link alone is insufficient. Keep the stage awaiting approval
-and use the existing executor result contract to return the sample while paused;
-do not claim that the complete film is finished or start the remaining generation.
-
-If rejected, adjust parameters and retry (max 3 iterations). Do not batch until approved.
-
-Before the sample is generated, tell the user exactly which generation path will be used:
-
-- tool,
-- provider,
-- model or variant,
-- generation mode,
-- why it was selected.
-
-If that path fails, stop and ask before trying a different provider, model, or generation mode.
+After the complete scene-plan board is approved for automatic production,
+generate the planned assets and continue internal review and post-production.
+Do not create a separate approval sample or wait for another assets approval.
+For manual production, preserve the plan and wait for trusted returned clips;
+for plan-only delivery, stop without video/audio generation. Review each real
+asset and repair only failed leaves; changes outside the approved plan require
+user direction.
 
 ### 2. Generate Support Assets Only Where Needed
 
@@ -112,7 +89,7 @@ reuse accepted product, character and scene assets, and compose an actual start
 image only when the planned framing or interaction needs it. Preserve asset
 lineage and input roles, and verify the selected tool actually receives the
 required references or frames; plan images and IDs alone do not prove binding.
-Keep the approved provider path and existing sample/batch gate.
+Keep the approved provider path and complete-plan approval.
 
 ### 3. Prepare A Real Audio Plan
 
@@ -212,9 +189,9 @@ Do not rely on stale knowledge. When in doubt, search first.
 
 ---
 
-## Gate Reminder (Binding)
+## Stage review
 
-This stage gates on human approval (`human_approval_default: true`). After review passes:
-checkpoint with `status="awaiting_human"`, present the summary (the Backlot board renders
-the artifact), and **END YOUR TURN**. Do not start the next stage in the same response.
-Approval is per-gate — an earlier "go ahead" does not cover this gate.
+Run the existing internal review and write the stage checkpoint using the current
+manifest. Complete-plan human confirmation belongs to scene_plan; this stage
+does not request a second human approval. Preserve an explicitly locked legacy
+run policy and any new user-requested gate.

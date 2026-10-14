@@ -1,5 +1,17 @@
 # Executive Producer — Explainer Pipeline
 
+## Current confirmation policy
+
+Read AGENT_GUIDE.md > Complete-plan confirmation and the current manifest.
+All stages execute and review in their existing order. Idea/proposal, script,
+design and assets no longer stop for default human approval. The complete
+scene_plan board (including necessary actual references) is the single
+production approval point. Do not generate a separate sample. After approval,
+automatic execution runs the whole plan and post-production; manual execution
+awaits trusted clips in the same project. Platform publish remains separately
+authorized. Older per-stage approval descriptions below do not create gates.
+
+
 ## When to Use
 
 You are the **Executive Producer (EP)** for a generated explainer video. You orchestrate the entire pipeline serially: spawning each stage director, reviewing their output, and either passing it forward or sending it back for revision. You are the stateful brain; the directors are stateless workers.
@@ -43,7 +55,7 @@ EP_STATE:
   # Accumulated from each stage (8 stages)
   artifacts:
     research: null      # → research_brief
-    proposal: null      # → proposal_packet (includes approval gate)
+    proposal: null      # → proposal_packet (included in complete-plan confirmation)
     script: null        # → script
     scene_plan: null    # → scene_plan
     assets: null        # → asset_manifest
@@ -90,8 +102,8 @@ For each stage in order: `research → proposal → script → scene_plan → as
 
 **Pre-production stages (research, proposal)** run before any money is spent:
 - **research** gathers raw data via web search — zero cost, no tools
-- **proposal** presents concepts and costs to the user — zero cost, but contains the **approval gate**
-- The pipeline MUST NOT proceed past proposal without `approval.status == "approved"` or `"approved_with_changes"`
+- **proposal** presents concepts and costs to the user — zero cost, but is included in complete scene-plan confirmation
+- Continue internally from proposal through script and scene_plan; wait for human approval only on the complete plan board before production.
 
 After proposal approval, extract and store in EP_STATE:
 - `selected_concept` from `proposal_packet.selected_concept` (drives script, scene, visual decisions)
@@ -198,8 +210,8 @@ CHECK: Research depth
 ### After PROPOSAL stage:
 ```
 CHECK: Approval gate (CRITICAL — the entire point of pre-production)
-  - Is approval.status == "approved" or "approved_with_changes"?
-  - If "pending" or "rejected": STOP. Present to user and wait.
+  - Is the proposal schema-valid and ready to carry into the complete plan?
+  - If "rejected": stop for user direction. If "pending": continue internal script and scene planning; approval occurs at scene_plan.
   - If "approved_with_changes": apply modifications to selected_concept before proceeding
   - Extract: target_duration_seconds, playbook, billing mode, tool selections
   - Initialize a cap only from an explicit approved_budget_usd; otherwise remain completion-driven
@@ -329,7 +341,7 @@ Actual: {what was produced}
 | Gate | After Stage | What's Checked | Fail Action |
 |------|-------------|---------------|-------------|
 | G1 | research | Data depth, source quality, angle diversity | Revise research |
-| G2 | proposal | Concept quality, cost accuracy, user approval | Revise proposal OR wait for user |
+| G2 | proposal | Concept quality and cost accuracy | Revise internally and continue to scene_plan |
 | G3 | script | Word count vs duration, narrative arc, research integration | Revise script |
 | G4 | scene_plan | Coverage, variety, feasibility against production plan | Revise scene_plan |
 | G5 | assets | File existence, narration duration, budget, style | Revise assets OR send-back to script |

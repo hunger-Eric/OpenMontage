@@ -31,17 +31,10 @@ explicitly locked to it or the user explicitly requests that runtime. If the
 requested rig has no Remotion handoff, report the gap; do not silently use
 HyperFrames or migrate historical assets. FFmpeg is post-processing only.
 
-## Sample-First Rule
+## Complete-plan confirmation
 
-Before full production, propose a 10-15 second sample containing:
-
-- one main character,
-- one expression change,
-- one body action,
-- one camera/background treatment,
-- one audio/music cue if relevant.
-
-Do not batch-generate all assets until this sample is approved.
+Review the complete scene-plan board and necessary references before production.
+Do not generate or wait for a separate sample. Keep rig and motion QA internal.
 
 ## Cost Honesty
 
@@ -55,9 +48,9 @@ Report the difference:
 
 ---
 
-## Gate Reminder (Binding)
+## Stage review
 
-This stage gates on human approval (`human_approval_default: true`). After review passes:
-checkpoint with `status="awaiting_human"`, present the summary (the Backlot board renders
-the artifact), and **END YOUR TURN**. Do not start the next stage in the same response.
-Approval is per-gate — an earlier "go ahead" does not cover this gate.
+Run the existing internal review and write the stage checkpoint using the current
+manifest. Complete-plan human confirmation belongs to scene_plan; this stage
+does not request a second human approval. Preserve an explicitly locked legacy
+run policy and any new user-requested gate.

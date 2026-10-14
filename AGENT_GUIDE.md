@@ -876,7 +876,7 @@ Before committing to execution, present:
 5. Cost estimate and quality tradeoffs.
 6. **Music plan** — mandatory for every pipeline that has audio. See below.
 7. Production plan by stage.
-8. Approval gate before asset generation.
+8. Complete-plan board confirmation at scene_plan before video/audio generation.
 
 If a user prefers a specific vendor and that tool is available, surface it directly. Do not hide provider choice.
 
@@ -947,10 +947,34 @@ The reviewer is a meta skill (`skills/meta/reviewer.md`) — advisory, never dir
 
 ## Human Checkpoint Protocol
 
+### Complete-plan confirmation (current production default)
+
+All non-test production manifests use the existing `scene_plan` stage as the
+single human production-confirmation gate. Research, proposal/idea, script and
+other design stages still execute, review and checkpoint in order, but proceed
+internally without separate approval prompts. During scene_plan, prepare/reuse
+the necessary actual reference images and publish the complete standalone plan
+board: full story/script, shot actions, timing, image roles and complete prompts.
+No video, TTS, music generation or sample render occurs before this gate.
+Store the board URL, plan/source revision hashes, reference identities and
+automatic/manual/plan-only choice in existing scene-plan/checkpoint metadata.
+Write `awaiting_human`, deliver the board and stop; approval applies to that
+specific complete revision. Then write `completed`, `human_approved=True`.
+
+For approved automatic production, execute all planned shots, internal asset
+review, repair and post-production without a separate ten-second sample or
+assets approval pause. Manual production waits for trusted returned clips in
+the same project; plan-only delivery ends without generating video. Internal
+quality checks, unknown-submission reconciliation, budget/provider constraints
+and final review remain required. Material changes outside the approved plan
+require user direction. Platform publication retains its own authorization.
+An explicitly locked historical run keeps its recorded approval policy; do not
+rewrite old checkpoints or claim the new policy was used for past production.
+
 The checkpoint protocol meta skill (`skills/meta/checkpoint-protocol.md`) teaches the agent when to pause:
 
 - Read `human_approval_default` from the pipeline manifest per stage. **The manifest value is binding** — never re-judge it. `lib/checkpoint.py` enforces this: a gated stage cannot be written `completed` without `human_approved=True`.
-- Typical gated stages: `idea`/`proposal`, `script`, `scene_plan`, **`assets`** (review the generated assets scene-by-scene — the Backlot board's filmstrip — before compose locks them in), and `publish` where the pipeline has one. Most pipelines auto-proceed on `edit` and `compose`, but not all (documentary-montage gates `edit`) — the manifest you loaded is the only authority.
+- Current production gates are `scene_plan` (complete plan board) and `publish` where the manifest has one. Assets are reviewed internally scene by scene before compose; they do not trigger another default human confirmation. The manifest remains the binding authority.
 - When approval is required: write the checkpoint as `awaiting_human`, present artifact summary, review findings, and cost snapshot — then **END YOUR TURN**. Doing further pipeline work in the same response is a gate violation.
 - **Approval is per-gate.** An early "go ahead" never covers later gates; explicit full-run pre-authorization must be recorded as a `decision_log` entry (`category: "approval_policy"`) to count.
 - Wait for human to approve, request revision, or abort.

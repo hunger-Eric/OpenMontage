@@ -82,20 +82,15 @@ Before generating anything:
    - Skip optional assets (SFX, B-roll)
 4. Get cost approval via cost tracker before proceeding
 
-### Step 2b: Sample Preview (Prevents Wasted Spend)
+### Generate the approved full plan
 
-Before batch-generating assets, produce one sample of each expensive asset type and present them to the user for approval:
-
-1. **Speech sample**: Use the approved final speech architecture. For reference-driven multi-shot speech, assemble adjacent beats with the planned insert/transition in the existing sample slot. Use the selected TTS voice for external narration, or actual video-native/lip-sync speech for visible dialogue. Develop the voice, delivery and join together; an isolated still or TTS sample does not establish continuity for independently generated native dialogue.
-2. **Image sample**: Generate one image for the most representative scene. Show it to the user. Confirm the style, quality, and prompt approach before batch-generating all images.
-3. **Music sample** (if using `music_gen`): Generate one short clip. Confirm mood and energy before committing.
-
-If the user rejects a sample:
-- Adjust the parameters (voice, prompt style, provider) and regenerate the sample.
-- Do not batch-generate until the sample is approved.
-- Max 3 sample iterations per asset type before escalating to the user for a decision.
-
-This step typically costs $0.03–0.08 total and prevents $1–3 of wasted generation.
+After the complete scene-plan board is approved for automatic production,
+generate the planned assets and continue internal review and post-production.
+Do not create a separate approval sample or wait for another assets approval.
+For manual production, preserve the plan and wait for trusted returned clips;
+for plan-only delivery, stop without video/audio generation. Review each real
+asset and repair only failed leaves; changes outside the approved plan require
+user direction.
 
 ### Step 2c: Model Video Contract and Continuation
 
@@ -206,7 +201,7 @@ text and a voice name has not applied section-level delivery cues — record
 
 **Flat voice failure:** If the approved voice sounds monotone, robotic, rushed,
 or ignores intended pauses, do not batch the remaining sections. Revise the
-`voice_performance` plan or provider parameters and regenerate the sample.
+`voice_performance` parameters within the confirmed plan and repair that actual section; do not request a separate sample approval.
 
 ### Step 4: Generate Visual Assets
 
@@ -333,7 +328,7 @@ Assemble all generated assets into the manifest:
 **Quality check:**
 - [ ] Narration durations within ±15% of expected timing
 - [ ] Narration assets record `voice_performance.delivery_cues_applied`
-- [ ] Approved TTS sample uses the same provider, voice, and expressive settings as the batch
+- [ ] Generated narration uses the confirmed provider, voice and performance settings and passes internal review
 - [ ] Images match the playbook's style (review consistency anchors)
 - [ ] Diagrams are legible and complete
 - [ ] Total cost within budget
@@ -400,9 +395,9 @@ Do not rely on stale knowledge. When in doubt, search first.
 
 ---
 
-## Gate Reminder (Binding)
+## Stage review
 
-This stage gates on human approval (`human_approval_default: true`). After review passes:
-checkpoint with `status="awaiting_human"`, present the summary (the Backlot board renders
-the artifact), and **END YOUR TURN**. Do not start the next stage in the same response.
-Approval is per-gate — an earlier "go ahead" does not cover this gate.
+Run the existing internal review and write the stage checkpoint using the current
+manifest. Complete-plan human confirmation belongs to scene_plan; this stage
+does not request a second human approval. Preserve an explicitly locked legacy
+run policy and any new user-requested gate.

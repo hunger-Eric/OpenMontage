@@ -27,14 +27,12 @@ Use one primary path and record it clearly:
 
 Do not hide a blocked avatar path. Record it.
 
-### 1b. Sample Preview (Prevents Wasted Spend)
+### Execute the confirmed plan
 
-Before batch-generating assets, produce one sample of each expensive type and show the user:
-
-1. **TTS sample** (if generating narration): Generate one section. Confirm voice, pace, and persona before batching the rest.
-2. **Avatar sample** (if using `talking_head`): Generate a short test clip. Confirm the avatar quality is acceptable before committing to full generation.
-
-If rejected, adjust parameters and retry (max 3 iterations). Do not batch until approved.
+Full-plan confirmation at scene_plan replaces sample approval. Generate the
+planned assets, run internal quality review and proceed without another human
+approval pause. Manual mode accepts trusted returned clips; plan-only mode
+stops without video generation.
 
 ### 2. Resolve Narration Before Support Graphics
 
@@ -149,12 +147,12 @@ Do not rely on stale knowledge. When in doubt, search first.
 
 ---
 
-## Gate Reminder (Binding)
+## Stage review
 
-This stage gates on human approval (`human_approval_default: true`). After review passes:
-checkpoint with `status="awaiting_human"`, present the summary (the Backlot board renders
-the artifact), and **END YOUR TURN**. Do not start the next stage in the same response.
-Approval is per-gate — an earlier "go ahead" does not cover this gate.
+Run the existing internal review and write the stage checkpoint using the current
+manifest. Complete-plan human confirmation belongs to scene_plan; this stage
+does not request a second human approval. Preserve an explicitly locked legacy
+run policy and any new user-requested gate.
 
 ## HeyGen Avatar V
 

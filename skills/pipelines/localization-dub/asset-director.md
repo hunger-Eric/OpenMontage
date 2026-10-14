@@ -19,15 +19,12 @@ This stage produces the localized asset kit: translated subtitle files, dubbed a
 
 Create the subtitle or caption package for each language. This gives a reviewable fallback even if dubbed-audio generation or lip sync is blocked.
 
-### 1b. Hero Scene Sample (Mandatory)
+### Execute the confirmed plan
 
-Before batch asset generation:
-1. Identify the hero scene (the visual peak of the video)
-2. Generate ONE sample dubbed audio clip for that scene in the target language
-3. Present it: "This is the voice direction for the most important scene. Does this match what you're imagining? I'll generate the rest in this style."
-4. Wait for approval before proceeding to batch generation
-
-This prevents the most expensive mistake: generating 10+ dubbed assets in a direction the user doesn't like.
+Full-plan confirmation at scene_plan replaces sample approval. Generate the
+planned assets, run internal quality review and proceed without another human
+approval pause. Manual mode accepts trusted returned clips; plan-only mode
+stops without video generation.
 
 ### 2. Generate Dubbed Audio Per Language
 
@@ -93,9 +90,9 @@ Do not rely on stale knowledge. When in doubt, search first.
 
 ---
 
-## Gate Reminder (Binding)
+## Stage review
 
-This stage gates on human approval (`human_approval_default: true`). After review passes:
-checkpoint with `status="awaiting_human"`, present the summary (the Backlot board renders
-the artifact), and **END YOUR TURN**. Do not start the next stage in the same response.
-Approval is per-gate — an earlier "go ahead" does not cover this gate.
+Run the existing internal review and write the stage checkpoint using the current
+manifest. Complete-plan human confirmation belongs to scene_plan; this stage
+does not request a second human approval. Preserve an explicitly locked legacy
+run policy and any new user-requested gate.

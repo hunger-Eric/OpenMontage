@@ -42,14 +42,12 @@ Start with reusable systems:
 - CTA container,
 - diagram style.
 
-### 1b. Sample Preview (Prevents Wasted Spend)
+### Execute the confirmed plan
 
-Before batch-generating support assets, produce one sample of each expensive generated type and show the user:
-
-1. **TTS sample** (if narration is needed): Generate one section. Confirm voice and tone before batching.
-2. **Image/video sample** (if generating inserts): Generate one representative visual. Confirm style fits the source footage before batching.
-
-If rejected, adjust parameters and retry (max 3 iterations). Do not batch until approved.
+Full-plan confirmation at scene_plan replaces sample approval. Generate the
+planned assets, run internal quality review and proceed without another human
+approval pause. Manual mode accepts trusted returned clips; plan-only mode
+stops without video generation.
 
 ### 2. Generate Only The Support Assets You Need
 
@@ -118,9 +116,9 @@ Do not rely on stale knowledge. When in doubt, search first.
 
 ---
 
-## Gate Reminder (Binding)
+## Stage review
 
-This stage gates on human approval (`human_approval_default: true`). After review passes:
-checkpoint with `status="awaiting_human"`, present the summary (the Backlot board renders
-the artifact), and **END YOUR TURN**. Do not start the next stage in the same response.
-Approval is per-gate — an earlier "go ahead" does not cover this gate.
+Run the existing internal review and write the stage checkpoint using the current
+manifest. Complete-plan human confirmation belongs to scene_plan; this stage
+does not request a second human approval. Preserve an explicitly locked legacy
+run policy and any new user-requested gate.

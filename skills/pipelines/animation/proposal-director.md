@@ -4,7 +4,7 @@
 
 You are the **Proposal Director** for a generated animation video. You sit between the Research Director and the Script Director. You receive a `research_brief` full of raw findings — both topic data and animation technique research — and transform it into a concrete, reviewable proposal that the user approves before any money is spent.
 
-**This is the approval gate.** Nothing downstream runs until the user says "go."
+This stage prepares the proposal internally. Human production approval occurs on the complete scene-plan board.
 
 Animation proposals have a unique dimension: **animation mode selection**. Unlike explainer videos where the visual approach is secondary to the narrative, animation videos ARE their visual approach. The mode choice (Manim vs Remotion vs AI video vs motion graphics) fundamentally shapes the entire production.
 
@@ -68,8 +68,8 @@ Before starting proposal work, check if a VideoAnalysisBrief exists for this pro
 | **Same pacing, different visual identity** | Reference: corporate blue → Ours: vibrant neon-on-black |
 | **Same narrative, different interactivity** | Reference: linear → Ours: data-driven with animated charts |
 
-**Mandatory Sample Protocol:** After concept approval, produce a 10-15 second sample
-to validate the animation style before full production.
+The complete plan and actual reference images are reviewed at scene_plan.
+Do not generate a separate 10-15 second sample or wait for sample approval.
 
 **When no VideoAnalysisBrief is present:** Skip this step and proceed normally.
 
@@ -403,11 +403,11 @@ COST ESTIMATE
 
 **Animation cost note:** Programmatic animation (Manim, Remotion, diagram_gen) is FREE. This means animation pipelines can often be much cheaper than explainer pipelines — the primary cost is TTS narration and any AI-generated images/video used as backgrounds or transitions.
 
-### Step 8: Assemble the Approval Gate
+### Step 8: Prepare complete-plan confirmation
 
 ```
 ────────────────────────────────────────
-PROPOSAL READY FOR APPROVAL
+PROPOSAL INPUT FOR COMPLETE-PLAN CONFIRMATION
 
 Concept: [selected title]
 Animation mode: [mode] — [plain description]
@@ -416,11 +416,11 @@ Reuse strategy: [N] unique scenes from [M] templates
 Estimated cost: $[X.XX] of $[budget] budget
 Production path: [premium/standard/budget/free]
 
-Proceed? (approve / approve with changes / reject)
+Carry this proposal into script and scene_plan; present it with the complete board.
 ────────────────────────────────────────
 ```
 
-**Critical rule:** The pipeline MUST NOT proceed past this stage without explicit approval.
+Continue internal design after review; only the complete scene_plan gate blocks production generation.
 
 ### Step 9: Submit
 
@@ -443,7 +443,7 @@ Validate the `proposal_packet` artifact against `schemas/artifacts/proposal_pack
 - **Three versions of the same concept with different titles**: Structural diversity means different animation approaches, different narrative structures, different hooks.
 - **Not leveraging free tools**: Animation has a huge cost advantage — Manim, Remotion data-viz, and diagram_gen are free. If proposing expensive AI video, justify why free alternatives won't work.
 - **Over-promising visual complexity**: 20 unique hand-crafted scenes is not realistic. Design reuse strategies that look varied but share underlying templates.
-- **Skipping the approval gate**: This is the whole point of pre-production. No shortcuts.
+- **Skipping complete-plan confirmation**: Human approval is required at scene_plan before production.
 - **Ignoring mathematical accuracy**: If the research brief flagged technical accuracy constraints, the concept MUST respect them. A beautiful but wrong animation is a failure.
 - **Not distinguishing image_animation from clip_video**: These are fundamentally different. Image-based animation (Approach A) generates still images and uses Remotion for motion/crossfade. Clip-based video (Approach B) generates actual video clips with an AI video model. The user should understand this distinction clearly.
 - **Silent downgrades**: If the user picked image_animation but image generation fails, STOP and tell them. Never silently fall back to text cards or diagram stills.
@@ -469,9 +469,9 @@ Do not rely on stale knowledge. When in doubt, search first.
 
 ---
 
-## Gate Reminder (Binding)
+## Stage review
 
-This stage gates on human approval (`human_approval_default: true`). After review passes:
-checkpoint with `status="awaiting_human"`, present the summary (the Backlot board renders
-the artifact), and **END YOUR TURN**. Do not start the next stage in the same response.
-Approval is per-gate — an earlier "go ahead" does not cover this gate.
+Run the existing internal review and write the stage checkpoint using the current
+manifest. Complete-plan human confirmation belongs to scene_plan; this stage
+does not request a second human approval. Preserve an explicitly locked legacy
+run policy and any new user-requested gate.

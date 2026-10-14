@@ -4,7 +4,7 @@
 
 You are the **Proposal Director** for a cinematic video (trailers, brand films, montages, dramatic edits). You sit between the Research Director and the Script Director. You receive a `research_brief` full of visual references, mood research, and cinematic direction options, and transform it into a concrete, reviewable proposal that the user approves before any money is spent.
 
-**This is the approval gate.** Nothing downstream runs until the user says "go."
+This stage prepares the proposal internally. Human production approval occurs on the complete scene-plan board.
 
 ## Runtime Selection (required field — `render_runtime`)
 
@@ -66,9 +66,8 @@ Before starting proposal work, check if a VideoAnalysisBrief exists for this pro
 | **Same pacing, different visual language** | Reference: handheld raw → Ours: locked-off geometric |
 | **Same color world, different lighting** | Reference: warm golden hour → Ours: warm but tungsten/interior |
 
-**Mandatory Sample Protocol:** After concept approval, produce a 10-15 second cinematic
-sample BEFORE full production. This is critical for cinematic work — mood mismatches are
-expensive to fix downstream. Present with visual + audio + music.
+The complete plan and actual reference images are reviewed at scene_plan.
+Do not generate a separate 10-15 second sample or wait for sample approval.
 
 **When no VideoAnalysisBrief is present:** Skip this step and proceed normally.
 
@@ -261,7 +260,7 @@ Present concepts clearly. Invite the user to:
 - Request modifications
 - Redirect entirely
 
-Set `approval.status: "pending"`. Pipeline does NOT proceed without approval.
+Set `approval.status: "pending"` while designing; carry the proposal into script and scene_plan. Approval is recorded when the complete plan board is confirmed.
 
 ### Step 9: Submit
 
@@ -296,9 +295,9 @@ Do not rely on stale knowledge. When in doubt, search first.
 
 ---
 
-## Gate Reminder (Binding)
+## Stage review
 
-This stage gates on human approval (`human_approval_default: true`). After review passes:
-checkpoint with `status="awaiting_human"`, present the summary (the Backlot board renders
-the artifact), and **END YOUR TURN**. Do not start the next stage in the same response.
-Approval is per-gate — an earlier "go ahead" does not cover this gate.
+Run the existing internal review and write the stage checkpoint using the current
+manifest. Complete-plan human confirmation belongs to scene_plan; this stage
+does not request a second human approval. Preserve an explicitly locked legacy
+run policy and any new user-requested gate.

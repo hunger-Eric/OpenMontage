@@ -52,14 +52,15 @@ workspace plus a semantic or wireframe diagnostic pass. Register the editable
 workspace as `type: "3d_world"`; snapshots belong in the assets review, while
 the final MP4 belongs to compose.
 
-### 1b. Sample Preview (Prevents Wasted Spend)
+### Generate the approved full plan
 
-Before batch-generating assets, produce one sample of each expensive type and show the user:
-
-1. **TTS sample** (if narration-led): Generate `script.voice_performance.sample_section_id` when present; otherwise choose the section with the strongest emotional or pacing change. Confirm voice, pace, pauses, emphasis, and tone before batching.
-2. **Visual sample**: Generate one representative scene visual (diagram, illustration, or motion background). Confirm style and quality before batching the rest.
-
-If rejected, adjust parameters and retry (max 3 iterations). Do not batch until approved.
+After the complete scene-plan board is approved for automatic production,
+generate the planned assets and continue internal review and post-production.
+Do not create a separate approval sample or wait for another assets approval.
+For manual production, preserve the plan and wait for trusted returned clips;
+for plan-only delivery, stop without video/audio generation. Review each real
+asset and repair only failed leaves; changes outside the approved plan require
+user direction.
 
 ### 1c. Multi-Image Generation for Image-Based Animation (Approach A)
 
@@ -121,7 +122,7 @@ Recommended metadata keys:
 - `tool_path_map`
 - `reusable_assets`
 - `narration_assets`
-- `voice_performance`: sample approval path, provider settings, and whether delivery cues were applied
+- `voice_performance`: internal performance-review evidence, provider settings, and whether delivery cues were applied
 - `scene_asset_index`
 - `blocked_assets`
 
@@ -174,9 +175,9 @@ Do not rely on stale knowledge. When in doubt, search first.
 
 ---
 
-## Gate Reminder (Binding)
+## Stage review
 
-This stage gates on human approval (`human_approval_default: true`). After review passes:
-checkpoint with `status="awaiting_human"`, present the summary (the Backlot board renders
-the artifact), and **END YOUR TURN**. Do not start the next stage in the same response.
-Approval is per-gate — an earlier "go ahead" does not cover this gate.
+Run the existing internal review and write the stage checkpoint using the current
+manifest. Complete-plan human confirmation belongs to scene_plan; this stage
+does not request a second human approval. Preserve an explicitly locked legacy
+run policy and any new user-requested gate.

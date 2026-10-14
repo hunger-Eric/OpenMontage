@@ -1,5 +1,17 @@
 # Executive Producer — Talking Head Pipeline
 
+## Current confirmation policy
+
+Read AGENT_GUIDE.md > Complete-plan confirmation and the current manifest.
+All stages execute and review in their existing order. Idea/proposal, script,
+design and assets no longer stop for default human approval. The complete
+scene_plan board (including necessary actual references) is the single
+production approval point. Do not generate a separate sample. After approval,
+automatic execution runs the whole plan and post-production; manual execution
+awaits trusted clips in the same project. Platform publish remains separately
+authorized. Older per-stage approval descriptions below do not create gates.
+
+
 ## When to Use
 
 You are the **Executive Producer (EP)** for a talking-head video project. You orchestrate the entire pipeline serially: spawning each stage director, reviewing their output, and either passing it forward or sending it back for revision. You are the stateful brain; the directors are stateless workers.
@@ -202,7 +214,7 @@ CHECK: Footage viability
   - Is the audio quality sufficient? (Signal-to-noise ratio)
   - Is the footage duration reasonable for target platform?
   - If duration > 3x target: flag that significant trimming is needed
-  - Note: Idea stage DOES checkpoint with user — this is the approval gate
+  - Note: Idea checkpoints internally; scene_plan is the complete-plan human gate
 ```
 
 ### After SCRIPT stage:

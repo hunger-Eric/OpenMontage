@@ -426,59 +426,20 @@ Do NOT proceed to Step 5 until all relevant Layer 3 skills are read.
 The difference between a generic prompt and a skill-informed prompt is
 the difference between "usable" and "cinematic."
 
-### Step 5: Sample-First Production (MANDATORY)
+### Step 5: Complete-plan confirmation
 
-After the user picks a variant, ALWAYS say:
+Enter the selected existing pipeline before generation. Execute research,
+proposal, script and scene_plan, prepare necessary actual reference images,
+then present the complete standalone plan board at the scene_plan human gate.
+Do not generate a ten-second sample or request a separate sample approval.
 
-```
-"Great choice. Before I commit to the full [X]-second video, I'll produce a
-10-15 second sample first — the opening hook + one middle scene. This lets you
-hear the voice, see the visual style, and feel the pacing before we go all-in.
+### Step 6: Continue the same pipeline
 
-Estimated sample cost: $[X.XX]
-Shall I proceed with the sample?"
-```
-
-The sample is NOT optional. Even if the user says "just do the whole thing," push
-back gently:
-
-```
-"I'd really recommend the sample first — it's a tiny fraction of the cost and
-lets us catch any style mismatches early. If you love it, I'll proceed to the
-full video immediately."
-```
-
-Only skip the sample if the user insists after being advised.
-
-**Sample contents:**
-- 1-2 representative scenes (the hook + one middle scene)
-- Actual speech using the approved architecture (native video speech, TTS or
-  supplied audio); silent productions have no invented narration
-- Actual generated/stock visuals
-- Approved music/environmental sound treatment; no music when none was selected
-- Subtitle style preview
-
-For multi-shot speech, the continuity sample must include adjacent spoken beats
-and the planned transition, as specified in `reference-production-handoff.md`;
-isolated hook/middle clips do not establish their continuous delivery.
-
-**Sample checkpoint:**
-Present the sample with: "Here's a preview. Does this feel right? Things I can
-adjust: voice, visual style, pacing, music, colors."
-
-Iterate on sample feedback until approved. Store samples at:
-`projects/<name>/assets/sample/sample_v{N}.mp4`
-
-### Step 6: Enter Pipeline (HARD REDIRECT)
-
-After sample approval, the agent MUST enter the pipeline. This is not optional.
-
-This redirect does not authorize skipping upstream work for the sample itself.
-Before generating a sample, execute the selected manifest's applicable
-proposal/script/scene-plan work and director reviews for that sample scope.
-Carry those real artifacts forward into the full production. If speech
-architecture or continuity requirements change, requalify the affected sample;
-do not treat approval of a different route as performance acceptance.
+After that exact plan revision is approved for automatic production, generate
+the complete planned film and continue internal review and post-production.
+Manual production resumes with trusted returned clips in the same project.
+Plan-only delivery stops without video generation. Preserve references,
+script and continuity; do not invent past stage completion or approval.
 
 **Mandatory steps:**
 1. Read the pipeline manifest: `pipeline_defs/animation.yaml` (or whichever
@@ -499,7 +460,7 @@ violation.
 **Context to carry into the pipeline:**
 - VideoAnalysisBrief as grounding context in the research/proposal stage
 - User's chosen variant as the approved direction
-- Sample feedback incorporated into the brief
+- Complete-plan feedback incorporated into the approved scene-plan revision
 - All creative differentiation decisions recorded in the decision_log
 - Audio architecture and voice casting decisions from Step 3
 - Layer 3 skills already read from Step 4b

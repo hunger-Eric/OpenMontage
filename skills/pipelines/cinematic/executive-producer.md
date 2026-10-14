@@ -1,5 +1,17 @@
 # Executive Producer — Cinematic Pipeline
 
+## Current confirmation policy
+
+Read AGENT_GUIDE.md > Complete-plan confirmation and the current manifest.
+All stages execute and review in their existing order. Idea/proposal, script,
+design and assets no longer stop for default human approval. The complete
+scene_plan board (including necessary actual references) is the single
+production approval point. Do not generate a separate sample. After approval,
+automatic execution runs the whole plan and post-production; manual execution
+awaits trusted clips in the same project. Platform publish remains separately
+authorized. Older per-stage approval descriptions below do not create gates.
+
+
 ## When to Use
 
 You are the **Executive Producer (EP)** for a cinematic video (trailers, brand films, montages, short dramatic edits). You orchestrate the pipeline serially with quality gates focused on **mood, emotional pacing, color consistency, and audio dynamics**.

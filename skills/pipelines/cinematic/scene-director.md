@@ -1,5 +1,19 @@
 # Scene Director - Cinematic Pipeline
 
+## Complete-plan confirmation
+
+This is the shared human production-confirmation stage for automatic and manual
+execution. Use the existing research/proposal/script and scene requirements;
+prepare/reuse necessary actual reference images here, register their provenance,
+and publish the complete standalone board using feishu_video_plan. Do not
+generate video, TTS, music or a sample render before approval. Follow the shared
+[visual planning flow](../../../docs/references/visual-video-planning.md).
+Record board URL, source/plan hashes and execution choice in existing metadata;
+checkpoint awaiting_human and stop. After the user approves that revision,
+checkpoint completed with human_approved=True, then generate the whole approved
+film automatically or wait for trusted manual clips in the same project.
+
+
 ## When To Use
 
 You are deciding how each cinematic beat will look and transition. This is where mood becomes a visual plan.

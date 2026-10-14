@@ -4,6 +4,12 @@ Updated: 2026-10-14
 
 ## 2026-10-14 reusable native Feishu video-plan board
 
+- New production uses complete-plan confirmation at the existing scene-plan
+  gate for both automatic and manual execution. Default separate sample and
+  post-generation assets approvals are removed from production manifests;
+  internal reviews and platform-publication authorization remain required.
+  This policy change does not itself validate a new end-to-end production run.
+
 - Formal plan content follows the selected existing pipeline's research,
   proposal, script, scene-plan and registered reference assets. The board is a
   delivery projection, not a second planning pipeline. The live-action two-scene

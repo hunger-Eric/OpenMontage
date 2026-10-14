@@ -61,7 +61,7 @@ Include:
   when the user-approved adaptation requires it; this is not a copying template.
 - `continuity`: speech architecture and voice strategy, character identity,
   performance progression, visual/action continuity and audio transition plan.
-- `sample_scope`: the adjacent beats and transitions needed to test the plan.
+- `review_scope`: the adjacent beats and transitions to inspect during full production.
 - `unverified`: gaps, their impact and what evidence would resolve them.
 
 Removing a reference's brand, prices or promises does not remove its narrative
@@ -85,7 +85,7 @@ their real evidence, never bulk-rewritten or given fabricated checkpoints.
 
 | Stage | Production handoff |
 |---|---|
-| Proposal | Show which reference functions are retained, changed or unavailable. Bind the selected pipeline, speech architecture and sample scope. |
+| Proposal | Show which reference functions are retained, changed or unavailable. Bind the selected pipeline, speech architecture and full-run review scope. |
 | Script | Write and review the whole spoken story first. Map sections to beat IDs; each section advances the story. Read/review it continuously for spoken phrasing, repetition, meaning and ending. Do not write one interchangeable reminder per provider clip. |
 | Scene plan | Map each shot to a beat and its actual script section. Describe action, delivery/gesture intent, opening/closing state and connection to adjacent shots. Provider clip length is a material constraint, not the narrative clock. |
 | Assets | Prompts consume the approved script and scene plan, including neighboring delivery and action states. Preserve the story when repairing pronunciation; simplify phrasing locally rather than substituting generic filler throughout the film. |
@@ -149,24 +149,15 @@ For example, a preparation-to-handoff passage could be directed as follows
 | "照着清单核对箱数，再看包装有没有破损。" | Continue the explanation without another greeting or closing smile. | Show counting then packaging; preserve the spoken connection between them. |
 | "交接时把数量和货物情况记下来，这一批就有了清楚的记录。" | Resolve the setup with a calmer, deliberate close. | Show the handoff record, then return for the actual ending. |
 
-## 4. Use the existing sample to develop the sequence
+## 4. Review the actual sequence during full production
 
-Use the approved audio architecture and actual generation route for the sample.
-For multi-shot speech, choose adjacent spoken beats and their planned visual
-transition/insertion for the existing sample slot, within the provider envelope.
-Assemble them early so the sample develops the film's rhythm as well as its look.
-For a silent or single-shot production, use its corresponding pacing/action
-requirement instead. This changes sample content, not the number of approvals.
-
+The complete scene-plan board is the human production gate. Do not create a
+separate sample approval or wait for one. After approval, inspect generated
+adjacent beats and transitions as they become available in the full run.
 Check voice/delivery consistency, lip sync where promised, posture/action joins,
-speech flow, visual rhythm and environmental sound joins. If the sample used
-TTS but the full film will use video-native speech (or vice versa), it does not
-validate the changed speech architecture. Requalify only the affected sample
-under existing approval policy before batch production.
-
-If a provider cannot anchor a voice across clips, expose that continuity risk;
-an identity photo or repeated "same voice" prompt does not prove voice identity.
-Keep the approved route unless a material alternative is explicitly approved.
+speech flow, rhythm and ambience. Repair only failed leaves; preserve accepted
+sibling clips. A plan approval is not evidence that these actual-media checks
+passed. Material changes to the confirmed architecture require user direction.
 
 ## 5. Keep intent independent from performed output
 

@@ -69,16 +69,16 @@ Section-level delivery cues:
 - Offline/basic voices: rely on punctuation, shorter sentences, and explicit
   segment splitting because provider-level emotion controls may be unavailable.
 
-## Sample Gate
+## Internal performance review during full production
 
-Before batch narration generation:
+After complete-plan confirmation, during narration generation:
 
-1. Generate a sample from the most performance-sensitive section, not
-   automatically the first section.
+1. Review a generated performance-sensitive section from the actual full run;
+   do not create an extra approval sample or pause for human sample approval.
 2. Verify voice, pace, pauses, emphasis, and emotional arc.
-3. If the sample is flat, adjust the `voice_performance` plan or provider
-   settings before generating the rest.
-4. Record the approved sample path and provider settings in the asset manifest.
+3. If delivery is flat, repair the affected section within the confirmed voice
+   and performance plan before generating the rest.
+4. Record actual section paths, review findings and provider settings in the asset manifest.
 
 ## Failure Conditions
 
@@ -87,7 +87,6 @@ Treat these as quality failures:
 - A narration-led script has no `voice_performance` plan.
 - Section directions only say "read naturally" or "expressive" with no concrete
   pause, emphasis, pace, or energy cue.
-- TTS provider, voice, speed, or model changes after sample approval without a
-  new sample.
+- TTS provider, voice or model changes outside the confirmed plan without user direction.
 - Final narration is generated from raw script text while structured
   `provider_text` or `delivery_cues` were present.

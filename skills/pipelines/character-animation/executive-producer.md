@@ -1,5 +1,17 @@
 # Executive Producer - Character Animation Pipeline
 
+## Current confirmation policy
+
+Read AGENT_GUIDE.md > Complete-plan confirmation and the current manifest.
+All stages execute and review in their existing order. Idea/proposal, script,
+design and assets no longer stop for default human approval. The complete
+scene_plan board (including necessary actual references) is the single
+production approval point. Do not generate a separate sample. After approval,
+automatic execution runs the whole plan and post-production; manual execution
+awaits trusted clips in the same project. Platform publish remains separately
+authorized. Older per-stage approval descriptions below do not create gates.
+
+
 ## When To Use
 
 Use this pipeline when the requested deliverable depends on reusable animated
@@ -37,7 +49,7 @@ be built with the available rigs, assets, or runtime, surface a blocker.
   explicit user request for that runtime. A rig requirement alone does not
   authorize HyperFrames; if the rig has no Remotion handoff, report the gap and
   do not silently use HyperFrames or migrate historical assets.
-- Produce a 10-15 second sample before full asset generation.
+- Present the complete scene-plan board and necessary references for approval; do not require a separate 10-15 second sample.
 - Character differences belong in rig data, not one-off code paths.
 - Every generated or runtime-authored asset must list Layer 3 skills read.
 - Use `character_animation_reviewer` plus final `final_review` before delivery.
