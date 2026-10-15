@@ -380,7 +380,14 @@ This is a first-class workflow in OpenMontage.
    - style
    - what makes it work
 4. **Then** run normal capability audit and pipeline selection
-5. Present **2-3 differentiated concepts** for the user's version — not a carbon copy
+5. Resolve what the user wants to carry over. “复刻”/“复制” alone does not request
+   identical content or a locked source timeline. For requests to borrow pacing,
+   voice character, composition or explanation format, use `creative_adaptation`
+   and retain those concrete reference dimensions while adapting content to the
+   user's goal. Use `faithful_replica` only when the user explicitly wants source
+   content/order/timing retained. Do not force unrelated new concepts or visual
+   differentiation onto either request. Reuse known choices; clarify only material
+   unresolved scope, without requiring the user to choose a technical mode.
 
 For every reference-driven production, also read
 `skills/meta/reference-production-handoff.md`. Preserve the reference's
@@ -389,6 +396,17 @@ carry its approved revision through each stage. A reference summary, a suggested
 or completed checkpoints alone do not prove this handoff. Review script,
 performance and cross-shot continuity against the plan, separately from
 technical media validity. This applies equally to Feishu and local requests.
+Reference understanding now follows the migrated Hypit method and source; read
+`docs/references/hypit-reference-port.md` and the original reference-reading page
+linked by the analyst. The standard analyzer uses repository-local migrated code,
+not a Hypit command or Runtime. Its grids are evidence for the agent's connected
+Analysis/Timeline reading; technical success cannot mark that reading complete.
+Faithful replicas freeze source order, timing, content and authorized audio/brand
+layers in that same proposal metadata. Use `video_trimmer(reference_clip)` for
+hash-bound source ranges, pass the returned binding through VideoSelector, and
+use the existing `video_compose(preflight/preview/finalize)` Remotion path.
+Technical preview and reference fidelity are separate results; see the handoff
+for the executable payload and actual-media review requirements.
 
 ### Important distinction
 

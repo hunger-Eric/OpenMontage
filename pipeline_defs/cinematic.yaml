@@ -16,6 +16,7 @@ reference_input:
   analysis_depth: deep
   analysis_tools:
     - video_analyzer
+    - reference_media
     - transcript_fetcher
     - video_downloader
     - scene_detect
@@ -166,6 +167,7 @@ stages:
       - audio_enhance
       - image_selector
       - video_selector
+      - video_trimmer
       - threejs_world
       - threejs_asset_catalog
       - atlas_3d
@@ -182,6 +184,7 @@ stages:
       - audio_enhance
       - image_selector
       - video_selector
+      - video_trimmer
       - threejs_world
       - threejs_asset_catalog
       - atlas_3d

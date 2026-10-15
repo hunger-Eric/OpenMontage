@@ -31,7 +31,7 @@ from tools.base_tool import (
 
 class VideoAnalyzer(BaseTool):
     name = "video_analyzer"
-    version = "0.1.0"
+    version = "0.2.0"
     tier = ToolTier.ANALYZE
     capability = "analysis"
     provider = "multi"
@@ -43,6 +43,7 @@ class VideoAnalyzer(BaseTool):
     dependencies = ["cmd:ffmpeg"]
     install_instructions = (
         "Core: FFmpeg is required (https://ffmpeg.org/download.html)\n"
+        "Reference inspection: npm ci --prefix tools/analysis/_reference_media (migrated source, no Hypit install)\n"
         "For URL downloads: pip install yt-dlp\n"
         "For YouTube transcripts: pip install youtube-transcript-api\n"
         "For local transcription: pip install faster-whisper\n"
@@ -84,7 +85,7 @@ class VideoAnalyzer(BaseTool):
                 "default": "standard",
                 "description": (
                     "transcript_only: transcript + metadata only. "
-                    "standard: + scene detection + keyframes + audio energy. "
+                    "standard: + original Hypit reference grids/change evidence, scene detection, keyframes and audio energy. "
                     "deep: + intra-scene sampling + detailed style extraction."
                 ),
             },
@@ -94,6 +95,10 @@ class VideoAnalyzer(BaseTool):
                 "minimum": 1,
                 "maximum": 50,
                 "description": "Maximum keyframes to extract",
+            },
+            "reference_inspection": {
+                "type": "object",
+                "description": "Migrated media tiles options (every, start/end, around/transcript, cell, columns/rows). Omitted values retain Hypit's defaults; choose density and range for the question.",
             },
             "output_dir": {
                 "type": "string",
@@ -124,11 +129,13 @@ class VideoAnalyzer(BaseTool):
     )
     idempotency_key_fields = [
         "source", "analysis_depth", "playwright_storage_state_path", "reference_acquisition",
+        "reference_inspection",
     ]
     side_effects = [
         "downloads video to output_dir (if URL)",
         "writes keyframe images to output_dir/keyframes/",
         "writes analysis JSON to output_dir/video_analysis_brief.json",
+        "executes migrated local inspection source for probe/grids/boundaries and records outputs",
     ]
     fallback_tools = []
     user_visible_verification = [
@@ -172,6 +179,8 @@ class VideoAnalyzer(BaseTool):
             output_dir = Path(inputs["output_dir"])
         else:
             output_dir = Path("projects/_analysis") / f"analysis_{int(time.time())}"
+        if (output_dir / "video_analysis_brief.json").exists():
+            return ToolResult(success=False, error="Analysis already exists; reuse it or choose a fresh output_dir")
         output_dir.mkdir(parents=True, exist_ok=True)
 
         platform = self._detect_platform(source)
@@ -441,6 +450,39 @@ class VideoAnalyzer(BaseTool):
                 duration_seconds=round(time.time() - start, 2),
             )
 
+        # Execute the migrated Hypit inspection source. No locally invented
+        # camera/shot classifier, fixed sampling policy or semantic completion gate.
+        from tools.analysis.reference_media import ReferenceMedia
+        inspector = ReferenceMedia()
+        reference_dir = output_dir / "reference-evidence"
+        native_evidence = {}
+        inspection_artifacts = []
+        for operation in ("probe", "tiles", "boundaries"):
+            request = {"operation": operation, "input_path": video_path,
+                       "receipt_path": str(reference_dir / f"{operation}.json")}
+            if operation == "tiles":
+                request.update(output_path=str(reference_dir / "grids"), options=inputs.get("reference_inspection", {}))
+            inspected = inspector.execute(request)
+            if not inspected.success:
+                steps_failed.append(f"reference_{operation}: {inspected.error}")
+                brief["_analysis_meta"] = {"depth": depth, "steps_completed": steps_completed,
+                    "steps_failed": steps_failed, "interpretation_status": "not_performed"}
+                self._save_brief(brief, output_dir)
+                return ToolResult(success=False, error=f"Migrated reference inspection unavailable: {inspected.error}",
+                    data=brief, artifacts=inspection_artifacts + [str(output_dir / "video_analysis_brief.json")],
+                    duration_seconds=round(time.time() - start, 2))
+            native_evidence[operation] = inspected.data
+            inspection_artifacts.extend(inspected.artifacts)
+            steps_completed.append(f"reference_{operation}")
+        brief["source"].update(local_path=native_evidence["probe"]["source_path"], sha256=native_evidence["probe"]["source_sha256"])
+        brief["reference_understanding"] = {
+            "method": "hypit_source_port", "version": native_evidence["probe"]["version"],
+            "source_sha256": native_evidence["probe"]["source_sha256"],
+            "evidence": {op: str((reference_dir / f"{op}.json").resolve()) for op in native_evidence},
+            "notes": {name: str((output_dir / f"{name}.md").resolve()) for name in ("ANALYSIS", "TIMELINE", "PROGRESS")},
+            "interpretation_status": "pending_agent_reading",
+        }
+
         # ─── STEP 3: Scene detection (standard + deep) ───
         scenes = []
         if video_path:
@@ -632,12 +674,14 @@ class VideoAnalyzer(BaseTool):
             "scene_count": len(scenes),
             "has_transcript": transcript_data is not None,
             "duration_seconds": round(time.time() - start, 2),
+            "interpretation_status": "pending_agent_reading",
         }
 
         self._save_brief(brief, output_dir)
 
         elapsed = time.time() - start
         artifacts = [str(output_dir / "video_analysis_brief.json")]
+        artifacts.extend(inspection_artifacts)
         if keyframe_dir.exists():
             artifacts.append(str(keyframe_dir))
 

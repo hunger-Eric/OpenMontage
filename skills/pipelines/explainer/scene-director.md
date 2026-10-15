@@ -16,6 +16,12 @@ film automatically or wait for trusted manual clips in the same project.
 
 ## When to Use
 
+For faithful replicas, consume the proposal's source units and internal cut map
+from `reference-production-handoff.md`. Preserve foreground/subject position,
+viewpoint, action and rhythm; do not use provider-length slots as the final clock.
+Bind scene metadata to the proposal SHA and unit IDs, with optional identity views
+only where needed and checked against source composition.
+
 You are the Scene Planner for a generated explainer video. You have a `script` artifact with timestamped sections and enhancement cues. Your job is to transform the script into a visual plan: what the viewer sees at every moment, what assets need to be created, and how scenes transition.
 
 This is where words become visuals. A great script with a bad scene plan produces a confusing video.

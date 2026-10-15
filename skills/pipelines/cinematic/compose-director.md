@@ -6,6 +6,13 @@ Render the cinematic piece with careful attention to grade, audio dynamics, and 
 
 ## Runtime Routing (MANDATORY first step)
 
+An explicit faithful replica follows `skills/meta/reference-production-handoff.md`:
+the existing video_compose entry consumes the proposal SHA and edit's source
+timeline projection, routing its explicit video/text/audio/brand layers to
+Remotion ReferenceReplica. Preserve source geometry and rhythm, with no genre
+reinterpretation. Creative adaptation continues through CinematicRenderer.
+Keep technical preview and actual source-fidelity review separate.
+
 Read `edit_decisions.render_runtime`. Cinematic work routes to:
 
 - **`render_runtime="remotion"`** — default for video-led trailers using `CinematicRenderer`. Keeps video clips, transitions, and ambient overlays in one React-based pass.

@@ -327,6 +327,9 @@ class VideoSelector(BaseTool):
                 "description": "Optional provenance metadata for custom workflow dependencies.",
             },
             "output_path": {"type": "string"},
+            "reference_adaptation_ref": {"type": "object"},
+            "reference_unit_id": {"type": "string"},
+            "reference_receipt_path": {"type": "string"},
             "project_url": {
                 "type": "string",
                 "description": "Existing Google Flow project URL for the google_flow provider.",
@@ -481,6 +484,10 @@ class VideoSelector(BaseTool):
 
         # Adapt input keys: stock tools use 'query' while generators use 'prompt'
         adapted = deepcopy(inputs)
+        if adapted.get("reference_adaptation_ref") and not getattr(tool, "supports", {}).get("source_timeline_binding"):
+            return ToolResult(success=False,
+                error=f"{tool.name} does not implement source timeline binding; keep the selected route and resolve its contract",
+                data={"selected_tool": tool.name, "fallback_used": False})
         fixed_model = getattr(tool, "supports", {}).get("usage_conditions", {}).get("fixed_model")
         if fixed_model:
             for field in ("model", "model_id", "model_name", "model_variant"):

@@ -15,6 +15,7 @@ reference_input:
   analysis_depth: standard
   analysis_tools:
     - video_analyzer
+    - reference_media
     - transcript_fetcher
     - video_downloader
     - scene_detect
@@ -157,6 +158,7 @@ stages:
       - image_selector
     optional_tools:
       - video_selector
+      - video_trimmer
       - math_animate
       - diagram_gen
       - code_snippet
@@ -165,6 +167,7 @@ stages:
       - tts_selector
       - image_selector
       - video_selector
+      - video_trimmer
       - diagram_gen
       - code_snippet
       - music_gen

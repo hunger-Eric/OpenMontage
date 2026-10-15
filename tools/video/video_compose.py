@@ -960,7 +960,7 @@ class VideoCompose(BaseTool):
         """
 
         staged_by_source: dict[Path, str] = {}
-        media_keys = {"source", "src", "backgroundSrc", "videoSrc"}
+        media_keys = {"source", "src", "backgroundSrc", "videoSrc", "audioSrc"}
 
         def visit(node: Any, parent_key: str | None = None) -> Any:
             if isinstance(node, dict):
@@ -1676,6 +1676,9 @@ class VideoCompose(BaseTool):
         edit_decisions = inputs.get("edit_decisions")
         if not isinstance(edit_decisions, dict):
             return
+        from tools.video.reference_contract import faithful_plan
+        if faithful_plan(inputs.get("proposal_packet", {})):
+            return  # The source timeline compiler validates replica layers.
         if (edit_decisions.get("render_runtime") == "remotion"
                 and edit_decisions.get("renderer_family") == "presenter"):
             asset_manifest = inputs.get("asset_manifest")
@@ -1853,7 +1856,11 @@ class VideoCompose(BaseTool):
             )
         if use_remotion:
             remotion_edit_decisions = dict(edit_decisions, cuts=resolved_cuts)
-            if edit_decisions.get("renderer_family") == "presenter":
+            from tools.video.reference_contract import compile_timeline
+            reference_timeline = compile_timeline(inputs)
+            if reference_timeline:
+                remotion_edit_decisions["reference_replica_props"] = reference_timeline
+            elif edit_decisions.get("renderer_family") == "presenter":
                 remotion_edit_decisions.update(self._presenter_props_from_metadata(
                     edit_decisions, asset_manifest, inputs.get("narration_transcript_path")
                 ))
@@ -1889,7 +1896,7 @@ class VideoCompose(BaseTool):
                         f"Per governance: renderer downgrade requires user approval."
                     ),
                 )
-            if inputs.get("audio_path"):
+            if inputs.get("audio_path") and not reference_timeline:
                 mux_result = self._mux_external_audio(output_path, inputs["audio_path"])
                 if not mux_result.success:
                     return mux_result
@@ -2202,6 +2209,9 @@ class VideoCompose(BaseTool):
         # This prevents all pipelines from collapsing into the Explainer visual grammar.
         renderer_family = (composition_data or {}).get("renderer_family", "explainer-data")
         composition_id = self._get_composition_id(renderer_family)
+        if composition_data.get("reference_replica_props"):
+            composition_id = "ReferenceReplica"
+            props = composition_data["reference_replica_props"]
 
         if composition_id == "CinematicRenderer":
             if not props.get("scenes") and props.get("cuts"):

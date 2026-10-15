@@ -1,0 +1,300 @@
+{
+  "package": "@hypit/hypit",
+  "package_version": "0.2.6",
+  "upstream_repository": "https://github.com/hypit-ai/hypit",
+  "source_files": [
+    {
+      "upstream": "packages/video-cli/src/media.ts",
+      "upstream_sha256": "5f7007ca4aa0f5f7a6181fb3ec2a0770bb2d448ee4a6265a5b35f1de3254eb6e",
+      "local": "tools/analysis/_reference_media/media.ts",
+      "local_sha256": "0e8484de2bf879dac0c1de0fba5825221dc4001c3496aad6a79a1de3532ffcd3"
+    },
+    {
+      "upstream": "packages/video-cli/src/process.ts",
+      "upstream_sha256": "594bef0edb0b9cfb4331458c097e494260539bdb28109aab756ae89ed4563537",
+      "local": "tools/analysis/_reference_media/process.ts",
+      "local_sha256": "594bef0edb0b9cfb4331458c097e494260539bdb28109aab756ae89ed4563537"
+    },
+    {
+      "upstream": "packages/video-cli/src/transcript.ts",
+      "upstream_sha256": "592d0646865ef2e8eccaa11b938ae99a2f1bcd59fc28714946e70ca19281a940",
+      "local": "tools/analysis/_reference_media/transcript.ts",
+      "local_sha256": "592d0646865ef2e8eccaa11b938ae99a2f1bcd59fc28714946e70ca19281a940"
+    }
+  ],
+  "reference_book": [
+    {
+      "path": "references/creation/brief.md",
+      "sha256": "0fa2494e8bbb6a1207d3f43e60a57eafea73362899416f99f636b499ecd0711f"
+    },
+    {
+      "path": "references/creation/project-files.md",
+      "sha256": "acb4a23fdda078fe134a83b8e75beb7455f15d294c5013fbfdd96a880d18dfcf"
+    },
+    {
+      "path": "references/creation/reference-video.md",
+      "sha256": "eab539a8bb11395595f22d8072f11e6cb39cbf516ada81f0d5c064c2f85ab268"
+    },
+    {
+      "path": "references/creation/script-and-time.md",
+      "sha256": "635c3004e9826c8a8af5c4322d82d2e4f43d904f3d27af55836cdfcc7423f9f6"
+    },
+    {
+      "path": "references/creation/transformations.md",
+      "sha256": "b6762aa5f627642e9d29a7fdfbb4955c400efa29d327e863956d0aa52de303ea"
+    },
+    {
+      "path": "references/environment/distribution.md",
+      "sha256": "d44bf6c1dfa2c2f83b929195bc0f40839d6fd1445389ffa2f93e94c0d5dc7b57"
+    },
+    {
+      "path": "references/environment/local-tools.md",
+      "sha256": "7b0117ae5208ef149528c08608c71e8efb5ddf6683d3ff04a80b1b6e4310d244"
+    },
+    {
+      "path": "references/environment/model-and-provider.md",
+      "sha256": "0105ea95859697e7a80c15ae2c2a2da969e1c607867720e8d086e4f947073759"
+    },
+    {
+      "path": "references/environment/profile.md",
+      "sha256": "0eb9d7843e8cf4530d687d81adc15086f69416e61929f5b3cc3d2bce3f164b4b"
+    },
+    {
+      "path": "references/playbooks/craft/b-roll.md",
+      "sha256": "460c15c28e76f66e2193c8cfca31d95994abe8ee8204fe712fc6317346b5e8f3"
+    },
+    {
+      "path": "references/playbooks/craft/caption-tracking.md",
+      "sha256": "fbc4878ce16336df8c2b9717d152d0497e361ade214e04ae0446de27a2c6bd30"
+    },
+    {
+      "path": "references/playbooks/craft/captions.md",
+      "sha256": "1f1fae514c53d0a784ec21fb1bad067b14f6abefd9bc1fb1d332fe85f7ce4233"
+    },
+    {
+      "path": "references/playbooks/craft/compositing.md",
+      "sha256": "5ad1810160e233055bc23e5e8260b38a9084d54c3c1ac85a980f959fd77c6878"
+    },
+    {
+      "path": "references/playbooks/craft/examples/conversation-images.md",
+      "sha256": "05caa738f96a0c450c56f98482eee5550cc048afd231f2f62b215c5ef1524864"
+    },
+    {
+      "path": "references/playbooks/craft/examples/image-direction.md",
+      "sha256": "ae394c436f35d8d5074b257f0ba0cf6a8aebfa0e67aee95e53a41be8518dff9f"
+    },
+    {
+      "path": "references/playbooks/craft/frame-coverage.md",
+      "sha256": "53493b42ea1c037ed06112510a52a41451f6612e9b95ab78c258bb3a1cbf39bd"
+    },
+    {
+      "path": "references/playbooks/craft/generated-dependencies.md",
+      "sha256": "cf412eb63c15a47ea59396c5626d304e44f41cf578f7ba7bff7e4f5bf5f651f9"
+    },
+    {
+      "path": "references/playbooks/craft/graphic-compositions.md",
+      "sha256": "ba6b3c954304034b85725b93d173d7d5f5b8d6245cdb6f239b68be4d958628f1"
+    },
+    {
+      "path": "references/playbooks/craft/image-direction.md",
+      "sha256": "3b46e00ee5cd822774ead9d6b69b04de0cba4465271bc3ed1e29e4c46a98e83c"
+    },
+    {
+      "path": "references/playbooks/craft/sound-mix.md",
+      "sha256": "8c69d097d2a80fae5b8b95dcc665374b3374ec3a9b74209aeddcb9001f857a3b"
+    },
+    {
+      "path": "references/playbooks/craft/video-direction.md",
+      "sha256": "f452b437b93e6db45841fb1887759203d57a3d8486e6b6a2ade48031a4f4789d"
+    },
+    {
+      "path": "references/playbooks/craft/visual-continuity.md",
+      "sha256": "ddfd47e1f6c687a8a933d680f9aea8a97ef137a5d2273ba2c1f353938be1d240"
+    },
+    {
+      "path": "references/playbooks/craft/voice-and-performance.md",
+      "sha256": "6fe0f5b8a35a8afcab62f05b335d94cf58b3c00d7516783c80b4ed906ebb6bba"
+    },
+    {
+      "path": "references/playbooks/craft/voice-direction.md",
+      "sha256": "2c804cc46daf0d358259c5b3624872f6c80ac5f54283ec56d0cc09f04f99789f"
+    },
+    {
+      "path": "references/playbooks/formats/narration-led-demo.md",
+      "sha256": "c567b748f5c37a2bc779c51531564e116e0b4ef2164b3ef1438e87a16d7fef50"
+    },
+    {
+      "path": "references/playbooks/formats/presenter-led-explainer.md",
+      "sha256": "9fc9893e94e486a4ca0880b728ed13d6cc475319d6b3ba63f30a7db754b8948d"
+    },
+    {
+      "path": "references/playbooks/formats/ranking-listicle.md",
+      "sha256": "3c028399eaace7d048b68fb684d57da1d74d133716d4ce71b2443af9ce7a76ac"
+    },
+    {
+      "path": "references/playbooks/formats/short-drama.md",
+      "sha256": "bf22e9137e9b295e357638ed9210832886f88b76959883947522fa13510ab7c9"
+    },
+    {
+      "path": "references/playbooks/formats/street-interview.md",
+      "sha256": "7b367f72d7c0c55ec6f80328805681a4b711070e81e77623812f1b076b5c61f9"
+    },
+    {
+      "path": "references/playbooks/formats/talking-head.md",
+      "sha256": "6cc3eace0ed5595e979f7d7f3947fcea289fa0ee431cc5d3d719272e6d393c00"
+    },
+    {
+      "path": "references/playbooks/formats/two-person-podcast.md",
+      "sha256": "f0af31bd603a610cad7fdcad3544cd0bcad6bfb2d601fbf90b7b33f14708f64d"
+    },
+    {
+      "path": "references/playbooks/index.md",
+      "sha256": "03ffc33811549855508b3f8c161b923ffb3c0787c8cf236788c822a56aefba16"
+    },
+    {
+      "path": "references/production/authoring.md",
+      "sha256": "cab7957ca4176097608aa57abda195f878285066a14d4d92c05dc330c2f2ece2"
+    },
+    {
+      "path": "references/production/browser-capture.md",
+      "sha256": "691de879fec6e063386093a9e8d8035039c7888400eb8fdabacc19f00bc84a52"
+    },
+    {
+      "path": "references/production/builds.md",
+      "sha256": "9d75d2531f68a025704f5586e168491acff035775e97b6b3082fa422268c8c3f"
+    },
+    {
+      "path": "references/production/caption-authoring.md",
+      "sha256": "5ddb38b55c457c1d984e0ad41c998f57be73c4a11e47c79f12bfaba08888b0d3"
+    },
+    {
+      "path": "references/production/caption-presentation.md",
+      "sha256": "8e0f1cf9a8804527cbdd24d3f359a452fb9af3e2f2ba15daee4012b83a55c56e"
+    },
+    {
+      "path": "references/production/component-design.md",
+      "sha256": "f6b88dd38c5fc2a8f3e4d5ed05d12fbd63ee1eac334b6d6b2ead92bb7f7b65a2"
+    },
+    {
+      "path": "references/production/component-sharing.md",
+      "sha256": "93739d3802056f9e77e598a95a89529c1c5e7b5e72a3471e9feb2d6dbb3e4a01"
+    },
+    {
+      "path": "references/production/component-visuals.md",
+      "sha256": "e7bdf4b685a32c95ad51913ef85c6bc7b6b99262a7262fbb18154b2199ca248b"
+    },
+    {
+      "path": "references/production/examples/detail.svrun",
+      "sha256": "5741e2a4b7b8e5db24ba4e0f26f95f98d056f752053769e35bef93301c1a4e82"
+    },
+    {
+      "path": "references/production/examples/look.svs",
+      "sha256": "03883a1b74431b1c08fbb92486361419612c4b605d25ee481718492493ca1800"
+    },
+    {
+      "path": "references/production/examples/material.svrun",
+      "sha256": "3223b32369ffec3fce398c28bc9a42cced0245b5b1f458ec0a6ee86332d8b3a1"
+    },
+    {
+      "path": "references/production/examples/production.svml",
+      "sha256": "c2df158f6c989958f48550ff8151f34e222cd22568f2494edeb7599f7f7ed04c"
+    },
+    {
+      "path": "references/production/examples/production.svrun",
+      "sha256": "c22daa2b61ece0d3246c8be9d122a551879b8ae2ab1e14d69ae6133cc946d779"
+    },
+    {
+      "path": "references/production/examples/visuals.ts",
+      "sha256": "2e519bab2bb3face90ae253eff41775634e0bf8d2311e2e4e3c05865ea26cf5f"
+    },
+    {
+      "path": "references/production/fonts-and-text.md",
+      "sha256": "bb1a8ff657e7fd8de90313adca14fe609545ba1c4726d61572248360f3c11cb0"
+    },
+    {
+      "path": "references/production/image-operations.md",
+      "sha256": "3c35ff0f83a803e50262e0e5246b6372833bbb7a97c70ecdcee9f033703a73b2"
+    },
+    {
+      "path": "references/production/media.md",
+      "sha256": "ef5daa53b7955a9abb6693870c668db5733b6d21490165982d12fe30250c6eee"
+    },
+    {
+      "path": "references/production/performance.md",
+      "sha256": "8724ae5d1b4fd8d2a6bd11feccc25374f3f9d77035fb8d61fff856f95466cfab"
+    },
+    {
+      "path": "references/production/prompt-kits.md",
+      "sha256": "0969621da78695c45375bbb72033985c99a44f5cdc39159a22c4cb1913c814b7"
+    },
+    {
+      "path": "references/production/rendering.md",
+      "sha256": "5127b566d1987bffd9f15e7d316b538053d8c0963b70717e36da45e9fd2c9aad"
+    },
+    {
+      "path": "references/production/review.md",
+      "sha256": "bf4b47046397066d50db71d7fa4d7d12b640d5d3c34f74346095aa1d17af8123"
+    },
+    {
+      "path": "references/production/runs.md",
+      "sha256": "8f90659bda9b2d2b7bfddd7a8cb3aed6bbd3a9a21f73947fc8f27b2bef2f53c1"
+    },
+    {
+      "path": "references/production/sound.md",
+      "sha256": "8e511c262ff1e2cbf1f767f1622d47c405615ee19222a1e740b0ec4e1e48f171"
+    },
+    {
+      "path": "references/production/source-syntax.md",
+      "sha256": "f119632be866f8eb90e8bc6811f1981e6abfc396099f94e7bc4ca372c59ce1f2"
+    },
+    {
+      "path": "references/production/spatial.md",
+      "sha256": "c1fe1b2e3f0768e0d13f4cf7ea5e214233d22e506630c488cf392bc47d5c5a14"
+    },
+    {
+      "path": "references/production/studio-companions.md",
+      "sha256": "255381ce55f17dfdf63509853b18aceed937f344e1fdf2a7de38e3b5850d41c5"
+    },
+    {
+      "path": "references/production/studio.md",
+      "sha256": "4b6e9e2b67caed7f2812a45766fc30174c908c6f24a10a7e9409bda2790d05dc"
+    },
+    {
+      "path": "references/production/system.md",
+      "sha256": "ebc8e036070309a2d77c6fa9c72c3a7bcbe6b0c2ac084216c6bbea5a2d5b64ea"
+    },
+    {
+      "path": "references/production/timeline.md",
+      "sha256": "cb2e8c7998e2a6c1059bb4de54400cee0f2669422d6b75a8c996446df1073777"
+    },
+    {
+      "path": "references/production/track-authoring.md",
+      "sha256": "1481fb137b1403c39f2dc5b38b23b2a1302523c27d2449c7c4da3284948d5e08"
+    },
+    {
+      "path": "references/production/tracks.md",
+      "sha256": "c84d99d608c7795146119560999ae746e9b5940f525d60b1a693e026adce6209"
+    },
+    {
+      "path": "references/production/video-downloads.md",
+      "sha256": "428516262e8101f90e1424efe39bb92fd7c79ae56537af288ee4c74cd988acca"
+    },
+    {
+      "path": "references/production/vocabulary.md",
+      "sha256": "90633cf9195c50289b81bb09ac5a0a89ccc0d6755b176750ea6151d937f2d287"
+    },
+    {
+      "path": "SKILL.md",
+      "sha256": "3d57bd73efb9b44ba035fdf61a92176ccce9871b90f30d50206a101d47fb95cd"
+    }
+  ],
+  "reference_book_source": "Installed Hypit skill snapshot; no upstream commit inferred",
+  "changes": [
+    "Replaced type-only CliIo dependency with its local write interface.",
+    "Removed fetch/prepare-fetch and @hypit/yt-dlp import; OpenMontage retains media acquisition.",
+    "Added a local Node runner and pinned sharp/tsx dependency manifest.",
+    "Normalized adapted media.ts line endings to LF for byte-stable Git checkouts.",
+    "Inspection, seek/timestamps, grids, phrase lookup, motion-change scoring and refusal-to-overwrite algorithms retained."
+  ],
+  "runtime_dependency": "No Hypit command, installed package, Profile, Runtime or account required."
+}

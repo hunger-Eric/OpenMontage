@@ -64,7 +64,8 @@ def resolve_video_project(client: Any) -> str:
 
 
 def configure_video_settings(client: Any, project_url: str, model: str,
-                             duration: float, aspect_ratio: str) -> dict:
+                             duration: float, aspect_ratio: str,
+                             inherit_video_duration: bool = False) -> dict:
     if duration not in {4, 6, 8, 10} or aspect_ratio not in {"16:9", "9:16"}:
         raise GoogleFlowMCPError("Flow video requires 4/6/8/10 seconds and 16:9 or 9:16")
     # Agent chat hides the ordinary composer. The header's Tools link goes to
@@ -107,19 +108,27 @@ def configure_video_settings(client: Any, project_url: str, model: str,
                                      "Flow video composer unavailable after closing Agent panel")
     if snapshot.get("url") != project_url:
         raise GoogleFlowMCPError("Flow project changed while exiting Agent panel")
+    duration_pattern = rf"(?:^|\s){duration:g}\s*(?:秒|s|seconds?)(?:$|\s)"
     choices = [r"(?:^|\s)(?:视频|video)(?:$|\s)",
                r"crop_16_9|16:9" if aspect_ratio == "16:9" else r"crop_9_16|9:16",
-               r"720p", rf"(?:^|\s){duration:g}\s*(?:秒|s|seconds?)(?:$|\s)",
+               r"720p",
                r"(?:^|\s)x1(?:$|\s)"]
+    if not inherit_video_duration:
+        choices.insert(3, duration_pattern)
 
     def open_settings() -> dict:
         current = wait_snapshot(client, lambda s: bool(button(s, trigger)), "Flow has no settings trigger")
         client.call_tool("flow_click", {"ref": button(current, trigger)}, timeout_seconds=30)
-        return wait_snapshot(client, lambda s: any(model in str(i.get("text", "")) for i in visible(s))
+        return wait_snapshot(client, lambda s: bool(button(s, rf"^{re.escape(model)}(?:\s|$)"))
                              and all(matching(s, p, "radio") for p in choices),
                              f"Flow model/settings unavailable: {model}")
 
     snapshot = open_settings()
+    if inherit_video_duration and any(
+        re.search(r"(?:^|\s)(?:4|6|8|10)\s*(?:秒|s|seconds?)(?:$|\s)", str(i.get("text", "")), re.I)
+        for i in visible(snapshot) if i.get("role") == "radio"
+    ):
+        raise GoogleFlowMCPError("Video reference did not enter source_video mode; ordinary duration controls remain")
     for pattern in choices:
         ref = matching(snapshot, pattern, "radio")
         if not ref:
@@ -131,10 +140,12 @@ def configure_video_settings(client: Any, project_url: str, model: str,
     def retained(s: dict) -> bool:
         return any("720p" in str(i.get("text", "")) and "x1" in str(i.get("text", ""))
                    and re.search(choices[1], str(i.get("text", "")))
-                   and re.search(choices[3], str(i.get("text", ""))) for i in visible(s))
+                   and (inherit_video_duration or re.search(duration_pattern, str(i.get("text", "")))) for i in visible(s))
 
     snapshot = wait_snapshot(client, retained, "Flow did not retain the requested video settings")
     if snapshot.get("url") != project_url:
         raise GoogleFlowMCPError("Flow project changed while configuring settings")
-    return {"model": model, "duration": duration, "aspect_ratio": aspect_ratio,
+    return {"model": model, "duration": None if inherit_video_duration else duration,
+            **({"duration_mode": "source_video", "requested_duration": duration} if inherit_video_duration else {}),
+            "aspect_ratio": aspect_ratio,
             "resolution": "720p", "results": 1, "verified": True}

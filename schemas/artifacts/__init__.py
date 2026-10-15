@@ -54,6 +54,8 @@ def validate_artifact(name: str, data: dict[str, Any]) -> None:
                 "selected_concept must reference exactly one concept_options entry",
                 path=["selected_concept", "concept_id"],
             )
+        from tools.video.reference_contract import validate_plan
+        validate_plan(data)
 
 
 def list_schemas() -> list[str]:

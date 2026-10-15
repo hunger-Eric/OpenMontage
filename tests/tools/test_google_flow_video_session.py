@@ -93,6 +93,33 @@ def test_homepage_and_agent_mode_resolve_and_verify_settings():
     assert any(args.get("ref") == "close-agent" for _, args in client.calls)
 
 
+def test_video_reference_mode_does_not_require_unavailable_duration_control():
+    client = FlowUI()
+    client.project = client.tools = True
+    original = client.snapshot
+    def snapshot():
+        result = original()
+        result['interactables'] = [item for item in result['interactables'] if item['ref'] != 'duration']
+        return result
+    client.snapshot = snapshot
+    settings = video_session.configure_video_settings(
+        client, 'https://flow.google.com/project/test', 'Omni 1.1 Flash', 8, '9:16',
+        inherit_video_duration=True,
+    )
+    assert settings['verified'] and settings['duration'] is None
+    assert settings['duration_mode'] == 'source_video' and settings['requested_duration'] == 8
+    assert client.duration == 4 and client.aspect == '9:16'
+    assert not any(args.get('ref') == 'duration' for name, args in client.calls if name == 'flow_click')
+
+
+def test_video_reference_cannot_attest_source_mode_with_ordinary_duration_controls():
+    client = FlowUI()
+    client.project = client.tools = True
+    with pytest.raises(GoogleFlowMCPError, match='source_video mode'):
+        video_session.configure_video_settings(client, 'https://flow.google.com/project/test',
+            'Omni 1.1 Flash', 8, '9:16', inherit_video_duration=True)
+
+
 @pytest.mark.parametrize("initial_mode", ["video", "agent_expanded", "agent_collapsed", "agent_close_collapses"])
 def test_video_and_both_agent_panel_states_are_supported(initial_mode):
     client = FlowUI()

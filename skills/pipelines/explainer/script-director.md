@@ -19,6 +19,13 @@ The script is the backbone of the video. Every visual, every scene, every audio 
 
 ## Process
 
+For `reference_adaptation.mode="faithful_replica"`, preserve verified source
+speech/copy and source timing instead of drafting a new story. Keep uncertain
+transcript words marked; no generic rewrite or new TTS for authorized original
+audio reuse. Bind `metadata.reference_adaptation_ref` to the proposal SHA and
+map source passages to its unit IDs. Language/copy changes require the existing
+audio architecture; original sound must not override those changes.
+
 ### Step 1: Absorb the Proposal and Research
 
 Read the `proposal_packet.selected_concept` carefully. Extract:

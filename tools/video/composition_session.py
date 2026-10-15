@@ -41,6 +41,8 @@ def preflight(tool, inputs: dict) -> dict:
     plan = inputs["proposal_packet"]["production_plan"]
     if edit["render_runtime"] != plan.get("render_runtime"):
         raise ValueError("proposal and edit render_runtime differ")
+    from tools.video.reference_contract import compile_timeline
+    reference_timeline = compile_timeline(inputs)
     files = set()
 
     def require(raw):
@@ -51,6 +53,12 @@ def preflight(tool, inputs: dict) -> dict:
         return path
 
     assets = {asset["id"]: asset for asset in inputs["asset_manifest"]["assets"]}
+    if reference_timeline:
+        adaptation = inputs["proposal_packet"]["metadata"]["reference_adaptation"]
+        require(edit["metadata"]["reference_adaptation_ref"]["proposal_path"])
+        require(adaptation["reference_evidence"]["source_path"])
+        if reference_timeline.get("audioSrc"):
+            require(reference_timeline["audioSrc"])
     for asset in assets.values():
         require(asset["path"])
     for cut in edit["cuts"]:
@@ -143,6 +151,11 @@ def preview(tool, inputs: dict) -> ToolResult:
     receipt = {"schema_version": "composition_preview.v1", **identity,
                "video_path": str(output), "video_sha256": file_hash(output),
                "full_decode": True, "final_review": result.data["final_review"]}
+    from tools.video.reference_contract import compile_timeline
+    reference = compile_timeline(inputs)
+    if reference:
+        receipt["reference_fidelity"] = reference["reference_fidelity"]
+        result.data["reference_fidelity"] = reference["reference_fidelity"]
     with receipt_path.open("x", encoding="utf8") as stream:
         json.dump(receipt, stream, ensure_ascii=False, indent=2)
     result.data.update({"operation": "preview", "acceptance_eligible": True,
@@ -154,6 +167,10 @@ def preview(tool, inputs: dict) -> ToolResult:
 
 def finalize(tool, inputs: dict) -> ToolResult:
     identity = preflight(tool, inputs)
+    from tools.video.reference_contract import compile_timeline
+    reference = compile_timeline(inputs)
+    if reference and reference["reference_fidelity"]["status"] != "pass":
+        raise ValueError("Reference fidelity is not accepted; technical preview is not faithful-replica delivery")
     receipt = json.loads(Path(inputs["preview_receipt_path"]).read_text(encoding="utf8"))
     if (receipt.get("schema_version") != "composition_preview.v1"
             or receipt.get("input_sha256") != identity["input_sha256"]
@@ -170,6 +187,17 @@ def finalize(tool, inputs: dict) -> ToolResult:
             or visual.get("method") not in {"full_frame_sequence", "continuous_watch"}
             or not visual.get("observations")):
         raise ValueError("Owner must inspect this exact preview and record visual acceptance")
+    if reference:
+        fidelity = visual.get("reference_fidelity", {})
+        ref = inputs["edit_decisions"]["metadata"]["reference_adaptation_ref"]
+        source_sha = inputs["proposal_packet"]["metadata"]["reference_adaptation"]["reference_evidence"]["sha256"]
+        checks = fidelity.get("checks", {})
+        if (fidelity.get("status") != "pass" or fidelity.get("source_sha256") != source_sha
+                or fidelity.get("proposal_sha256") != ref["proposal_sha256"]
+                or set(checks) != {"content", "order", "rhythm", "composition", "captions", "audio", "lip_sync"}
+                or any(value not in {"pass", "not_applicable"} for value in checks.values())
+                or not fidelity.get("evidence")):
+            raise ValueError("Owner reference comparison for this exact preview is missing or unverified")
     output = Path(inputs["output_path"]).resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
     # Exclusive create preserves historical final files and the reviewed bytes.

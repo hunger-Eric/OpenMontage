@@ -10,6 +10,14 @@ provenance. Never switch route after a provider failure without authorization.
 
 ## When to Use
 
+For faithful replicas, follow `skills/meta/reference-production-handoff.md`'s
+registered `video_trimmer(reference_clip)` -> `VideoSelector` binding. Generate
+from the corresponding actual source segment, not just a described still. Keep
+optional identity references from overriding camera/framing. Review action,
+composition, internal cuts and embedded text against actual source media. Reuse
+accepted leaves and retain unknown attempts; original authorized audio is a
+separate layer, not a new TTS/music request.
+
 You are the Asset Producer for a generated explainer video. You have a `scene_plan` with required assets and a `script` with narration text. Your job is to generate every asset needed: narration audio, images, diagrams, code snippets, and background music. Every file must exist on disk before you finish.
 
 This is where plans become real files. A missing or low-quality asset will torpedo the final video.

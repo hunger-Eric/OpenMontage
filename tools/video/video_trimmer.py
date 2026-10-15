@@ -44,7 +44,7 @@ class VideoTrimmer(BaseTool):
     )
     agent_skills = ["ffmpeg", "video-toolkit"]
 
-    capabilities = ["cut", "trim", "speed_adjust", "concat"]
+    capabilities = ["cut", "trim", "speed_adjust", "concat", "reference_clip"]
 
     input_schema = {
         "type": "object",
@@ -52,10 +52,13 @@ class VideoTrimmer(BaseTool):
         "properties": {
             "operation": {
                 "type": "string",
-                "enum": ["cut", "speed", "concat"],
+                "enum": ["cut", "speed", "concat", "reference_clip"],
             },
             "input_path": {"type": "string"},
             "output_path": {"type": "string"},
+            "reference_adaptation_ref": {"type": "object", "required": ["proposal_path", "proposal_sha256"],
+                "properties": {"proposal_path": {"type": "string"}, "proposal_sha256": {"type": "string"}}},
+            "reference_unit_id": {"type": "string"},
             "start_seconds": {"type": "number", "minimum": 0},
             "end_seconds": {"type": "number", "minimum": 0},
             "speed_factor": {"type": "number", "minimum": 0.1, "maximum": 100.0},
@@ -88,7 +91,12 @@ class VideoTrimmer(BaseTool):
         start = time.time()
 
         try:
-            if operation == "cut":
+            if operation == "reference_clip":
+                from tools.video.reference_contract import prepare_source_clip
+                receipt = prepare_source_clip(self, inputs)
+                result = ToolResult(success=True, data=receipt,
+                    artifacts=[receipt["path"], receipt["reference_receipt_path"]])
+            elif operation == "cut":
                 result = self._cut(inputs)
             elif operation == "speed":
                 result = self._speed(inputs)

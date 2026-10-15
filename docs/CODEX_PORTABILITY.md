@@ -33,6 +33,15 @@ python scripts/codex_setup.py install
 示例创建，已有文件不覆盖。安装不会配置付费账号、启动视频生成或更改 Codex 设置。
 只做方案时可使用 `install --skip-remotion`。
 
+参考视频拆解使用仓库内迁移的 Hypit 源码，另在项目根目录安装其锁定依赖：
+
+```sh
+npm ci --prefix tools/analysis/_reference_media
+```
+
+这只安装源码所需的 `sharp`／`tsx`；无需安装 Hypit、复制其他项目或配置其账号。
+方法原文及源码对应关系见[迁移说明](references/hypit-reference-port.md)。
+
 Windows 检查命令：
 
 ```powershell

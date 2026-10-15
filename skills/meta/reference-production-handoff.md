@@ -18,8 +18,8 @@ schema-valid artifact is not evidence that the creative work occurred.
 Bind observations to the frozen local source path, SHA-256, duration and analysis
 artifact. Separate observed, inferred and unverified claims.
 
-In addition to the five visual aspects, identify the reference's communication
-logic using timestamped evidence:
+Identify the reference's communication logic through the original method's
+connected reading and timestamped evidence:
 
 - Audience and purpose; hook, setup, progression, evidence/payoff and ending.
 - What each narrative beat contributes, rather than just what appears onscreen.
@@ -39,7 +39,45 @@ target language's spoken idiom rather than translating subtitles word for word.
 Describe the presenter's role (guide, witness, demonstrator), how the delivery
 develops and where inserts carry the explanation while speech continues.
 
+The analysis method is the migrated Hypit reference reading linked by the analyst,
+not a replacement shot checklist. Read its `ANALYSIS.md` and `TIMELINE.md` through
+the brief's `reference_understanding.notes`; preserve unresolved questions in
+`PROGRESS.md`. Reference their paths/hashes alongside the existing analysis/source
+identity in `reference_evidence`. Take the observed action and camera behavior,
+visual systems and their timed handoffs into the target scene and full prompt.
+Do not reduce that connected reading to a broad summary and repeat one fixed
+camera setup across all requests. The original Video direction explains when an
+actual source excerpt should carry distinctive motion to a supported model.
+
 ## 2. Make the adaptation explicit before production
+
+Resolve `mode` from the user's actual intent, not a keyword classifier in code.
+“复刻”/“复制” alone is not a request for identical content or timing. A request to
+borrow pacing, voice character, composition or explanation format uses
+`creative_adaptation`: preserve those dimensions and adapt the message/product
+to the user's goal. Keep the actual reference's production grammar; do not replace
+it with a generic story or require a different visual style to demonstrate novelty.
+Use `faithful_replica` only when the user explicitly asks to retain source
+content/order/timing, plus authorized brand/original sound. Omitted mode remains
+compatible with historical adaptation artifacts; do not rewrite them. An already
+specified expression/content direction needs no extra mode-choice question.
+
+In the existing `intent`, record what to keep and what to change, grounded in
+timestamped evidence. As applicable, describe rhythm (speech density, pauses,
+cut triggers, reveals), voice character/delivery (pitch range, texture, energy,
+emphasis), composition (shot size, subject placement, foreground, camera), and
+explanation format (presenter/voiceover/inserts, question-to-demonstration flow,
+text/diagram support). These are creative requirements, not mandatory fixed
+values or fields for every video. Carry them through script, scene prompts,
+voice direction and actual-media review via the same proposal SHA.
+
+For creative adaptation, source timecodes are evidence of relationships rather
+than mandatory target cut positions. Derive final timing from the new speech,
+actions and footage; preserve the intended pace and information progression.
+Similar voice character does not itself authorize reusing the source soundtrack
+or cloning a particular speaker. Resolve the intended voice using the existing
+audio architecture and provider policy. Review against the selected dimensions,
+not frame equality; the strict replica clock/compiler is not this mode's gate.
 
 Choose the pipeline by the approved delivery grammar and ownership of footage,
 not by the analysis tool's suggested pipeline, intake channel or available render
@@ -67,6 +105,93 @@ Include:
 Removing a reference's brand, prices or promises does not remove its narrative
 function. Replace them with supported information, or disclose the resulting
 change in purpose; do not fill the space with repetitive generic reminders.
+This advice applies to approved adaptation changes. Faithful mode must not remove
+or replace source claims/branding by default. Record actual source wording and
+uncertainty without treating copied claims as independently verified facts.
+
+### Executable faithful timeline
+
+Keep the payload at `proposal_packet.metadata.reference_adaptation.replica`,
+validated by `schemas/artifacts/reference_replica.schema.json`. No second plan:
+
+- `reference_evidence.source_path` and `sha256` identify the frozen source.
+- `replica.fps`, `total_frames`, `width`, `height`, `background_color` define the measured, explicitly
+  rounded final clock/geometry. Units cover it in order without gaps.
+- Each `units[]` entry has `id`, `source_start_frame`, `source_end_frame` (exclusive),
+  `action`, `composition`, `internal_cuts` (absolute source frames), and `material`
+  (`generated_video` or `authorized_brand`). Describe foreground, subject position,
+  camera/viewpoint, action progression and internal cut handoffs from actual media.
+  The agent chooses unit boundaries; code does not infer them from fixed templates.
+- `captions[]` records source-timed `id`, `unit_id`, `start_frame`, `end_frame`,
+  `text` and explicit `style` fields defined by the schema. Record OCR/word-time/font
+  uncertainty. The agent authors layout and motion; the renderer executes them.
+- `audio` declares `policy` (`reuse_source`, `replace`, `none`), `authorized`, and
+  for audible layers `path`, `sha256`, `provenance`. Original-audio reuse requires
+  explicit copying authorization; changed language/copy follows the existing audio
+  architecture. Neither identity images nor source-video conditioning proves lip sync.
+
+After saving the canonical proposal, create its `{proposal_path, proposal_sha256}`
+reference. Prepare each generated unit locally through the registered tool:
+
+```python
+registry.get("video_trimmer").execute({
+    "operation": "reference_clip", "reference_adaptation_ref": proposal_ref,
+    "reference_unit_id": unit_id, "output_path": new_source_clip_path,
+})
+```
+
+The result contains the derivative hash/range/duration and `reference_receipt_path`.
+Reuse that exact clip and receipt. Pass `reference_adaptation_ref`,
+`reference_unit_id`, `reference_receipt_path` and the clip in `reference_paths` to
+the selected `video_selector` request. For Flow use its already registered
+`google_flow_mcp_video` adapter and configured MCP. No fixed provider/model is
+selected by this contract. A route lacking source timeline binding reports its
+gap; do not switch it silently. Identity images are optional: check their view
+does not override source framing. Keep the complete motion prompt authored by
+the agent, with source action/camera/internal-cut instructions. Source-video mode
+inherits duration; ordinary UI request seconds are not effective output duration.
+The adapter verifies active references and settings again before the paid click.
+
+At edit, put `reference_adaptation_ref` in both edit and asset-manifest metadata.
+`edit_decisions.metadata.reference_timeline` is a projection referencing that SHA:
+
+- `segments[]`, in unit/cut order: `unit_id`, `cut_id`, `media_sha256`,
+  `fidelity_review={status: pass|fail|unverified, observations: ...}`. Review actual
+  composition/foreground/camera, action/internal cuts, rhythm, embedded text and
+  promised lip sync. Keep unverified dimensions in observations and status.
+- Each canonical cut selects an asset and its actual `in_seconds/out_seconds`.
+  Match source duration; measured output must cover the range. An authored speed
+  change needs `time_transform_reason`. Never stretch every clip to its slot.
+  An explicit `end_hold_frames` plus that reason can hold the selected end frame
+  for a short measured gap; code never adds this automatically.
+- `caption_dispositions[]`: `cue_id`, `handling=overlay|embedded|omit`, `evidence`,
+  and the selected unit's `media_sha256`.
+  Every cue is accounted for exactly once. Embedded residue stays in review and
+  suppresses duplicate overlays; it never becomes an editable caption. Omitting
+  content is a disclosed deviation requiring the existing creative decision rules.
+- Each segment review has separate `checks` for `composition`, `action`, `timing`,
+  `embedded_text`, `lip_sync`, using `pass|fail|unverified|not_applicable`.
+  A failed/unverified dimension cannot be declared an overall pass.
+- Optional `fade_frames` executes an authored picture fade, including brand stills.
+
+`video_compose(preflight)` consumes these bindings, checks source/media/audio
+hashes, measured trim ranges, order, durations and caption dispositions.
+`preview` routes the payload to the registered Remotion `ReferenceReplica`
+composition: generated video muted, one authorized audio layer, explicit text
+layers and brand material. It adds no padding, reframing, default story or model
+selection. Geometry comes from the source contract. Do not combine this route
+with atelier/profile overrides, duplicate subtitles or other overlay routes.
+Keep existing final technical and semantic gates. Preview records reference
+fidelity independently; `finalize` refuses faithful delivery while it is unresolved.
+The owner visual review must also include `reference_fidelity` for this exact
+preview: `status=pass`, frozen `source_sha256`, `proposal_sha256`, actual `evidence`,
+and separate `checks` for `content`, `order`, `rhythm`, `composition`, `captions`,
+`audio`, `lip_sync` (`pass|not_applicable`). Unknown audio/mouth timing cannot pass
+this whole-film comparison just because per-segment media is valid.
+Compare the actual continuous preview with the original, enlarge motion/cut
+boundaries, and update only failed leaves. Whole-frame visual evidence cannot
+pass audio or mouth timing. Preserve all original attempts, accepted siblings,
+unknown jobs and exact-prompt UI recovery receipts without claiming API success.
 
 For an unbranded demonstration, preserve the progression using concrete,
 illustratable actions rather than inventing company claims. For example, a

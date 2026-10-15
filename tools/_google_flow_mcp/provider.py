@@ -199,7 +199,15 @@ def run_generation(
     music: bool,
     reference_paths: list[Path] | None = None,
     video_settings: dict[str, Any] | None = None,
+    reference_binding: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    def verify_bound_bytes():
+        if reference_binding:
+            from tools.video.reference_contract import load_bound_plan, sha256
+            load_bound_plan(reference_binding["reference_adaptation_ref"])
+            if sha256(reference_binding["path"]) != reference_binding["sha256"]:
+                raise GoogleFlowMCPError("Bound source clip changed before submission")
+    verify_bound_bytes()
     with GoogleFlowMCPClient(timeout_seconds=timeout_seconds + 60) as client:
         attempt_path = output_path.with_suffix(output_path.suffix + ".flow-attempt.json")
         def preparation(stage, **updates):
@@ -215,6 +223,7 @@ def run_generation(
                 with attempt_path.open("x", encoding="utf-8") as stream:
                     json.dump({"state": "preparing", "project_url": url, "output_path": str(output_path),
                                "requested_settings": video_settings,
+                               **({"reference_binding": reference_binding} if reference_binding else {}),
                                "generation_status": {"state": "not_started", "source": "local_handler_before_submit", "stage": "opening_project"}}, stream)
             except FileExistsError as exc:
                 raise GoogleFlowMCPError("Flow attempt already exists; reconcile it before submitting again") from exc
@@ -255,6 +264,25 @@ def run_generation(
             raise GoogleFlowMCPError(
                 "Google Flow did not verify the prompt text before submission"
             )
+        if video_settings is not None and uploads:
+            # Adding reference media can reset duration in Flow. The pre-upload
+            # settings receipt cannot prove the settings used by this click.
+            if reference_binding:
+                # The bridge reuses the same bytes and verifies the active
+                # composer association. No new generation/alternate asset.
+                for reference_path in reference_paths or []:
+                    verified = client.call_tool("flow_upload", {"filePath": str(reference_path.resolve()),
+                                                "confirmUploadRights": True}, timeout_seconds=120)
+                    if verified.get("verified") is not True or verified.get("uploaded") is not True:
+                        raise GoogleFlowMCPError("Bound reference is no longer attached; not submitting")
+                preparation("reference_binding_verified", reference_binding=reference_binding)
+            has_video_reference = any(path.suffix.lower() in {".mp4", ".mov", ".m4v", ".webm"} for path in reference_paths or [])
+            settings_receipt = configure_video_settings(
+                client, project_url, **video_settings,
+                **({"inherit_video_duration": True} if has_video_reference else {}),
+            )
+            preparation("reference_settings_verified", settings=settings_receipt, uploads=uploads)
+        verify_bound_bytes()
         submit_ref = wait_for_generation_submit(client)
         # A durable claim precedes any credit confirmation/submission. Unknown
         # outcomes retain this identity and cannot silently submit a second job.

@@ -30,6 +30,12 @@ approval slot; do not create another reference approval step.
 
 ## Runtime Selection (required field — `render_runtime`)
 
+For explicit `faithful_replica` intent, use the executable contract in
+`skills/meta/reference-production-handoff.md`: retain source story, order,
+authorized brand/audio and timeline. Do not apply generic-brand replacement or
+concept differentiation instructions to that mode. The canonical plan stays in
+proposal metadata; the complete scene-plan confirmation remains the existing gate.
+
 Explainer proposals must lock **both** a `renderer_family` (creative grammar) and a `render_runtime` (technical engine). Read `skills/meta/animation-runtime-selector.md` for the runtime default and compatibility boundary.
 
 **Default workflow:**

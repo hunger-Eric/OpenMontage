@@ -14,6 +14,72 @@ from tools.graphics.google_flow_mcp_image import GoogleFlowMCPImage
 from tools.video import google_flow_mcp_video as video_module
 from tools.video.google_flow_mcp_video import GoogleFlowMCPVideo
 from tools.video.video_selector import VideoSelector
+from tools._google_flow_mcp import video_session
+
+
+@pytest.mark.parametrize('final_settings_available', [True, False])
+@pytest.mark.parametrize('reference_suffix', ['.jpg', '.mp4'])
+def test_reference_upload_reset_is_corrected_before_paid_submit(monkeypatch, tmp_path, final_settings_available, reference_suffix):
+    current = {'duration': 4, 'configurations': 0}
+    calls = []
+
+    class Client:
+        def __init__(self, **kwargs):
+            pass
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            return False
+        def call_tool(self, name, arguments, **kwargs):
+            calls.append(name)
+            if name == 'flow_upload':
+                current['duration'] = 4
+                return {'uploaded': True, 'verified': True}
+            if name == 'flow_type':
+                return {'verified': True}
+            if name == 'flow_confirm_paid_generation':
+                assert current['duration'] == (4 if reference_suffix == '.mp4' else 8)
+            if name == 'flow_click':
+                assert current['duration'] == (4 if reference_suffix == '.mp4' else 8)
+                return {'submissionAcknowledged': True, 'generationId': arguments['generationId']}
+            return {}
+
+    def configure(client, project_url, **settings):
+        current['configurations'] += 1
+        if current['configurations'] == 2 and not final_settings_available:
+            raise provider_module.GoogleFlowMCPError('Final reference settings unavailable')
+        inherited = settings.pop('inherit_video_duration', False)
+        assert inherited == (reference_suffix == '.mp4' and current['configurations'] == 2)
+        if not inherited:
+            current['duration'] = settings['duration']
+        return {**settings, 'duration': None if inherited else settings['duration'], 'verified': True}
+
+    monkeypatch.setattr(provider_module, 'GoogleFlowMCPClient', Client)
+    monkeypatch.setattr(video_session, 'resolve_video_project', lambda client: 'https://flow.google.com/project/test')
+    monkeypatch.setattr(video_session, 'configure_video_settings', configure)
+    monkeypatch.setattr(provider_module, 'wait_for_text_input', lambda *args, **kwargs: 'prompt')
+    monkeypatch.setattr(provider_module, 'wait_for_generation_submit', lambda *args, **kwargs: 'submit')
+    monkeypatch.setattr(provider_module, 'wait_for_video_generation', lambda *args, **kwargs: {'assetUrl': 'https://example.invalid/video.mp4'})
+    reference = tmp_path / ('reference' + reference_suffix)
+    reference.write_bytes(b'reference')
+    output = tmp_path / 'output.mp4'
+    params = dict(url='https://flow.google.com/project/test', prompt='A source-driven scene',
+                  output_path=output, expected_media_type='video', max_budget_credits=None,
+                  timeout_seconds=30, music=False, reference_paths=[reference],
+                  video_settings={'model': 'Omni 1.1 Flash', 'duration': 8, 'aspect_ratio': '9:16'})
+    if final_settings_available:
+        receipt = provider_module.run_generation(**params)
+        assert receipt['settings']['duration'] == (None if reference_suffix == '.mp4' else 8)
+        assert calls.count('flow_click') == 1
+    else:
+        with pytest.raises(provider_module.GoogleFlowMCPError, match='Final reference settings'):
+            provider_module.run_generation(**params)
+        assert 'flow_confirm_paid_generation' not in calls
+        assert 'flow_click' not in calls
+        attempt = json.loads(output.with_suffix('.mp4.flow-attempt.json').read_text())
+        assert attempt['generation_status']['state'] == 'not_started'
+        assert 'generation_id' not in attempt
+    assert current['configurations'] == 2
 
 
 class _SnapshotClient:
@@ -386,6 +452,25 @@ def test_google_flow_video_passes_reference_ingredients(monkeypatch, tmp_path, r
     assert captured["reference_paths"] == [reference_path]
     assert result.data["reference_count"] == 1
     assert result.data["upload_receipts"] == [{"uploaded": True}]
+
+
+@pytest.mark.parametrize('suffix, inherited', [('.jpg', False), ('.mp4', True)])
+def test_video_reference_prompt_does_not_add_conflicting_duration(monkeypatch, tmp_path, suffix, inherited):
+    reference = tmp_path / ('reference' + suffix)
+    reference.write_bytes(b'reference')
+    output = tmp_path / 'shot.mp4'
+    captured = {}
+    monkeypatch.setattr(video_module, 'provider_status', lambda: ToolStatus.AVAILABLE)
+    def run(**kwargs):
+        captured.update(kwargs)
+        return _receipt(output, 'video')
+    monkeypatch.setattr(video_module, 'run_generation', run)
+    monkeypatch.setattr(video_module, 'probe_media', lambda *args: {})
+    result = GoogleFlowMCPVideo().execute(dict(prompt='Regenerate the source performance',
+        output_path=str(output), duration=8, reference_paths=[str(reference)], confirm_paid_generation=True))
+    assert result.success
+    assert ('目标时长 8 秒' in captured['prompt']) is not inherited
+    assert ('沿用上传视频的原片时长' in captured['prompt']) is inherited
 
 
 def test_google_flow_prepare_reference_alias_preserves_existing_request_fields(tmp_path):

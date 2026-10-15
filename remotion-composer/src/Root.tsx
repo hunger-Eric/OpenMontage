@@ -16,6 +16,7 @@ import { ProductReveal, ProductRevealProps } from "./components/ProductReveal";
 import { CaptionOverlay, WordCaption } from "./components/CaptionOverlay";
 import { CollageBurst, CollageBurstProps } from "./CollageBurst";
 import { LyricOverlay, LyricOverlayProps } from "./LyricOverlay";
+import { ReferenceReplica } from "./ReferenceReplica";
 
 // ---------------------------------------------------------------------------
 // Theme System — prevents every video from looking like dark fintech
@@ -135,6 +136,11 @@ const calculateMetadata: CalculateMetadataFunction<ExplainerProps> = async ({
 export const Root: React.FC = () => {
   return (
     <>
+      <Composition id="ReferenceReplica" component={ReferenceReplica} fps={30}
+        width={720} height={1280} durationInFrames={30}
+        defaultProps={{fps: 30, width: 720, height: 1280, total_frames: 30, backgroundColor: "black", clips: [], captions: [], audioSrc: null}}
+        calculateMetadata={({props}) => ({fps: props.fps, width: props.width, height: props.height,
+          durationInFrames: props.total_frames})}/>
       <Composition
         id="Explainer"
         component={Explainer}

@@ -26,9 +26,9 @@ Do NOT trigger when:
 ## Protocol
 
 Read `skills/meta/reference-production-handoff.md` for the shared evidence,
-adaptation and downstream-review contract. The five visual aspects below are
-necessary but do not replace narrative, speech/performance and edit-function
-analysis.
+adaptation and downstream-review contract. Reference interpretation follows the
+original migrated Hypit method linked below; existing structured fields project
+that connected reading for downstream consumers.
 
 ### Step 1: Analyze the Reference
 
@@ -102,113 +102,81 @@ Resolve the media before interpreting it:
   CAPTCHA solving, software installation, provider swap or fee is authorized by
   this path. Explicit access/auth/challenge/limit failures stop.
 
-Run VideoAnalyzer with `analysis_depth: "standard"`:
+### Use the migrated Hypit reference-understanding method
+
+Read the original skill's
+[Understand and adapt](../../third_party/hypit/SKILL.md#understand-and-adapt)
+with its account of objects and relationships over time.
+Read the unchanged upstream
+[Understanding a reference video](../../third_party/hypit/references/creation/reference-video.md).
+It is the method for this step, not a summary of it. For generated footage and
+camera/action relationships, also read the original
+[Video direction](../../third_party/hypit/references/playbooks/craft/video-direction.md).
+The local source and its provenance are described in
+[the migration mapping](../../docs/references/hypit-reference-port.md).
+Existing acquisition, provider, approval and composition contracts remain owned
+by OpenMontage; the imported reference book does not select a new Runtime,
+account, model or generation service.
+
+`video_analyzer` standard/deep now executes the migrated inspection source for
+probe, paged grids and visual-change candidates. It also retains its existing
+structural measurements for compatibility. No installed Hypit command or package
+is used. Begin in a fresh analysis directory:
 
 ```python
 video_analyzer.execute({
     "source": "<url or path>",
     "analysis_depth": "standard",
-    "max_keyframes": 20
+    "output_dir": "<project>/analysis/<reference-revision>"
 })
 ```
 
-Read the resulting VideoAnalysisBrief. Before proceeding, present a summary to the
-user. This is NOT a raw dump. It's a conversational interpretation, and it MUST be
-structured by the 5 aspects so downstream stages can lift fields directly:
+The original compact grid defaults are an initial view. Follow the original
+method's whole/detail investigation: use the registered `reference_media` with
+`operation=tile|tiles|frames|cut|boundaries|probe`, choosing original `options`
+(`start/end`, `every`, `cell`, `at`, `around`, `transcript`, `ranges`, etc.) as the
+question requires. Native results preserve requested and actual frame times.
+For this trial, dense half-second pages and 12 Hz boundary candidates were useful;
+those numbers are not a mandatory policy for every video. Movement can need a
+closer range and larger cells; words and persistent visual systems can need a
+wider view. A candidate or an overview is not a semantic interpretation.
 
-```
-"I've watched the video. Here's what I see:
+As upstream specifies, retain the connected account in the analysis directory:
 
-**Content:** [2-sentence summary of what the video is about]
-**Style:** [1 sentence — pacing, visual treatment, energy]
-**Structure:** [X scenes over Y seconds, pacing style]
-**Motion:** [N of M scenes are motion clips / animated stills / static images.
-This video uses [AI-generated video clips / still images with pan-zoom / a mix].]
+- `ANALYSIS.md`: the whole-piece explanation and recurring systems, including how
+  concrete audiovisual choices serve the viewer and the intended adaptation.
+- `TIMELINE.md`: source-time-locatable behavior and meaning: exact text/appearance,
+  entry, movement, persistence, exit and the words/actions each responds to.
+  Sections may overlap; a system can outlive a camera cut.
+- `PROGRESS.md`: unresolved source-time questions and the next useful inspection.
 
-**5-aspect breakdown (per shot or per shot-group):**
-- Subject: [type, count, attributes; subject transitions across shots: revealing / disappearing / switching / complex-alternating; or N/A]
-- Subject Motion: [actions in temporal order; interactions; or N/A]
-- Scene: [overlays (text/graphics) listed separately; POV (drone/OTS/macro/etc.); setting; time of day; dynamics]
-- Spatial Framing: [shot size; subject position; depth; height-relative; how it changes]
-- Camera: [playback speed; lens; height; angle; focus/DoF; steadiness; movement]
+These are the original Hypit note roles, not a new shot-schema or approval gate.
+`video_analysis_brief.reference_understanding` links their paths and source-bound
+execution receipts; the tool leaves reading pending. Author the notes from the
+actual media. Project fields such as content/style/scene summaries are projections
+of that reading for existing consumers; their schema validity and automatic scene
+count never prove that the reading occurred. Reopen source intervals when a detail
+conflicts instead of compressing away actions, camera changes or graphic timing.
 
-**What makes it work:** [2-3 specific things — the hook technique, the pacing,
-the visual transitions, the narration style]
+Use the existing transcription path for spoken material and preserve actual word
+times when available. The migrated grid reader accepts the original
+`hypit.transcript@1` shape; segment times must not be invented as word alignment.
+Missing timings stay missing, as in the original source. Frames and transcripts
+cannot establish music quality, voice timbre or lip sync without suitable audio
+and temporal observation. Keep those limits explicit.
 
-Now let me check what I can do with your current setup..."
-```
+The original camera guidance carries forward: a motion name is a starting point;
+inspect its path, scale, pace and neighboring events when distinctive. Record the
+observed behavior before deciding target implementation. When an exact action or
+camera path is defining, upstream recommends keeping a useful source excerpt as
+motion evidence and binding that actual material to a supported generation input.
+A keyframe or an excerpt mentioned only in prose does not carry that movement.
+Don't reduce the source reading to one repeated fixed-camera prompt.
 
-The 5-aspect block describes the visual material. Alongside it, map the source
-timeline into communication beats: spoken meaning, on-screen copy, presenter
-role/performance and the reason for each cut or insert. A speech passage can span
-multiple detected shots. This story/edit map is the input to the adaptation in
-`skills/meta/reference-production-handoff.md`; visual labels alone are not the
-writing brief. Keep the visual labels available for downstream prompts.
-
-**Motion classification is critical.** The VideoAnalysisBrief now includes per-scene
-`motion_type` ("motion_clip", "animated_still", "static_image") and `flow_variance`.
-Use this to determine the production approach:
-
-- If most scenes are `motion_clip` → the reference contains moving footage.
-  This does not establish whether it was filmed or generated. For a newly
-  generated adaptation, plan a motion-capable route rather than replacing
-  those actions with still-image pans.
-- If most scenes are `animated_still` → the reference uses **still images with
-  Ken Burns / pan-zoom** → image gen + Remotion/FFmpeg composition is appropriate
-- If mixed → note which sections use motion and which use stills
-
-Use `motion_type` as structural evidence alongside the actual media observations;
-select the production route from the requested adaptation and supported actions,
-not from a guessed origin of the reference footage.
-
-**Vision analysis:** After presenting the structural data, examine the extracted
-keyframes yourself. You ARE a multimodal model — look at the keyframe images and
-enrich the VideoAnalysisBrief with:
-- Per-frame descriptions (subjects, text, composition, color)
-- Cross-frame visual continuity and style consistency
-- Genre classification and production quality assessment
-- Color palette extraction (dominant colors across keyframes)
-- Typography style if on-screen text is present
-- Transition patterns visible between sequential keyframes
-
-Update the brief's `content_analysis`, `style_profile`, and `replication_guidance`
-fields with your visual observations. This is where the analysis becomes truly
-comprehensive — the tools provide structure; your vision provides understanding.
-
-#### Speech and subtitle applicability gate
-
-Transcription is conditional, not a mandatory success criterion:
-
-1. Determine whether the soundtrack contains speech before invoking STT. Treat an
-   explicit user confirmation such as "pure music, no dialogue" as authoritative for
-   the reference unless current media evidence directly conflicts with it.
-2. If the soundtrack is music-only, skip Whisper/transcriber work. Record the audio
-   role as `music_only`, keep `has_transcript: false`, and state that this is expected,
-   not a failed analysis step. An AAC/audio stream alone does not imply narration.
-3. Inspect on-screen text separately from the soundtrack. If the user confirms there
-   are no subtitles and frame review finds no independent text overlay, mark
-   `Scene overlays: N/A — no subtitles or graphics`. Never infer subtitles from the
-   mere absence or presence of a transcript.
-4. If speech is present but captions/transcript are unavailable, use a configured
-   local transcriber. If transcription cannot run, report the audio-semantic boundary
-   without unsafe runtime workarounds and continue only with the verified visual,
-   motion, pacing, and music evidence.
-
-### 5-Aspect Structured Output (MANDATORY)
-
-The analyst's report MUST break down the reference video into the **five aspects** from the CMU/Harvard CHAI study (also the canonical structure used in `skills/creative/video-gen-prompting.md`). A narrative-only summary is no longer sufficient — downstream stages (proposal, script, scene-director) ingest the 5-aspect form directly without re-parsing prose.
-
-**Decision-tree captioning policy.** For each detected shot, walk all five aspects in order:
-
-> - **Subject:** type, attributes (count, age, role, costume, distinguishing features), multiple-subject disambiguation, transitions across shots (revealing / disappearing / switching / complex-alternating).
-> - **Subject Motion:** actions in temporal order; group/interaction patterns (parallel, sequential, reactive); locomotion vs gesture vs facial.
-> - **Scene:** **overlays separately** (text, lower thirds, graphics, watermark — call these out as their own layer, do not merge into setting) + POV (drone, aerial, OTS, macro, top-down, dashcam, FPV, handheld, locked-off) + setting + time of day + dynamics (weather, particles, crowd movement).
-> - **Spatial Framing:** shot size (ECU/CU/MS/WS/EWS), subject position in frame, depth (foreground/midground/background usage), height-relative (above/at/below subject) — and how each of these **changes** across the shot if the camera or subject moves.
-> - **Camera:** playback speed (real-time / slow-mo / time-lapse), lens distortion (anamorphic, fish-eye, tilt-shift), height (ground / eye / overhead), angle (high / low / Dutch), focus / DoF (rack focus, deep focus, shallow), steadiness (locked / handheld / gimbal), movement (push / pull / pan / tilt / dolly / truck / crane / orbit).
->
-> **Mark any aspect explicitly as N/A** if it doesn't apply (e.g., "Subject: N/A — pure scenery shot," or "Scene overlays: N/A — no graphics"). **Silent omission is the most common analyst failure** and produces ambiguous downstream prompts.
-
-See `skills/creative/video-gen-prompting.md` for primitive definitions and the canonical vocabulary used at every aspect.
+Give the user the current interpretation and concrete discoveries, with useful
+frames or word-labeled grids, while the reading develops. Preserve uncertainty
+and update the notes when evidence changes the interpretation. Continue through
+the existing production stages from this connected account.
 
 ### Step 2: Capability Audit
 
@@ -316,8 +284,16 @@ pipeline if needed.
 
 ### Step 4: Creative Proposals (2-3 variants)
 
-MANDATORY: The agent must NEVER propose a carbon copy. The reference is inspiration,
-not a template. Each proposal must have clear creative differentiation.
+First retain the user's intent in `metadata.reference_adaptation.mode`.
+“复刻”/“复制” alone does not select a strict copy. Borrowing rhythm, voice character,
+composition or the explanation format uses `creative_adaptation`, with those
+specific dimensions retained and content adapted to the user's goal. This mode
+does not require changing the very style the user wants to borrow or proposing
+unrelated concepts. Use `faithful_replica` only for an explicit request to retain
+source content/order/timing and authorized layers. Do not require generic new
+copy or a provider/runtime change. Apply differentiation below only to dimensions
+the user wants changed. Ask only about material unresolved intent.
+Follow `reference-production-handoff.md` for the executable replica contract.
 
 Use this structure for each variant:
 

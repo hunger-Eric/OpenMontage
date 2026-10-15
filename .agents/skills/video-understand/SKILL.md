@@ -8,6 +8,14 @@ description: |
 
 # video-understand
 
+For OpenMontage reference-video work, use the project-owned
+[reference analyst](../../../skills/meta/video-reference-analyst.md) and the
+[original migrated reference-understanding method](../../../third_party/hypit/references/creation/reference-video.md).
+Its inspection source is local under `tools/analysis/_reference_media/`, exposed
+through registered `video_analyzer` and `reference_media`. It does not invoke a
+Hypit command. The standalone scripts below remain utilities; a sparse frame or
+transcript result is not a substitute for the original whole/detail reading.
+
 Understand video content locally using ffmpeg for frame extraction and Whisper for transcription. Fully offline, no API keys required.
 
 ## Prerequisites

@@ -376,7 +376,18 @@
       },
       "additionalProperties": false
     },
-    "metadata": { "type": "object" }
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "reference_adaptation": {
+          "type": "object",
+          "properties": {
+            "mode": {"enum": ["faithful_replica", "creative_adaptation"]},
+            "replica": {"type": "object"}
+          }
+        }
+      }
+    }
   },
   "$defs": {
     "taste_profile": {

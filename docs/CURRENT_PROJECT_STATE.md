@@ -1,6 +1,57 @@
 # OpenMontage Current Project State
 
-Updated: 2026-10-14
+Updated: 2026-10-15
+
+## 2026-10-15 Hypit reference-understanding source migration
+
+- The reference analyst now reads Hypit's original reference-understanding and
+  video-direction documents, imported unchanged with their reference book under
+  `third_party/hypit/`. Original paths/hashes and the source version are recorded
+  in `PROVENANCE.json`; the license is retained.
+- The actual 0.2.6 inspection source (`media.ts`, `transcript.ts`, `process.ts`)
+  is migrated into `tools/analysis/_reference_media/`. Only acquisition branches,
+  external type wiring and the local entry adapter changed. It executes here
+  with pinned sharp/tsx dependencies, without a Hypit command, distribution,
+  Runtime or account. Existing acquisition, generation and composition remain.
+- Standard/deep `video_analyzer` uses that local source. `reference_media` exposes
+  the same inspection operations for source ranges, phrase-linked grids, larger
+  cells and dense local views. The original connected Analysis/Timeline/Progress
+  note roles feed the existing adaptation handoff; there is no new shot schema,
+  camera classifier, creative score or human approval gate.
+- Validation is under `projects/hypit-reference-port-20261015/`. The earlier
+  self-designed decomposition is discarded and is not the project method.
+  Original/migrated probe and boundary JSON match; the comparison grid is byte
+  identical. The registered analyzer produced 107 samples across seven pages
+  from the frozen original. The 358 focused tool/contract checks and Remotion
+  TypeScript validation passed; staged source/reference-book hashes were verified.
+  Technical inspection leaves semantic reading pending and does not certify
+  camera interpretation, music, lip sync or a new generated film.
+
+## 2026-10-15 faithful reference production integration
+
+- Reference intent follows the requested dimensions: “复刻” alone does not lock
+  content/timing. Borrowing rhythm, voice character, composition and explanation
+  format uses creative adaptation with those concrete constraints retained.
+  `faithful_replica` is reserved for explicit source-content/order/timing retention;
+  legacy metadata keeps its original path.
+  The sole plan remains `proposal_packet.metadata.reference_adaptation`.
+- The replica payload has a source-frame unit/cut map and separate text/audio/brand
+  layers. Registered `video_trimmer(reference_clip)` produces hash-bound ranges;
+  VideoSelector preserves their binding through the configured Flow adapter.
+  Reference re-association/settings/bytes are checked before submission; existing
+  unknown attempts require reconciliation and are never resent.
+- Existing `video_compose` preflight/preview/finalize consumes that same proposal
+  SHA and renders the explicit timeline in Remotion ReferenceReplica. Fidelity
+  and technical validity are separate; finalization also requires an exact-preview
+  owner reference comparison, including caption/audio/lip findings.
+- Local reused-media validation is under
+  `projects/reference-replica-integration-20261015/artifacts/`. Its pending proposal
+  is a validation fixture, with no fabricated upstream approvals/checkpoints.
+  Original trial and provider attempts are immutable. Opening composition,
+  embedded packaging text, approximate font/word timing and unverified lip sync
+  remain precision limitations; this integration does not certify native Flow edit
+  success or a new external generation. Follow
+  `skills/meta/reference-production-handoff.md` for the executable entry contract.
 
 ## 2026-10-14 portable Codex checkout setup
 

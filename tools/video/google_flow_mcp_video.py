@@ -49,6 +49,7 @@ class GoogleFlowMCPVideo(BaseTool):
     fallback_tools: list[str] = []
     agent_skills = ["gemini-omni", "ai-video-gen"]
     supports = {
+        "source_timeline_binding": True,
         "text_to_video": True,
         "references_to_video": True,
         "native_audio": True,
@@ -83,6 +84,9 @@ class GoogleFlowMCPVideo(BaseTool):
                 "items": {"type": "string"},
                 "description": "Compatibility alias for reference_paths from VideoSelector image inputs",
             },
+            "reference_adaptation_ref": {"type": "object"},
+            "reference_unit_id": {"type": "string"},
+            "reference_receipt_path": {"type": "string"},
             "confirm_paid_generation": {"type": "boolean", "default": False,
                 "description": "Set true for a user-authorized video request; no separate fee approval is needed unless the user specified a cap."},
             "max_budget_credits": {"type": ["number", "null"], "exclusiveMinimum": 0,
@@ -157,6 +161,8 @@ class GoogleFlowMCPVideo(BaseTool):
         prepared = dict(inputs)
         if "reference_image_paths" in inputs and "reference_paths" not in inputs:
             prepared["reference_paths"] = list(inputs["reference_image_paths"])
+        from tools.video.reference_contract import verify_generation_reference
+        verify_generation_reference(prepared, self._reference_paths_from_inputs(prepared))
         return prepared
 
     def idempotency_key(self, inputs: dict[str, Any]) -> str:
@@ -238,6 +244,8 @@ class GoogleFlowMCPVideo(BaseTool):
 
         try:
             reference_paths = self._reference_paths_from_inputs(inputs)
+            from tools.video.reference_contract import verify_generation_reference
+            reference_binding = verify_generation_reference(inputs, reference_paths)
         except ValueError as exc:
             return ToolResult(
                 success=False,
@@ -253,9 +261,14 @@ class GoogleFlowMCPVideo(BaseTool):
             )
 
         model = str(inputs.get("model") or config.model)
+        has_video_reference = any(path.suffix.lower() in {".mp4", ".mov", ".m4v", ".webm"} for path in reference_paths)
+        timing_instruction = (
+            "沿用上传视频的原片时长，不增加尾段。"
+            if has_video_reference else f"目标时长 {duration:g} 秒，"
+        )
         full_prompt = (
             f"请立即使用 {model} 生成视频镜头：{inputs['prompt']}\n"
-            f"目标时长 {float(inputs.get('duration', 6)):g} 秒，画幅 {inputs.get('aspect_ratio', '16:9')}。"
+            f"{timing_instruction}画幅 {aspect_ratio}。"
         )
         try:
             receipt = run_generation(
@@ -268,6 +281,7 @@ class GoogleFlowMCPVideo(BaseTool):
                 music=False,
                 reference_paths=reference_paths,
                 video_settings={"model": model, "duration": duration, "aspect_ratio": aspect_ratio},
+                **({"reference_binding": reference_binding} if reference_binding else {}),
             )
             probe = probe_media(output_path, "video")
         except Exception as exc:
@@ -316,6 +330,7 @@ class GoogleFlowMCPVideo(BaseTool):
             "settings_receipt": receipt.get("settings"),
             "reference_count": len(reference_paths),
             "upload_receipts": receipt.get("uploads", []),
+            **({"reference_binding": reference_binding} if reference_binding else {}),
             "fallback_used": False,
             **probe,
         }

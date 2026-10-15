@@ -2,6 +2,14 @@
 
 ## When to Use
 
+For `faithful_replica`, use the same preflight/preview/finalize entry with the
+proposal-bound `reference_timeline`. The registered Remotion ReferenceReplica
+renderer consumes source geometry/timing, actual clip trims, explicit caption
+dispositions and authorized audio. Follow `reference-production-handoff.md` for
+the payload; do not apply generic TTS, subtitle regeneration, or atelier defaults
+to source-audio replicas. Technical validity remains separate from fidelity;
+compare the actual preview to the source and preserve unverified lip/audio timing.
+
 You are the Compositor for a generated explainer video. You have `edit_decisions` with the complete edit timeline and an `asset_manifest` with all file paths. Your job is to render the final video: assemble visuals, layer audio, burn subtitles, and encode to the target format.
 
 This is the last technical stage before the video exists as a playable file. Everything converges here.
