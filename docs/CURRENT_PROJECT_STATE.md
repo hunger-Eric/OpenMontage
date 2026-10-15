@@ -2,6 +2,46 @@
 
 Updated: 2026-10-15
 
+## 2026-10-15 shot-specific reference responsibilities
+
+- Generation direction now explicitly applies the migrated Hypit input-role
+  and reference-relationship guidance per request: select only relevant media,
+  name each actual input, explain its borrowed facts and target shot/time scope,
+  and compare active composer associations with that list. Library membership
+  and upload success alone do not establish reference relevance.
+- A ship-only passage does not inherit a presenter card or visible-speaker
+  instructions. A ship/yard/human sequence can use a character reference only
+  for its human shot; time-scoped prose is direction, not an exact model mask.
+  The agent owns relevance and useful generation boundaries; transport and
+  existing audio/provider contracts retain their established responsibilities.
+- The accepted Lingshun G05 request was audited: its character reference serves
+  the final laptop insert, but the shared prefix did not restrict its scope;
+  its motion excerpt also contains unrelated later operations. Findings and
+  future-request corrections are appended to that production's
+  `analysis/RESULT_COMPARISON.md`. Original requests/media remain intact;
+  these instruction changes have not been validated by a new generation.
+
+## 2026-10-15 Flow video project ownership
+
+- Direct `google_flow_mcp_video` and `video_selector` calls now use the same
+  project-managed handler. The first verified Flow project is bound to the
+  local production in `artifacts/google-flow-project.json` before upload or
+  generation; later scenes, repairs and fresh MCP sessions reopen that project.
+- Canonical output paths infer `projects/<id>` ownership. Nonstandard layouts
+  may pass `project_dir`; otherwise their output directory owns the binding.
+  Conflicts, redirects, unavailable projects and unverified creation outcomes
+  stop instead of silently creating another project. Existing attempt/job
+  identities and completed media are retained.
+- Historical unique ownership is recovered from attempt receipts. Older split
+  productions require one explicit existing continuation project selection;
+  this does not relocate their past remote assets. Local regression and
+  read-only browser validation are separate from a new paid generation run.
+- Validation: 275 provider, ownership, selector and reference-contract checks
+  passed. Two fresh authenticated MCP sessions reopened the same existing
+  Lingshun continuation project without creation or generation; evidence is in
+  that production's `artifacts/flow-project-reuse-validation.json`. A new paid
+  multi-shot production with this binding remains unverified.
+
 ## 2026-10-15 Hypit reference-understanding source migration
 
 - The reference analyst now reads Hypit's original reference-understanding and

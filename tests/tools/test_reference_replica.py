@@ -235,7 +235,7 @@ def test_final_bound_reference_loss_stops_before_credit_confirmation(replica, mo
                 return {"verified": True}
             return {}
     monkeypatch.setattr(provider, "GoogleFlowMCPClient", Client)
-    monkeypatch.setattr(video_session, "resolve_video_project", lambda client: "https://flow.google.com/project/test")
+    monkeypatch.setattr(video_session, "resolve_video_project", lambda client, **kwargs: "https://flow.google.com/project/test")
     monkeypatch.setattr(video_session, "configure_video_settings", lambda *args, **kwargs: {"verified": True})
     monkeypatch.setattr(provider, "wait_for_text_input", lambda *args, **kwargs: "prompt")
     with pytest.raises(Exception, match="attached|changed"):

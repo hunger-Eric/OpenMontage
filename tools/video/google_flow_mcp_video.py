@@ -31,7 +31,7 @@ from tools.base_tool import (
 
 class GoogleFlowMCPVideo(BaseTool):
     name = "google_flow_mcp_video"
-    version = "0.1.0"
+    version = "0.2.0"
     tier = ToolTier.GENERATE
     capability = "video_generation"
     provider = "google_flow"
@@ -43,8 +43,8 @@ class GoogleFlowMCPVideo(BaseTool):
     dependencies = ["cmd:node", "cmd:ffprobe"]
     install_instructions = (
         "Build the local google-flow-mcp-v4 project and set GOOGLE_FLOW_MCP_ROOT if it is not "
-        "a sibling of OpenMontage. Sign in to its browser profile; optionally pass project_url "
-        "or set GOOGLE_FLOW_PROJECT_URL to reuse a project."
+        "a sibling of OpenMontage. Sign in to its browser profile. Each local production "
+        "automatically retains one Flow project; project_url can select its initial existing project."
     )
     fallback_tools: list[str] = []
     agent_skills = ["gemini-omni", "ai-video-gen"]
@@ -58,6 +58,7 @@ class GoogleFlowMCPVideo(BaseTool):
         "explicit_credit_approval": False,
         "optional_credit_cap": True,
         "max_concurrent_jobs": 1,
+        "project_scoped_generation": True,
     }
     best_for = [
         "Google Flow Gemini Omni Flash video through an existing browser subscription",
@@ -70,7 +71,8 @@ class GoogleFlowMCPVideo(BaseTool):
         "properties": {
             "prompt": {"type": "string"},
             "output_path": {"type": "string", "description": "Absolute .mp4 output path"},
-            "project_url": {"type": "string", "description": "Existing Flow project; otherwise start from the configured homepage"},
+            "project_dir": {"type": "string", "description": "Local production root; inferred from projects/<id>/ output paths, otherwise the output directory. All shots and retries share its persisted Flow project."},
+            "project_url": {"type": "string", "description": "Initial existing Flow project. Subsequent shots reuse the local production binding; conflicting URLs are rejected."},
             "model": {"type": "string", "description": "Exact Flow UI model; defaults to google_flow.model configuration"},
             "duration": {"type": "number", "enum": [4, 6, 8, 10], "default": 6},
             "aspect_ratio": {"type": "string", "enum": ["16:9", "9:16"], "default": "16:9"},
@@ -103,6 +105,7 @@ class GoogleFlowMCPVideo(BaseTool):
         "duration",
         "aspect_ratio",
         "project_url",
+        "project_dir",
         "reference_paths",
     ]
     side_effects = [
@@ -166,13 +169,16 @@ class GoogleFlowMCPVideo(BaseTool):
         return prepared
 
     def idempotency_key(self, inputs: dict[str, Any]) -> str:
-        """Hash the effective reference set for canonical and alias callers alike."""
-        if "reference_paths" not in inputs and "reference_image_paths" not in inputs:
-            return super().idempotency_key(inputs)
+        """Bind duplicate detection to the production and effective references."""
         canonical_inputs = dict(inputs)
-        canonical_inputs["reference_paths"] = [
-            str(path.resolve()) for path in self._reference_paths_from_inputs(inputs)
-        ]
+        if inputs.get("output_path"):
+            from tools._google_flow_mcp.video_project import local_project_dir
+            canonical_inputs["project_dir"] = str(local_project_dir(
+                Path(inputs["output_path"]), Path(inputs["project_dir"]) if inputs.get("project_dir") else None))
+        if "reference_paths" in inputs or "reference_image_paths" in inputs:
+            canonical_inputs["reference_paths"] = [
+                str(path.resolve()) for path in self._reference_paths_from_inputs(inputs)
+            ]
         return super().idempotency_key(canonical_inputs)
 
     def get_status(self) -> ToolStatus:
@@ -194,12 +200,22 @@ class GoogleFlowMCPVideo(BaseTool):
 
     def dry_run(self, inputs: dict[str, Any]) -> dict[str, Any]:
         config = OpenMontageConfig.load().google_flow
+        binding_path = None
+        start_url = resolve_project_url(inputs) or config.start_url
+        if inputs.get("output_path"):
+            from tools._google_flow_mcp.video_project import local_project_dir
+            root = local_project_dir(Path(inputs["output_path"]), Path(inputs["project_dir"]) if inputs.get("project_dir") else None)
+            binding_path = root / "artifacts" / "google-flow-project.json"
+            if binding_path.exists():
+                start_url = json.loads(binding_path.read_text(encoding="utf-8")).get("project_url")
         return {
             "tool": self.name,
             "status": self.get_status().value,
             "mcp_root": str(google_flow_root()),
             "model": inputs.get("model") or config.model,
-            "start_url": resolve_project_url(inputs) or config.start_url,
+            "start_url": start_url,
+            "project_management": "one Flow video project per local production",
+            "project_binding_path": str(binding_path) if binding_path else None,
             "max_budget_credits": inputs.get("max_budget_credits", config.max_budget_credits),
             "requires_explicit_credit_approval": False,
             "cost_notice": "Uses Flow subscription credits; report available pricing once and continue the authorized production.",
@@ -281,6 +297,8 @@ class GoogleFlowMCPVideo(BaseTool):
                 music=False,
                 reference_paths=reference_paths,
                 video_settings={"model": model, "duration": duration, "aspect_ratio": aspect_ratio},
+                explicit_project_url=bool(inputs.get("project_url")),
+                **({"project_dir": Path(inputs["project_dir"])} if inputs.get("project_dir") else {}),
                 **({"reference_binding": reference_binding} if reference_binding else {}),
             )
             probe = probe_media(output_path, "video")
@@ -330,6 +348,7 @@ class GoogleFlowMCPVideo(BaseTool):
             "settings_receipt": receipt.get("settings"),
             "reference_count": len(reference_paths),
             "upload_receipts": receipt.get("uploads", []),
+            "project_binding": receipt.get("project_binding"),
             **({"reference_binding": reference_binding} if reference_binding else {}),
             "fallback_used": False,
             **probe,

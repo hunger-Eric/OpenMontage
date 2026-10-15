@@ -5,7 +5,6 @@ from __future__ import annotations
 import re
 import time
 from typing import Any, Callable
-from urllib.parse import urlparse
 
 from tools._google_flow_mcp.client import GoogleFlowMCPError
 from tools._google_flow_mcp.provider import select_text_input
@@ -45,21 +44,21 @@ def has_prompt(snapshot: dict) -> bool:
         return False
 
 
-def resolve_video_project(client: Any) -> str:
+def resolve_video_project(client: Any, expected_project_url: str | None = None) -> str:
     new_project = r"新建项目|new project|create project"
     snapshot = wait_snapshot(client, lambda s: has_prompt(s) or bool(matching(s, new_project)),
                              "Flow has no composer or new-project action")
     if not has_prompt(snapshot):
+        if expected_project_url:
+            raise GoogleFlowMCPError("Bound Flow project is unavailable; refusing to create a replacement")
         client.call_tool("flow_click", {"ref": matching(snapshot, new_project)}, timeout_seconds=60)
         snapshot = wait_snapshot(client, has_prompt, "Flow project has no prompt input")
     url = str(snapshot.get("url") or "")
-    parsed = urlparse(url)
-    valid = parsed.scheme == "https" and (
-        (parsed.hostname == "flow.google.com" and parsed.path.startswith("/project/"))
-        or (parsed.hostname == "labs.google" and "/tools/flow/project/" in parsed.path)
-    )
-    if not valid:
+    from tools._google_flow_mcp.video_project import project_identity
+    if not project_identity(url):
         raise GoogleFlowMCPError("Flow returned an invalid video project URL")
+    if expected_project_url and project_identity(url) != project_identity(expected_project_url):
+        raise GoogleFlowMCPError("Flow opened a different project; refusing generation")
     return url
 
 

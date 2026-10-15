@@ -55,7 +55,7 @@ def test_reference_upload_reset_is_corrected_before_paid_submit(monkeypatch, tmp
         return {**settings, 'duration': None if inherited else settings['duration'], 'verified': True}
 
     monkeypatch.setattr(provider_module, 'GoogleFlowMCPClient', Client)
-    monkeypatch.setattr(video_session, 'resolve_video_project', lambda client: 'https://flow.google.com/project/test')
+    monkeypatch.setattr(video_session, 'resolve_video_project', lambda client, **kwargs: 'https://flow.google.com/project/test')
     monkeypatch.setattr(video_session, 'configure_video_settings', configure)
     monkeypatch.setattr(provider_module, 'wait_for_text_input', lambda *args, **kwargs: 'prompt')
     monkeypatch.setattr(provider_module, 'wait_for_generation_submit', lambda *args, **kwargs: 'submit')
@@ -271,6 +271,8 @@ def test_run_generation_types_then_clicks_with_acknowledgement(monkeypatch, tmp_
             return {"ok": True}
 
     monkeypatch.setattr(provider_module, "GoogleFlowMCPClient", FakeClient)
+    monkeypatch.setattr(video_session, "resolve_video_project", lambda client, **kwargs: "https://flow.google.com/project/example")
+    monkeypatch.setattr(video_session, "configure_video_settings", lambda *args, **kwargs: {"verified": True})
     receipt = provider_module.run_generation(
         url="https://flow.google.com/project/example",
         prompt=prompt,
@@ -279,6 +281,7 @@ def test_run_generation_types_then_clicks_with_acknowledgement(monkeypatch, tmp_
         max_budget_credits=budget,
         timeout_seconds=60,
         music=False,
+        video_settings={"model": "Omni 1.1 Flash", "duration": 6, "aspect_ratio": "16:9"},
     )
 
     names = [name for name, _ in calls]

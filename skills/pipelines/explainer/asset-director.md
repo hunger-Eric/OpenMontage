@@ -64,6 +64,11 @@ Pending media may be placeholders during authoring only. This preparation
 cannot complete downstream checkpoints or bypass actual-media review. Flow
 submissions remain serial on its shared browser profile. Record explicit
 preparation/recovery/handoff intervals with `scripts/workflow_timing.py`.
+Keep every Flow shot and repair in the same persisted Flow video project for
+this local production (`artifacts/google-flow-project.json`). Pass
+`project_dir` for nonstandard output layouts; do not create one remote project
+per scene or reset the binding after a failed attempt. Direct provider calls
+and `video_selector` share the same project-owned adapter.
 
 ### Step 1: Inventory Required Assets
 
@@ -74,6 +79,13 @@ previous and next passage's context in the delivery instructions; quote only
 the current intended dialogue as spoken text. Use action-specific gestures and
 continuing poses rather than the same opening, generic hand motion and closing
 smile in every request.
+Select and explain references per generated passage using the handoff's
+"Bind references to the actual generated passage" section. Put their local
+names, roles and shot/time scope in each required-asset description/full prompt.
+Keep the shared prompt limited to genuinely shared direction; a presenter card,
+warehouse background, prop or visible-speaking instruction is not a default
+attachment for ship/port-only footage. Check the active selected inputs against
+that per-request list before submitting in the shared project.
 
 Walk every scene in the scene plan. For each `required_assets` entry, create an asset task:
 

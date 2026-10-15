@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import time
 import uuid
+from contextlib import nullcontext
 from pathlib import Path
 from typing import Any
 
@@ -200,6 +201,8 @@ def run_generation(
     reference_paths: list[Path] | None = None,
     video_settings: dict[str, Any] | None = None,
     reference_binding: dict[str, Any] | None = None,
+    project_dir: Path | None = None,
+    explicit_project_url: bool = True,
 ) -> dict[str, Any]:
     def verify_bound_bytes():
         if reference_binding:
@@ -208,7 +211,17 @@ def run_generation(
             if sha256(reference_binding["path"]) != reference_binding["sha256"]:
                 raise GoogleFlowMCPError("Bound source clip changed before submission")
     verify_bound_bytes()
-    with GoogleFlowMCPClient(timeout_seconds=timeout_seconds + 60) as client:
+    attempt_path = output_path.with_suffix(output_path.suffix + ".flow-attempt.json")
+    if expected_media_type == "video":
+        if not video_settings:
+            raise GoogleFlowMCPError("Flow video requires project-managed video_settings")
+        if attempt_path.exists():
+            raise GoogleFlowMCPError("Flow attempt already exists; reconcile it before submitting again")
+        if output_path.exists():
+            raise GoogleFlowMCPError("Flow video output already exists; refusing to overwrite it")
+    from tools._google_flow_mcp.video_project import FlowVideoProject
+    scope = FlowVideoProject(output_path, url, project_dir, explicit_project_url=explicit_project_url) if video_settings is not None else nullcontext(None)
+    with scope as project, GoogleFlowMCPClient(timeout_seconds=timeout_seconds + 60) as client:
         attempt_path = output_path.with_suffix(output_path.suffix + ".flow-attempt.json")
         def preparation(stage, **updates):
             if video_settings is None:
@@ -221,18 +234,23 @@ def run_generation(
             output_path.parent.mkdir(parents=True, exist_ok=True)
             try:
                 with attempt_path.open("x", encoding="utf-8") as stream:
-                    json.dump({"state": "preparing", "project_url": url, "output_path": str(output_path),
+                    json.dump({"state": "preparing", "project_url": project.start_url, "output_path": str(output_path),
+                               "project_binding": project.receipt(),
                                "requested_settings": video_settings,
                                **({"reference_binding": reference_binding} if reference_binding else {}),
                                "generation_status": {"state": "not_started", "source": "local_handler_before_submit", "stage": "opening_project"}}, stream)
             except FileExistsError as exc:
                 raise GoogleFlowMCPError("Flow attempt already exists; reconcile it before submitting again") from exc
-        opened = client.call_tool("flow_open", {"url": url}, timeout_seconds=60)
+        if project:
+            project.mark_opening()
+        opened = client.call_tool("flow_open", {"url": project.start_url if project else url}, timeout_seconds=60)
         settings_receipt = None
         if video_settings is not None:
             from tools._google_flow_mcp.video_session import resolve_video_project, configure_video_settings
 
-            project_url = resolve_video_project(client)
+            project_url = resolve_video_project(client, expected_project_url=project.project_url)
+            project.bind(project_url)
+            preparation("project_bound", project_url=project_url, project_binding=project.receipt())
             settings_receipt = configure_video_settings(client, project_url, **video_settings)
             opened = {**opened, "url": project_url}
             preparation("settings_verified", project_url=project_url, settings=settings_receipt)
@@ -287,6 +305,8 @@ def run_generation(
         # A durable claim precedes any credit confirmation/submission. Unknown
         # outcomes retain this identity and cannot silently submit a second job.
         preparation("prompt_verified", typed=typed)
+        if project:
+            project.bind(resolve_video_project(client, expected_project_url=project.project_url))
         approval = client.call_tool(
             "flow_confirm_paid_generation",
             {
@@ -370,6 +390,7 @@ def run_generation(
             "wait": waited,
             "download": downloaded,
             "settings": settings_receipt,
+            **({"project_binding": project.receipt()} if project else {}),
         }
 
 

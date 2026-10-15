@@ -46,7 +46,22 @@ Selection within an already-authorized plan needs no repeated model-version
 approval; another provider or spending outside that authorization still does.
 
 For Google Flow, use `google_flow_mcp_video` through the configured local MCP
-bridge and authenticated browser subscription. `google_flow` configuration
+bridge and authenticated browser subscription. Both direct tool calls and
+`video_selector` use one project-managed generation path. One local production
+owns one Flow video project, persisted in
+`artifacts/google-flow-project.json` before upload or submission. Infer the
+local root from `projects/<id>/` output paths; for other layouts pass
+`project_dir` (otherwise the output directory owns the binding). All scenes,
+new attempts and process restarts reuse that project. `project_url` selects
+the initial existing project, not a per-shot project override. A missing,
+redirected or conflicting bound project stops; never create a replacement.
+Recover ownership from historical attempt receipts when unique. For older
+split productions, explicitly select an existing continuation project once;
+retain all historical project/task receipts. A project-creation outcome with
+no verified URL must be reconciled before any new creation. Global start/project
+defaults only seed an unbound production; an existing production binding wins.
+An explicit conflicting per-call `project_url` is rejected.
+`google_flow` configuration
 supplies the UI model and homepage. Credit ceilings default to `null` (no cap);
 only use a numeric ceiling when the user explicitly requests one. This applies
 to both video and the music included in the approved production plan; music
@@ -65,6 +80,13 @@ necessary and verifies ordinary video settings (4/6/8/10 seconds,
 acknowledgement after the separate generation click. An existing output-owned
 `.flow-attempt.json` requires reconciliation, never another submission.
 Run Flow shots sequentially against its shared browser profile.
+Select reference inputs per passage, not per production: use the actual
+filenames/request-local labels and explain each input's role and shot/time
+scope in the prompt. An unused presenter image does not belong in ship-only
+footage, and visual identity is not a voice reference. Check the active
+composer selection against that shot's upload list when reusing the project.
+Follow `skills/meta/reference-production-handoff.md > Bind references to the
+actual generated passage`; the agent owns relevance, code owns transport.
 After submission, query `flow_generation_status` with the returned generation
 identity. Persist observations in the attempt record and status timeline;
 report only observed queue/processing/terminal states and provider progress.

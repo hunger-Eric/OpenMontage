@@ -109,6 +109,45 @@ This advice applies to approved adaptation changes. Faithful mode must not remov
 or replace source claims/branding by default. Record actual source wording and
 uncertainty without treating copied claims as independently verified facts.
 
+### Bind references to the actual generated passage
+
+Apply the migrated Hypit [reference relationships](../../third_party/hypit/references/playbooks/craft/generated-dependencies.md)
+and [input responsibilities](../../third_party/hypit/references/playbooks/craft/video-direction.md#give-each-input-its-own-responsibility).
+The agent selects references from the visible facts each shot needs. Do not
+append a production-wide character card or scene pack to every generation.
+For a ship/port-only passage, omit an unused presenter image and visible-speaker
+instructions. An offscreen continuing voice does not make a portrait a voice
+reference; follow the already selected speech architecture.
+
+For each request, state in the existing required-asset description/full prompt:
+the actual filename or request-local reference label, the fact it supplies,
+the target shot/time range where it applies, and relevant facts to change or
+exclude. Character appearance, setting, composition, motion, exact endpoints
+and voice identity are separate responsibilities. Borrow only the required
+facts; a warehouse portrait need not impose its warehouse or pose on a port.
+
+A multi-shot request may use several references when their roles and ranges
+are explicit. For example, in a ship -> yard -> presenter-at-laptop passage,
+the ship/yard motion reference serves the aerial shots and the character image
+serves only the final human shot. Do not request that person in every frame.
+If the selected mode cannot reliably separate those influences, choose useful
+generation boundaries and edit the results under the existing audio/timing
+contract; do not silently change native speech, model or provider.
+
+Select motion excerpts for the relevant action/camera passage; do not include
+unrelated people or operations merely to fill the desired duration. Respect
+the selected mode's real duration behavior, including source-video inheritance.
+Do not declare an unsupported local influence mask or duration override.
+
+Before submission, compare this shot's selected upload list, active composer
+associations and full prompt. A file stored in the project's library is not
+automatically an active reference. Remove irrelevant/stale associations through
+the supported interface; a successful upload alone does not establish relevance.
+Relevance and reference scope are agent judgments, not filename/keyword rules.
+After generation, inspect actual subjects, setting, framing and cut handoffs
+for reference contamination. Preserve accepted media and original requests;
+document a revised mapping for future work rather than rewriting past receipts.
+
 ### Executable faithful timeline
 
 Keep the payload at `proposal_packet.metadata.reference_adaptation.replica`,

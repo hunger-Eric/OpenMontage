@@ -53,6 +53,7 @@ class VideoSelector(BaseTool):
         "idempotency_key",
         "external_task_id",
         "project_url",
+        "project_dir",
     })
 
     capabilities = [
@@ -332,8 +333,9 @@ class VideoSelector(BaseTool):
             "reference_receipt_path": {"type": "string"},
             "project_url": {
                 "type": "string",
-                "description": "Existing Google Flow project URL for the google_flow provider.",
+                "description": "Initial existing Google Flow project; subsequent shots reuse the local production's persisted binding.",
             },
+            "project_dir": {"type": "string", "description": "Local production root for project-managed generation; inferred from canonical project output paths when omitted."},
             "confirm_paid_generation": {
                 "type": "boolean",
                 "default": False,

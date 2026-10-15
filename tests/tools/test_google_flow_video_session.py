@@ -17,6 +17,7 @@ class FlowUI:
 
     def __init__(self, **kwargs):
         self.project = False
+        self.project_url = "https://flow.google.com/project/test"
         self.tools = False
         self.settings = False
         self.duration = 4
@@ -51,10 +52,13 @@ class FlowUI:
                       item("aspect", "9:16", "radio"), item("resolution", "720p", "radio"),
                       item("duration", "6 秒", "radio"), item("count", "x1", "radio")]
         items.append(item("submit", "Generate", type="submit"))
-        return {"url": "https://flow.google.com/project/test", "interactables": items}
+        return {"url": self.project_url, "interactables": items}
 
     def call_tool(self, name, arguments, timeout_seconds=None):
         self.calls.append((name, arguments))
+        if name == "flow_open" and "/project/" in arguments["url"]:
+            self.project = True
+            self.project_url = arguments["url"]
         if name == "flow_snapshot":
             return self.snapshot()
         if name == "flow_type":
@@ -91,6 +95,106 @@ def test_homepage_and_agent_mode_resolve_and_verify_settings():
     assert client.project and client.tools and client.aspect == "9:16" and client.duration == 6
     assert sum(args.get("ref") == "settings" for _, args in client.calls) == 5
     assert any(args.get("ref") == "close-agent" for _, args in client.calls)
+
+
+def test_multiple_shots_and_retry_reuse_one_project_across_fresh_clients(monkeypatch, tmp_path):
+    clients = []
+    def factory(**kwargs):
+        client = FlowUI()
+        clients.append(client)
+        return client
+    monkeypatch.setattr(provider, "GoogleFlowMCPClient", factory)
+    for relative in ("assets/video/G01.mp4", "assets/video/G02.mp4", "repairs/G02-v2.mp4"):
+        receipt = provider.run_generation(
+            url="https://flow.google.com/", prompt="A logistics shot", output_path=tmp_path/relative,
+            project_dir=tmp_path, expected_media_type="video", max_budget_credits=None,
+            timeout_seconds=60, music=False,
+            video_settings=dict(model="Omni 1.1 Flash", duration=6, aspect_ratio="9:16"))
+        assert receipt["project_binding"]["project_url"] == "https://flow.google.com/project/test"
+    assert sum(args.get("ref") == "new" for c in clients for name,args in c.calls if name == "flow_click") == 1
+    assert [args["url"] for c in clients for name,args in c.calls if name == "flow_open"] == [
+        "https://flow.google.com/", "https://flow.google.com/project/test", "https://flow.google.com/project/test"]
+    binding = json.loads((tmp_path/"artifacts/google-flow-project.json").read_text())
+    assert binding["state"] == "bound"
+    assert not (tmp_path/"artifacts/google-flow-project.lock").exists()
+
+
+def test_project_survives_settings_failure_before_first_submit(monkeypatch, tmp_path):
+    clients = []
+    def factory(**kwargs):
+        client = FlowUI()
+        clients.append(client)
+        return client
+    monkeypatch.setattr(provider, "GoogleFlowMCPClient", factory)
+    args = dict(url="https://flow.google.com/", prompt="shot", expected_media_type="video",
+                project_dir=tmp_path, max_budget_credits=None, timeout_seconds=60, music=False)
+    def once(client, ready, message):
+        snapshot = client.snapshot()
+        if not ready(snapshot):
+            raise GoogleFlowMCPError(message)
+        return snapshot
+    monkeypatch.setattr(video_session, "wait_snapshot", once)
+    with pytest.raises(GoogleFlowMCPError, match="unavailable"):
+        provider.run_generation(**args, output_path=tmp_path/"failed.mp4",
+                                video_settings=dict(model="Missing", duration=6, aspect_ratio="9:16"))
+    provider.run_generation(**args, output_path=tmp_path/"retry.mp4",
+                            video_settings=dict(model="Omni 1.1 Flash", duration=6, aspect_ratio="9:16"))
+    assert sum(a.get("ref") == "new" for c in clients for n,a in c.calls if n == "flow_click") == 1
+    assert not any(n == "flow_confirm_paid_generation" for n,_ in clients[0].calls)
+
+
+def test_bound_project_unavailable_never_clicks_new_project():
+    client = FlowUI()
+    with pytest.raises(GoogleFlowMCPError, match="refusing to create"):
+        video_session.resolve_video_project(client, expected_project_url="https://flow.google.com/project/test")
+    assert not any(n == "flow_click" for n,_ in client.calls)
+
+
+def test_project_redirect_before_payment_stops_generation(monkeypatch, tmp_path):
+    client = FlowUI()
+    original = client.call_tool
+    def call(name, args, **kwargs):
+        result = original(name, args, **kwargs)
+        if name == "flow_type":
+            client.project_url = "https://flow.google.com/project/other"
+        return result
+    client.call_tool = call
+    monkeypatch.setattr(provider, "GoogleFlowMCPClient", lambda **kwargs: client)
+    with pytest.raises(GoogleFlowMCPError, match="different project"):
+        provider.run_generation(url="https://flow.google.com/", prompt="shot", output_path=tmp_path/"shot.mp4",
+            expected_media_type="video", max_budget_credits=None, timeout_seconds=60, music=False,
+            video_settings=dict(model="Omni 1.1 Flash", duration=6, aspect_ratio="9:16"))
+    assert not any(n == "flow_confirm_paid_generation" for n,_ in client.calls)
+    assert not any(a.get("requireGenerationAcknowledgement") for n,a in client.calls if n == "flow_click")
+
+
+def test_direct_provider_and_selector_share_the_same_project_handler(monkeypatch, tmp_path):
+    clients = []
+    def factory(**kwargs):
+        client = FlowUI()
+        clients.append(client)
+        return client
+    monkeypatch.setattr(provider, "GoogleFlowMCPClient", factory)
+    monkeypatch.setattr(video_module, "provider_status", lambda: ToolStatus.AVAILABLE)
+    monkeypatch.setattr(video_module, "probe_media", lambda *args: {"duration_seconds": 6})
+    tool = video_module.GoogleFlowMCPVideo()
+    monkeypatch.setattr(VideoSelector, "_providers", lambda self: [tool])
+    monkeypatch.setattr(VideoSelector, "_select_best_tool", lambda *args: (tool, None))
+    inputs = dict(prompt="A logistics shot", confirm_paid_generation=True, project_dir=str(tmp_path),
+                  model="Omni 1.1 Flash", duration=6, aspect_ratio="9:16")
+    direct = tool.execute({**inputs, "output_path": str(tmp_path/"assets/G01.mp4")})
+    selected = VideoSelector().execute({**inputs, "output_path": str(tmp_path/"repairs/G01-v2.mp4"),
+                                        "preferred_tool": tool.name, "operation": "text_to_video"})
+    assert direct.success and selected.success
+    assert direct.data["project_binding"] == selected.data["project_binding"]
+    assert sum(a.get("ref") == "new" for c in clients for n,a in c.calls if n == "flow_click") == 1
+
+
+def test_video_cannot_bypass_project_management_by_omitting_settings(monkeypatch, tmp_path):
+    monkeypatch.setattr(provider, "GoogleFlowMCPClient", lambda **kwargs: pytest.fail("must not start"))
+    with pytest.raises(GoogleFlowMCPError, match="project-managed"):
+        provider.run_generation(url="https://flow.google.com/", prompt="shot", output_path=tmp_path/"shot.mp4",
+            expected_media_type="video", max_budget_credits=None, timeout_seconds=60, music=False)
 
 
 def test_video_reference_mode_does_not_require_unavailable_duration_control():
@@ -205,7 +309,8 @@ def test_generation_persists_identity_and_duplicate_claim_blocks_payment(monkeyp
                                ("flow_confirm_paid_generation", "not_started"), ("flow_click", "unknown")]
     with pytest.raises(GoogleFlowMCPError, match="already exists"):
         provider.run_generation(**kwargs)
-    assert not any(name == "flow_confirm_paid_generation" for name, _ in clients[-1].calls)
+    assert len(clients) == 1  # Duplicate fails before starting another MCP session.
+    assert observed_states.count(("flow_confirm_paid_generation", "not_started")) == 1
 
 
 def test_ack_timeout_keeps_preassigned_identity_and_reads_same_submission(monkeypatch, tmp_path):
